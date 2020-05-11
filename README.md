@@ -1,16 +1,11 @@
-# Estructura para proyectos
+# Accesibilidad urbana
 
-_Estructura flexible para proyectos de ciencia de datos._
-
-
-### Para iniciar un nuevo proyecto:
-------------
-
-    git clone This repo
-    
+_Medir la accesibilidad urbana a diferentes amenidades relevantes durante el COVID-19._
 
 
-### Estructura mínima
+
+
+### Estructura de proyecto
 ------------
 
 La estructura de los folders de este proyecto es:
