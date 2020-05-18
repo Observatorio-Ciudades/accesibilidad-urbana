@@ -6,7 +6,7 @@ _Medir la accesibilidad urbana a diferentes amenidades relevantes durante el COV
 El proyecto usa como mapa base los datos de OpenStreetMaps, descargados con [OSMnx](https://github.com/gboeing/osmnx) 
 Para el cálculo de accesibilidad se usan los datos del DENUE
 
-![](output/figures/GDL_distfarmacias.png)
+![ ](output/figures/GDL_dist_farmacias.png)
 
 
 ### Estructura de proyecto
