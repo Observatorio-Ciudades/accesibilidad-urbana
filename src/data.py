@@ -48,11 +48,11 @@ def download_graph(polygon, city, network_type='walk', save=True):
 		nx.MultiDiGraph
 	"""	
 	try:
-		G = ox.load_graphml('data/raw/network_{}_{}.graphml'.format(city,network_type))
+		G = ox.load_graphml('raw/network_{}_{}.graphml'.format(city,network_type),folder='../data')
 	except:
 		G = ox.graph_from_polygon(polygon,network_type=network_type, simplify=True, retain_all=False, truncate_by_edge=False, name=city)
 	if save:
-		ox.save_graphml(G, filename='data/raw/network_{}_{}.graphml'.format(city,network_type), folder='../data/{}/networks/'.format(city))
+		ox.save_graphml(G, filename='raw/network_{}_{}.graphml'.format(city,network_type), folder='../data')
 	return G
 
 def df_to_geodf(df, x, y, crs):
