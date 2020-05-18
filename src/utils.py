@@ -12,7 +12,8 @@ import osmnx as ox
 import os
 import igraph as ig
 import numpy as np
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
+from matplotlib.patches import RegularPolygon #drawing hexagonsimport shapely #to attribute geometric properties for shapes
 
 
 def find_nearest(G, gdf):
@@ -63,3 +64,28 @@ def get_seeds(gdf, node_mapping):
 	"""
 	# Get the seed to calculate shortest paths
 	return np.array(list(set([node_mapping[i] for i in gdf['nearest']])))
+
+def haversine(coord1, coord2):
+	"""
+	Calculate distance between two coordinates in meters with the Haversine formula
+
+	Arguments:
+		coord1 {tuple} -- tuple with coordinates in decimal degrees (e.g. 43.60, -79.49)
+		coord2 {tuple} -- tuple with coordinates in decimal degrees (e.g. 43.60, -79.49)
+
+	Returns:
+		float -- distance between coord1 and coord2 in meters
+	"""
+	# Coordinates in decimal degrees (e.g. 43.60, -79.49)
+	lon1, lat1 = coord1
+	lon2, lat2 = coord2
+	R = 6371000  # radius of Earth in meters
+	phi_1 = np.radians(lat1)
+	phi_2 = np.radians(lat2)    
+	delta_phi = np.radians(lat2 - lat1)
+	delta_lambda = np.radians(lon2 - lon1)    
+	a = np.sin(delta_phi / 2.0) ** 2 + np.cos(phi_1) * np.cos(phi_2) * np.sin(delta_lambda / 2.0) ** 2    
+	c = 2 * np.arctan2(np.sqrt(a),np.sqrt(1 - a))    
+	meters = R * c  # output distance in meters
+	km = meters / 1000.0  # output distance in kilometers    
+	return meters
