@@ -110,7 +110,7 @@ def create_hex_grid(gdf, diameter):
 	w = (xmax-xmin)/n_cols # width of hexagon
 	d = w/np.sin(np.pi/3) #diameter of hexagon
 	array_of_hexes = []
-	for rows in range(0,n_rows+20): #Have to add +20 to cover all the area
+	for rows in range(0,n_rows+100): #Have to add +20 to cover all the area
 		hcoord = np.arange(xmin,xmax,w) + (rows%2)*w/2
 		vcoord = [ymax- rows*d*0.75]*n_cols
 		for x, y in zip(hcoord, vcoord):
@@ -121,5 +121,5 @@ def create_hex_grid(gdf, diameter):
 			array_of_hexes.append(Polygon(points))
 	hex_grid = gpd.GeoDataFrame({'geometry':array_of_hexes},crs=gdf.crs)
 	hex_grid = gpd.overlay(hex_grid,gdf)
-	hex_grid = gpd.GeoDataFrame(hex_grid,geometry='geometry')
+	hex_grid = gpd.GeoDataFrame(hex_grid,geometry='geometry',crs=gdf.crs)
 	return hex_grid
