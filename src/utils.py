@@ -12,6 +12,8 @@ import osmnx as ox
 import os
 import igraph as ig
 import numpy as np
+from h3 import h3
+import shapely
 from shapely.geometry import Point, Polygon
 from matplotlib.patches import RegularPolygon
 
@@ -90,36 +92,50 @@ def haversine(coord1, coord2):
 	km = meters / 1000.0  # output distance in kilometers    
 	return meters
 
-def create_hex_grid(gdf, diameter):
+def create_hexgrid(polygon, hex_res, geometry_col='geometry',buffer=0.000, stroke_weight=0.5):
+	""" Takes in a geopandas geodataframe, the desired resolution, the specified geometry column
+		and some map parameters to create a hexagon grid (and potentially plot the hexgrid
 	"""
-	Generate a hexagonal grid on top of a boundary
+	centroid = list(polygon.centroid.values[0].coords)[0]
 
-	Arguments:
-		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with the boundary to use
-		diameter {int} -- diameter of the hexagons, in meters 
+	# Explode multipolygon into individual polygons
+	exploded = polygon.explode().reset_index(drop=True)
 
-	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame with the hexbins
-	"""
-	xmin,ymin,xmax,ymax = gdf.total_bounds # lat-long of 2 corners
-	EW = haversine((xmin,ymin),(xmax,ymin)) #East-West extent
-	NS = haversine((xmax,ymin),(xmax,ymax)) # North-South extent 
-	w = diameter*np.sin(np.pi/3) # horizontal width of hexagon = w = d* sin(60) 
-	n_cols = int(EW/w)+1# Approximate number of hexagons per row = EW/w
-	n_rows = int(NS/diameter)+1 # Approximate number of hexagons per column = NS/d
-	w = (xmax-xmin)/n_cols # width of hexagon
-	d = w/np.sin(np.pi/3) #diameter of hexagon
-	array_of_hexes = []
-	for rows in range(0,n_rows+100): #Have to add +20 to cover all the area
-		hcoord = np.arange(xmin,xmax,w) + (rows%2)*w/2
-		vcoord = [ymax- rows*d*0.75]*n_cols
-		for x, y in zip(hcoord, vcoord):
-			hexes = RegularPolygon((x, y), numVertices=6, radius=d/2, alpha=0.2, edgecolor='k')
-			verts = hexes.get_path().vertices
-			trans = hexes.get_patch_transform()
-			points = trans.transform(verts)
-			array_of_hexes.append(Polygon(points))
-	hex_grid = gpd.GeoDataFrame({'geometry':array_of_hexes},crs=gdf.crs)
-	hex_grid = gpd.overlay(hex_grid,gdf)
-	hex_grid = gpd.GeoDataFrame(hex_grid,geometry='geometry',crs=gdf.crs)
-	return hex_grid
+	# Master lists for geodataframe
+	hexagon_polygon_list = []
+	hexagon_geohash_list = []
+
+	# For each exploded polygon
+	for poly in exploded[geometry_col].values:
+
+		# Reverse coords for original polygon
+		reversed_coords = [[i[1], i[0]] for i in list(poly.exterior.coords)]
+
+		# Reverse coords for buffered polygon
+		buffer_poly = poly.buffer(buffer)
+		reversed_buffer_coords = [[i[1], i[0]] for i in list(buffer_poly.exterior.coords)]
+
+		# Format input to the way H3 expects it
+		aoi_input = {'type': 'Polygon', 'coordinates': [reversed_buffer_coords]}
+
+		# Generate list geohashes filling the AOI
+		geohashes = list(h3.polyfill(aoi_input, hex_res))
+		for geohash in geohashes:
+			polygons = h3.h3_set_to_multi_polygon([geohash], geo_json=True)
+			outlines = [loop for polygon in polygons for loop in polygon]
+			polyline_geojson = [outline + [outline[0]] for outline in outlines][0]
+			hexagon_polygon_list.append(shapely.geometry.Polygon(polyline_geojson))
+			hexagon_geohash_list.append(geohash)
+
+	# Create a geodataframe containing the hexagon geometries and hashes
+	hexgrid_gdf = gpd.GeoDataFrame()
+	hexgrid_gdf['geometry'] = hexagon_polygon_list
+	id_col_name = 'hex_id_' + str(hex_res)
+	hexgrid_gdf[id_col_name] = hexagon_geohash_list
+	hexgrid_gdf.crs = {'init' :'epsg:4326'}
+
+	# Drop duplicate geometries
+	geoms_wkb = hexgrid_gdf["geometry"].apply(lambda geom: geom.wkb)
+	hexgrid_gdf = hexgrid_gdf.loc[geoms_wkb.drop_duplicates().index]
+
+	return hexgrid_gdf
