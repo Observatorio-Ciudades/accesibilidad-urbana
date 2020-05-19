@@ -92,9 +92,20 @@ def haversine(coord1, coord2):
 	km = meters / 1000.0  # output distance in kilometers    
 	return meters
 
-def create_hexgrid(polygon, hex_res, geometry_col='geometry',buffer=0.000, stroke_weight=0.5):
-	""" Takes in a geopandas geodataframe, the desired resolution, the specified geometry column
-		and some map parameters to create a hexagon grid (and potentially plot the hexgrid
+def create_hexgrid(polygon, hex_res, geometry_col='geometry',buffer=0.000):
+	"""
+	Takes in a geopandas geodataframe, the desired resolution, the specified geometry column and some map parameters to create a hexagon grid (and potentially plot the hexgrid
+
+	Arguments:
+		polygon {geopandas.geoDataFrame} -- geoDataFrame to be used
+		hex_res {int} -- Resolution to use
+
+	Keyword Arguments:
+		geometry_col {str} -- column in the geoDataFrame that contains the geometry (default: {'geometry'})
+		buffer {float} -- buffer to be used (default: {0.000})
+
+	Returns:
+		geopandas.geoDataFrame -- geoDataFrame with the hexbins and the hex_id_{resolution} column
 	"""
 	centroid = list(polygon.centroid.values[0].coords)[0]
 
