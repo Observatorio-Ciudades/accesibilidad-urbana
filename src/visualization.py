@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import geopandas as gpd
 
-def hex_plot(gdf_hex, gdf_data, gdf_boundary, gdf_edges, column ,save_png=False, save_pdf=False,show=False, name=plot,dpi=300,transparent=True):
+def hex_plot(gdf_hex, gdf_data, gdf_boundary, gdf_edges, column ,save_png=False, save_pdf=False,show=False, name='plot',dpi=300,transparent=True):
 	"""
 	Plot hexbin geoDataFrames to create the accesibility plots.
 
