@@ -15,9 +15,6 @@ from config import *
 ox.config(data_folder='../data', cache_folder='../data/raw/cache',
 		  use_cache=True, log_console=True)
 
-
-
-
 if __name__ == "__main__":
 	logging.info('Starting the script distance.py')	
 	gdf = src.load_farmacias_denue() #Load the Denue
@@ -35,6 +32,10 @@ if __name__ == "__main__":
 			logging.info(f'{city} data not in system, starting to look for nearest nodes')
 			gdf_f = src.find_nearest(G,gdf_f) #find nearest nodes to seeds
 			gdf_f.to_file(filename='../data/processed/farmacias_{}.geojson'.format(city), driver='GeoJSON') #save the geoDataFrame with the closest nodes
-		nodes = src.calculate_distance_nearest_poi(gdf,G) #run the calculations and return the final dataframe
-		nodes.to_file(filename='../data/processed/nodes_{}.geojson'.format(city), driver='GeoJSON') #save the nodes
+			logging.info(f'{city} farmacias data saved')
+		try:
+			nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
+		except:
+			nodes = src.calculate_distance_nearest_poi(gdf,G) #run the calculations and return the final dataframe
+			nodes.to_file(filename='../data/processed/nodes_{}.geojson'.format(city), driver='GeoJSON') #save the nodes
 		logging.info(f'{city} done.')	

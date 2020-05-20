@@ -179,3 +179,5 @@ root - 2020-05-20 17:29:26,050 - INFO - Starting with Mexico
 root - 2020-05-20 17:29:26,144 - INFO - area loded
 root - 2020-05-20 17:29:29,179 - INFO - hex created
 fiona._env - 2020-05-20 17:29:29,181 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+root - 2020-05-20 17:56:47,132 - INFO - looking for seeds
+root - 2020-05-20 17:56:47,178 - INFO - calculating voronoi assignment
