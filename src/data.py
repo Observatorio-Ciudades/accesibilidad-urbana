@@ -10,6 +10,9 @@ import osmnx as ox
 from .utils import *
 from shapely.geometry import Polygon
 
+ox.config(data_folder='../data', cache_folder='../data/raw/cache',
+          use_cache=True, log_console=True)
+		  
 def create_polygon(bbox, city, save=True):
 	"""Create a polygon from a bounding box and save it to a file
 	
@@ -48,11 +51,11 @@ def download_graph(polygon, city, network_type='walk', save=True):
 		nx.MultiDiGraph
 	"""	
 	try:
-		G = ox.load_graphml('raw/network_{}_{}.graphml'.format(city,network_type),folder='../data')
+		G = ox.load_graphml('raw/network_{}_{}.graphml'.format(city,network_type))
 	except:
 		G = ox.graph_from_polygon(polygon,network_type=network_type, simplify=True, retain_all=False, truncate_by_edge=False, name=city)
 	if save:
-		ox.save_graphml(G, filename='raw/network_{}_{}.graphml'.format(city,network_type), folder='../data')
+		ox.save_graphml(G, filename='raw/network_{}_{}.graphml'.format(city,network_type))
 	return G
 
 def df_to_geodf(df, x, y, crs):
