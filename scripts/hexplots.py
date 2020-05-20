@@ -7,7 +7,10 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import src
 from config import *
+import osmnx as ox
 
+ox.config(data_folder='../data', cache_folder='../data/raw/cache',
+		  use_cache=True, log_console=True)
 
 
 
@@ -23,7 +26,7 @@ if __name__ == "__main__":
 		nodes = gpd.read_file(filename='../data/processed/nodes_{}.geojson'.format(city))
 		logging.info('nodes loaded')
 		hex_bins.to_crs(crs=nodes.crs,inplace=True)
-		hex_new = src.group_by_hex_mean(nodes,hex_bins)
+		hex_new = src.group_by_hex_mean(nodes,hex_bins,resolution)
 		logging.info('nodes grouped by')
 		hex_new.to_file(f"../data/processed/{city}_hex_bins.geojson", driver='GeoJSON')
 		logging.info(f'Hex bins from {city} saved')
