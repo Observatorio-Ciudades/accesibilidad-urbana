@@ -24,8 +24,8 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 	gdf_data[gdf_data[column]<=0].plot(ax=ax,color='#2b2b2b', alpha=0.95, linewidth=0.1, edgecolor='k', zorder=0)
 	gdf_data[gdf_data[column]>0].plot(ax=ax,column=column, cmap='magma_r',vmax=1000,zorder=1,legend=True)
 	gdf_boundary.boundary.plot(ax=ax,color='#f8f8f8',zorder=2,linestyle='--',linewidth=0.5)
-	gdf_edges[(gdf_edges['highway']=='motorway') | (gdf_edges['highway']=='motorway_link')].plot(ax=ax,color='#898989',alpha=0.85,linewidth=2.5,zorder=3)
-	gdf_edges[(gdf_edges['highway']=='primary') | (gdf_edges['highway']=='primary_link')].plot(ax=ax,color='#898989',alpha=0.85,linewidth=1.5,zorder=3)
+	gdf_edges[(gdf_edges['highway']=='motorway') | (gdf_edges['highway']=='motorway_link')].plot(ax=ax,color='#898989',alpha=0.5,linewidth=2.5,zorder=3)
+	gdf_edges[(gdf_edges['highway']=='primary') | (gdf_edges['highway']=='primary_link')].plot(ax=ax,color='#898989',alpha=0.5,linewidth=1.5,zorder=3)
 	ax.set_title(f'{title}',fontdict={'fontsize':30})
 	ax.axis('off')
 	if save_png:

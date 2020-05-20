@@ -12,16 +12,6 @@ ox.config(data_folder='../data', cache_folder='../data/raw/cache',
           use_cache=True, log_console=True)
 
 
-def load_mpos():
-    """
-    Load Mexico's municipal boundaries
-
-    Returns:
-            geopandas.geoDataFrame -- geoDataFrame with all the Mexican municipal boundaries
-    """
-    mpos = gpd.read_file(
-        '../data/external/LimitesPoliticos/MunicipiosMexico_INEGI19_GCS_v1.shp')
-    return mpos
 
 def get_graph(polygon, city):
     """
@@ -40,7 +30,7 @@ def load_areas():
     return distros_dict
     
 if __name__ == "__main__":
-    mpos = load_mpos()
+    mpos = src.load_mpos()
     cities = load_areas()
     for city, data in cities.items():
         print(f'starting with {city}')
