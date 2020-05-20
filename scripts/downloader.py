@@ -45,7 +45,7 @@ if __name__ == "__main__":
     for city, data in cities.items():
         print(f'starting with {city}')
         mpos_temp = mpos[(mpos['NOMGEO'].isin(data['mpos'])) & (mpos['CVE_ENT'].isin(data['edo']))].dissolve(by='layer')
-        mpos_temp.to_file()
+        mpos_temp.to_file(f"../data/raw/{city}_area.geojson", driver='GeoJSON')
         print('Area Metropolitana loaded')
         polygon = mpos_temp['geometry'][0]
         get_graph(polygon,city)
