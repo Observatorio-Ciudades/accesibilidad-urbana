@@ -64,13 +64,14 @@ def calculate_distance_nearest_poi(gdf_f, G):
 	nodes.drop([i for i in nodes.columns if i not in ['geometry','dist','osmid']],axis=1,inplace=True)
 	return nodes
 
-def group_by_hex_mean(nodes, hex_bins):
+def group_by_hex_mean(nodes, hex_bins, resolution):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest pharmacy
 
 	Arguments:
 		nodes {geopandas.geoDataFrame} -- geoDataFrame with the nodes to group
 		hex_bins {geopandas.geoDataFrame} -- geoDataFrame with the hexbins
+		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
 
 	Returns:
 		geopandas.geoDataFrame -- geoDataFrame with the hex_id{resolution}, geometry and average distance to pharmacy for each hexbin

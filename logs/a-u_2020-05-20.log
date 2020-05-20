@@ -137,3 +137,45 @@ root - 2020-05-20 17:00:58,961 - INFO - Starting with Monterrey
 root - 2020-05-20 17:00:59,053 - INFO - area loded
 root - 2020-05-20 17:01:25,872 - INFO - hex created
 root - 2020-05-20 17:01:38,988 - INFO - nodes loaded
+root - 2020-05-20 17:05:47,579 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:05:47,579 - INFO - Starting with Monterrey
+root - 2020-05-20 17:05:47,677 - INFO - area loded
+root - 2020-05-20 17:06:05,715 - INFO - hex created
+root - 2020-05-20 17:06:17,473 - INFO - nodes loaded
+root - 2020-05-20 17:07:40,586 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:07:40,588 - INFO - Starting with Monterrey
+root - 2020-05-20 17:07:40,765 - INFO - area loded
+root - 2020-05-20 17:08:04,030 - INFO - hex created
+root - 2020-05-20 17:08:16,015 - INFO - nodes loaded
+root - 2020-05-20 17:08:53,488 - INFO - nodes grouped by
+fiona._env - 2020-05-20 17:08:54,248 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-20 17:08:54,251 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 17:09:16,634 - INFO - Hex bins from Monterrey saved
+root - 2020-05-20 17:10:44,117 - INFO - Graph loaded
+root - 2020-05-20 17:19:24,214 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:19:24,215 - INFO - Starting with Monterrey
+root - 2020-05-20 17:19:24,398 - INFO - area loded
+root - 2020-05-20 17:19:49,752 - INFO - hex created
+root - 2020-05-20 17:20:04,049 - INFO - nodes loaded
+root - 2020-05-20 17:20:55,842 - INFO - nodes grouped by
+fiona._env - 2020-05-20 17:20:56,248 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-20 17:20:56,249 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 17:21:17,715 - INFO - Hex bins from Monterrey saved
+root - 2020-05-20 17:22:40,686 - INFO - Graph loaded
+root - 2020-05-20 17:24:25,675 - INFO - Starting the plotting
+root - 2020-05-20 17:25:12,973 - INFO - Plotting done, script finished for Monterrey
+root - 2020-05-20 17:25:12,973 - INFO - Starting with Guadalajara
+root - 2020-05-20 17:25:13,061 - INFO - area loded
+root - 2020-05-20 17:25:21,364 - INFO - hex created
+root - 2020-05-20 17:25:37,663 - INFO - nodes loaded
+root - 2020-05-20 17:26:18,393 - INFO - nodes grouped by
+fiona._env - 2020-05-20 17:26:18,847 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-20 17:26:18,848 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 17:26:33,931 - INFO - Hex bins from Guadalajara saved
+root - 2020-05-20 17:28:02,019 - INFO - Graph loaded
+root - 2020-05-20 17:29:10,116 - INFO - Starting the plotting
+root - 2020-05-20 17:29:26,050 - INFO - Plotting done, script finished for Guadalajara
+root - 2020-05-20 17:29:26,050 - INFO - Starting with Mexico
+root - 2020-05-20 17:29:26,144 - INFO - area loded
+root - 2020-05-20 17:29:29,179 - INFO - hex created
+fiona._env - 2020-05-20 17:29:29,181 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
