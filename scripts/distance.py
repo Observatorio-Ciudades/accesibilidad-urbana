@@ -18,7 +18,7 @@ ox.config(data_folder='../data', cache_folder='../data/raw/cache',
 amenity_name = 'farmacias'
 if __name__ == "__main__":
 	logging.info('Starting the script distance.py')	
-	gdf = src.load_farmacias_denue() #Load the Denue
+	gdf = src.load_denue(amenity_name) #Load the Denue
 	areas = src.load_study_areas() #Load the metropolitan areas
 	for city, data in  areas.items():
 		logging.info(f'Starting with {city}')
@@ -28,9 +28,9 @@ if __name__ == "__main__":
 		G = src.download_graph(polygon,city,network_type='all_private',save=True) #load the graph
 		try:
 			gdf_f = gpd.read_file('../data/processed/{}_{}.geojson'.format(amenity_name,city))
-			logging.info(f'{city} data already in system')
+			logging.info(f'{city} {amenity_name} data already in system')
 		except:
-			logging.info(f'{city} data not in system, starting to look for nearest nodes')
+			logging.info(f'{city} {amenity_name} data not in system, starting to look for nearest nodes')
 			gdf_f = src.find_nearest(G,gdf_f,amenity_name) #find nearest nodes to seeds
 			gdf_f.to_file(filename='../data/processed/{}_{}.geojson'.format(amenity_name, city), driver='GeoJSON') #save the geoDataFrame with the closest nodes
 			logging.info(f'{city} {amenity_name} data saved')
