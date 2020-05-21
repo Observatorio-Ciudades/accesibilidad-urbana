@@ -13,7 +13,7 @@ ox.config(data_folder='../data', cache_folder='../data/raw/cache',
 		  use_cache=True, log_console=True)
 
 
-
+amenity_name='farmacias'
 if __name__ == "__main__":
 	logging.info('Starting the script hexplots.py')
 	areas = src.load_study_areas() #Load the metropolitan areas
@@ -37,5 +37,5 @@ if __name__ == "__main__":
 		edges['highway'] = edges.highway.apply(lambda x: x[0] if type(x)== list else x)
 		logging.info('Starting the plotting')
 		fig, ax = plt.subplots(1,1,figsize=(10,10))
-		src.hex_plot(ax, hex_new, area, edges, column='dist',title=f'{city}\ndistancia promedio a farmacia', save_png=True, show=False, name=f'{city}_dist_farmacias')
+		src.hex_plot(ax, hex_new, area, edges, column=f'dist_{amenity_name}',title=f'{city}\ndistancia promedio a farmacia', save_png=True, show=False, name=f'{city}_dist_farmacias')
 		logging.info(f'Plotting done, script finished for {city}')

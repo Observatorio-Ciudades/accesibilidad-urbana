@@ -109,13 +109,21 @@ def load_mpos():
     """
     return  gpd.read_file('../data/external/LimitesPoliticos/MunicipiosMexico_INEGI19_GCS_v1.shp')
 
-def load_farmacias_denue():
+def load_denue(amenity_name):
 	"""
 	Load the DENUE into a geoDataFrame
+
+	Arguments:
+		amenity_name {str} -- string with the name of the amenity to load the availables are: ('farmacias','supermercados')
 
 	Returns:
 		geopandas.geoDataFrame -- geoDataFrame with the DENUE
 	"""
-	gdf = gpd.read_file('../data/external/DENUE/denue_00_46321-46531_shp/conjunto_de_datos/denue_inegi_46321-46531_.shp')
-	gdf = gdf[(gdf['codigo_act']=="464111")|(gdf['codigo_act']=="464112")]
-	return gdf
+	if amenity_name == 'farmacias':
+		gdf = gpd.read_file('../data/external/DENUE/denue_00_46321-46531_shp/conjunto_de_datos/denue_inegi_46321-46531_.shp')
+		gdf = gdf[(gdf['codigo_act']=="464111")|(gdf['codigo_act']=="464112")]
+		return gdf
+	elif amenity_name == 'supermercados':
+		gdf = gpd.read_file('../data/external/DENUE/denue_00_46112-46311_shp/conjunto_de_datos/denue_inegi_46112-46311_.shp')
+		gdf = gdf[(gdf['codigo_act']=="462111")|(gdf['codigo_act']=="462112")]
+		return gdf

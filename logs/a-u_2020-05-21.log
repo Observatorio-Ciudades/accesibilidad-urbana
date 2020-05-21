@@ -72,3 +72,16 @@ root - 2020-05-21 10:27:47,781 - INFO - Hex bins from Toluca saved
 root - 2020-05-21 10:28:20,611 - INFO - Graph loaded
 root - 2020-05-21 10:28:35,923 - INFO - Starting the plotting
 root - 2020-05-21 10:28:42,028 - INFO - Plotting done, script finished for Toluca
+root - 2020-05-21 17:06:39,714 - INFO - Starting the script distance.py
+root - 2020-05-21 17:07:49,547 - INFO - Starting with Monterrey
+root - 2020-05-21 17:08:41,373 - INFO - Monterrey data already in system
+fiona._env - 2020-05-21 17:13:00,830 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-21 17:13:00,982 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 17:13:16,082 - INFO - Monterrey done.
+root - 2020-05-21 17:13:16,083 - INFO - Starting with Guadalajara
+root - 2020-05-21 17:14:18,884 - INFO - Guadalajara data already in system
+fiona._env - 2020-05-21 17:32:08,591 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-05-21 17:32:08,592 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 17:32:23,143 - INFO - Guadalajara done.
+root - 2020-05-21 17:32:23,144 - INFO - Starting with Mexico
+root - 2020-05-21 17:33:59,218 - INFO - Mexico data already in system
