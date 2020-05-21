@@ -36,6 +36,6 @@ if __name__ == "__main__":
 		try:
 			nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
 		except:
-			nodes = src.calculate_distance_nearest_poi(gdf,G) #run the calculations and return the final dataframe
+			nodes = src.calculate_distance_nearest_poi(gdf_f,G) #run the calculations and return the final dataframe
 			nodes.to_file(filename='../data/processed/nodes_{}.geojson'.format(city), driver='GeoJSON') #save the nodes
 		logging.info(f'{city} done.')	

@@ -181,3 +181,16 @@ root - 2020-05-20 17:29:29,179 - INFO - hex created
 fiona._env - 2020-05-20 17:29:29,181 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
 root - 2020-05-20 17:56:47,132 - INFO - looking for seeds
 root - 2020-05-20 17:56:47,178 - INFO - calculating voronoi assignment
+root - 2020-05-20 22:37:38,490 - INFO - Starting the script distance.py
+root - 2020-05-20 22:39:23,099 - INFO - Starting with Monterrey
+root - 2020-05-20 22:40:06,136 - INFO - Monterrey data already in system
+root - 2020-05-20 22:40:12,149 - INFO - Monterrey done.
+root - 2020-05-20 22:40:12,149 - INFO - Starting with Guadalajara
+root - 2020-05-20 22:41:03,238 - INFO - Guadalajara data already in system
+root - 2020-05-20 22:41:08,254 - INFO - Guadalajara done.
+root - 2020-05-20 22:41:08,255 - INFO - Starting with Mexico
+root - 2020-05-20 22:42:04,877 - INFO - Mexico data already in system
+fiona._env - 2020-05-20 22:42:04,886 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+root - 2020-05-20 23:42:47,436 - INFO - Starting the script distance.py
+root - 2020-05-20 23:43:44,360 - INFO - Starting with Monterrey
+root - 2020-05-20 23:44:18,658 - INFO - Monterrey data already in system

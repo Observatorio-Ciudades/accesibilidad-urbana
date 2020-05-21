@@ -55,7 +55,7 @@ def calculate_distance_nearest_poi(gdf_f, G):
 	"""
 	g, weights, node_mapping = to_igraph(G) #convert to igraph to run the calculations
 	seeds = get_seeds(gdf_f, node_mapping)
-	voronoi_assignment = src.voronoi_cpu(g, weights, seeds)
+	voronoi_assignment = voronoi_cpu(g, weights, seeds)
 	distances = get_distances(g,seeds,weights,voronoi_assignment)
 	df = pd.DataFrame(node_mapping ,index=[0]).T
 	df['dist'] = distances
