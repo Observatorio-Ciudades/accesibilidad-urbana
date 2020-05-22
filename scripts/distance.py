@@ -35,9 +35,6 @@ if __name__ == "__main__":
 				gdf_f = src.find_nearest(G,gdf_f,amenity_name) #find nearest nodes to seeds
 				gdf_f.to_file(filename='../data/processed/{}_{}.geojson'.format(amenity_name, city), driver='GeoJSON') #save the geoDataFrame with the closest nodes
 				logging.info(f'{city} {amenity_name} data saved')
-		#try:
-		#	nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
-		#except:
-		nodes = src.calculate_distance_nearest_poi(gdf_f,G,amenity_name, city) #run the calculations and return the final dataframe
-		nodes.to_file(filename='../data/processed/nodes_{}.geojson'.format(city), driver='GeoJSON') #save the nodes
+			nodes = src.calculate_distance_nearest_poi(gdf_f,G,amenity_name, city) #run the calculations and return the final dataframe
+			nodes.to_file(filename='../data/processed/nodes_{}.geojson'.format(city), driver='GeoJSON') #save the nodes
 		logging.info(f'{city} done.')	
