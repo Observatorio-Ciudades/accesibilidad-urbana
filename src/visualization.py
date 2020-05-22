@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import geopandas as gpd
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=False, save_pdf=False,show=False, name='plot',dpi=300,transparent=True, close_figure=True):
 	"""
@@ -21,8 +22,10 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 		dpi {int} -- resolution to use (default: {300})
 		transparent {bool} -- save with transparency or not (default: {True})
 	"""
+	divider = make_axes_locatable(ax)
+	cax = divider.append_axes("bottom", size="5%", pad=0.1)
 	gdf_data[gdf_data[column]<=0].plot(ax=ax,color='#2b2b2b', alpha=0.95, linewidth=0.1, edgecolor='k', zorder=0)
-	gdf_data[gdf_data[column]>0].plot(ax=ax,column=column, cmap='magma_r',vmax=1000,zorder=1,legend=True)
+	gdf_data[gdf_data[column]>0].plot(ax=ax,column=column, cmap='magma_r',vmax=1000,zorder=1,legend=True,cax=cax,legend_kwds={'label':'Distancia (m)','orientation': "horizontal"})
 	gdf_boundary.boundary.plot(ax=ax,color='#f8f8f8',zorder=2,linestyle='--',linewidth=0.5)
 	gdf_edges[(gdf_edges['highway']=='motorway') | (gdf_edges['highway']=='motorway_link')].plot(ax=ax,color='#898989',alpha=0.5,linewidth=2.5,zorder=3)
 	gdf_edges[(gdf_edges['highway']=='primary') | (gdf_edges['highway']=='primary_link')].plot(ax=ax,color='#898989',alpha=0.5,linewidth=1.5,zorder=3)

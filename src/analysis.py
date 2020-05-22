@@ -42,7 +42,7 @@ def get_distances(g,seeds,weights,voronoi_assignment):
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
 	return distances
 	
-def calculate_distance_nearest_poi(gdf_f, G, amenity_name):
+def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -50,23 +50,27 @@ def calculate_distance_nearest_poi(gdf_f, G, amenity_name):
 		gdf_f {geopandas.geoDataFrame} -- geoDataFrame with the Points of Interest the geometry type has to be shapely.Point
 		G {networkx.MultiDiGraph} -- Graph created with OSMnx
 		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
+		city {str} -- string with the name of the city
 
 	Returns:
 		geopandas.GeoDataFrame -- geoDataFrame with geometry and distance to the nearest POI
 	"""
 	g, weights, node_mapping = to_igraph(G) #convert to igraph to run the calculations
-	seeds = get_seeds(gdf_f, node_mapping)
+	col_dist = f'dist_{amenity_name}'
+	seeds = get_seeds(gdf_f, node_mapping, amenity_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
 	distances = get_distances(g,seeds,weights,voronoi_assignment)
 	df = pd.DataFrame(node_mapping ,index=[0]).T
-	col_dist = f'dist_{amenity_name}'
 	df[col_dist] = distances
-	nodes, edges = ox.graph_to_gdfs(G)
+	try:
+		nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
+	except:
+		nodes, edges = ox.graph_to_gdfs(G)
 	nodes = pd.merge(nodes,df,left_index=True,right_index=True)
-	nodes.drop([i for i in nodes.columns if i not in ['geometry',col_dist,'osmid']],axis=1,inplace=True)
+	nodes.drop([i for i in nodes.columns if i not in ['geometry',col_dist,'osmid'] and str(i).lower() !='dist' ],axis=1,inplace=True)
 	return nodes
 
-def group_by_hex_mean(nodes, hex_bins, resolution):
+def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest pharmacy
 
@@ -74,14 +78,16 @@ def group_by_hex_mean(nodes, hex_bins, resolution):
 		nodes {geopandas.geoDataFrame} -- geoDataFrame with the nodes to group
 		hex_bins {geopandas.geoDataFrame} -- geoDataFrame with the hexbins
 		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
+		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
 
 	Returns:
 		geopandas.geoDataFrame -- geoDataFrame with the hex_id{resolution}, geometry and average distance to pharmacy for each hexbin
 	"""
+	dist_col = f'dist_{amenity_name}'
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
-	hex_new = hex_new.drop('index_right',axis=1)
-	hex_new.dist.apply(lambda x: x+1 if x==0 else x )
+	hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
 	hex_new.fillna(0, inplace=True)
 	return hex_new

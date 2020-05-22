@@ -54,7 +54,7 @@ def to_igraph(G):
 	assert g.vcount() == G.number_of_nodes()
 	return g, weights, node_mapping
 
-def get_seeds(gdf, node_mapping):
+def get_seeds(gdf, node_mapping, amenity_name):
 	"""
 	Generate the seed to be used to calculate shortest paths for the Voronoi's
 
@@ -66,7 +66,7 @@ def get_seeds(gdf, node_mapping):
 		np.array -- numpy.array with the set of seeds
 	"""
 	# Get the seed to calculate shortest paths
-	return np.array(list(set([node_mapping[i] for i in gdf['nearest']])))
+	return np.array(list(set([node_mapping[i] for i in gdf[f'nearest_{amenity_name}']])))
 
 def haversine(coord1, coord2):
 	"""

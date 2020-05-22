@@ -85,3 +85,57 @@ fiona._env - 2020-05-21 17:32:08,592 - WARNING - driver GeoJSON does not support
 root - 2020-05-21 17:32:23,143 - INFO - Guadalajara done.
 root - 2020-05-21 17:32:23,144 - INFO - Starting with Mexico
 root - 2020-05-21 17:33:59,218 - INFO - Mexico data already in system
+fiona._env - 2020-05-21 18:44:09,257 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+fiona._env - 2020-05-21 18:44:09,259 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 18:44:19,970 - INFO - Mexico done.
+root - 2020-05-21 18:44:19,971 - INFO - Starting with Puebla
+root - 2020-05-21 18:44:53,005 - INFO - Puebla data already in system
+fiona._env - 2020-05-21 18:46:44,969 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+fiona._env - 2020-05-21 18:46:44,970 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 18:46:50,412 - INFO - Puebla done.
+root - 2020-05-21 18:46:50,412 - INFO - Starting with Toluca
+root - 2020-05-21 18:47:12,694 - INFO - Toluca data already in system
+fiona._env - 2020-05-21 18:48:52,300 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+fiona._env - 2020-05-21 18:48:52,301 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 18:48:58,044 - INFO - Toluca done.
+root - 2020-05-21 19:55:13,922 - INFO - Starting the script distance.py
+root - 2020-05-21 19:56:26,077 - INFO - Starting with Monterrey
+fiona._env - 2020-05-21 19:57:07,087 - ERROR - ../data/processed/supermercados_Monterrey.geojson: No such file or directory
+root - 2020-05-21 19:57:07,088 - INFO - Monterrey supermercados data not in system, starting to look for nearest nodes
+numexpr.utils - 2020-05-21 19:57:07,340 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-05-21 20:19:50,942 - INFO - Monterrey supermercados data saved
+root - 2020-05-21 20:24:11,612 - INFO - Starting the script distance.py
+root - 2020-05-21 20:25:14,610 - INFO - Starting with Monterrey
+root - 2020-05-21 20:25:56,709 - INFO - Monterrey supermercados data already in system
+fiona._env - 2020-05-21 20:40:11,846 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-21 20:40:11,848 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 20:40:24,680 - INFO - Monterrey done.
+root - 2020-05-21 20:40:24,680 - INFO - Starting with Guadalajara
+fiona._env - 2020-05-21 20:41:11,899 - ERROR - ../data/processed/supermercados_Guadalajara.geojson: No such file or directory
+root - 2020-05-21 20:41:11,900 - INFO - Guadalajara supermercados data not in system, starting to look for nearest nodes
+numexpr.utils - 2020-05-21 20:41:12,120 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-05-21 20:54:52,646 - INFO - Guadalajara supermercados data saved
+fiona._env - 2020-05-21 21:01:26,938 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-05-21 21:01:26,951 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 21:01:37,586 - INFO - Guadalajara done.
+root - 2020-05-21 21:01:37,586 - INFO - Starting with Mexico
+fiona._env - 2020-05-21 21:02:24,437 - ERROR - ../data/processed/supermercados_Mexico.geojson: No such file or directory
+root - 2020-05-21 21:02:24,437 - INFO - Mexico supermercados data not in system, starting to look for nearest nodes
+root - 2020-05-21 21:25:32,900 - INFO - Mexico supermercados data saved
+fiona._env - 2020-05-21 21:40:50,890 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+fiona._env - 2020-05-21 21:40:50,892 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 21:41:02,246 - INFO - Mexico done.
+root - 2020-05-21 21:41:02,246 - INFO - Starting with Puebla
+fiona._env - 2020-05-21 21:41:35,344 - ERROR - ../data/processed/supermercados_Puebla.geojson: No such file or directory
+root - 2020-05-21 21:41:35,344 - INFO - Puebla supermercados data not in system, starting to look for nearest nodes
+root - 2020-05-21 21:45:04,468 - INFO - Puebla supermercados data saved
+fiona._env - 2020-05-21 21:46:43,697 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+fiona._env - 2020-05-21 21:46:43,698 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 21:46:49,356 - INFO - Puebla done.
+root - 2020-05-21 21:46:49,357 - INFO - Starting with Toluca
+fiona._env - 2020-05-21 21:47:12,172 - ERROR - ../data/processed/supermercados_Toluca.geojson: No such file or directory
+root - 2020-05-21 21:47:12,172 - INFO - Toluca supermercados data not in system, starting to look for nearest nodes
+root - 2020-05-21 21:50:16,722 - INFO - Toluca supermercados data saved
+fiona._env - 2020-05-21 21:51:41,148 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+fiona._env - 2020-05-21 21:51:41,149 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-21 21:51:46,898 - INFO - Toluca done.
