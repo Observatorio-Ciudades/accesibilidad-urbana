@@ -18,20 +18,21 @@ from shapely.geometry import Point, Polygon
 from matplotlib.patches import RegularPolygon
 
 
-def find_nearest(G, gdf):
+def find_nearest(G, gdf, amenity_name):
 	"""
 	Find the nearest graph nodes to the points in a GeoDataFrame
 
 	Arguments:
 		G {networkx.Graph} -- Graph created with OSMnx that contains geographic information (Lat,Lon, etc.)
 		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with the points to locate
+		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
 
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
 	"""
 	gdf['x'] = gdf['geometry'].apply(lambda p: p.x)
 	gdf['y'] = gdf['geometry'].apply(lambda p: p.y)
-	gdf['nearest'] = ox.get_nearest_nodes(G,list(gdf['x']),list(gdf['y']))
+	gdf[f'nearest_{amenity_name}'] = ox.get_nearest_nodes(G,list(gdf['x']),list(gdf['y']))
 	return gdf
 
 def to_igraph(G):
@@ -53,7 +54,7 @@ def to_igraph(G):
 	assert g.vcount() == G.number_of_nodes()
 	return g, weights, node_mapping
 
-def get_seeds(gdf, node_mapping):
+def get_seeds(gdf, node_mapping, amenity_name):
 	"""
 	Generate the seed to be used to calculate shortest paths for the Voronoi's
 
@@ -65,7 +66,7 @@ def get_seeds(gdf, node_mapping):
 		np.array -- numpy.array with the set of seeds
 	"""
 	# Get the seed to calculate shortest paths
-	return np.array(list(set([node_mapping[i] for i in gdf['nearest']])))
+	return np.array(list(set([node_mapping[i] for i in gdf[f'nearest_{amenity_name}']])))
 
 def haversine(coord1, coord2):
 	"""
