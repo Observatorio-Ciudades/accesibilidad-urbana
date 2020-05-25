@@ -54,11 +54,13 @@ def download_graph(polygon, city, network_type='walk', save=True):
 	try:
 		G = ox.load_graphml('raw/network_{}_{}.graphml'.format(city,network_type))
 		print('retrived graph')
+		return G
 	except:
+		print('Graph not in data/raw')
 		G = ox.graph_from_polygon(polygon,network_type=network_type, simplify=True, retain_all=False, truncate_by_edge=False, name=city)
 		if save:
 			ox.save_graphml(G, filename='raw/network_{}_{}.graphml'.format(city,network_type))
-	return G
+		return G
 
 def df_to_geodf(df, x, y, crs):
 	"""Create a geo data frame from a pandas data frame

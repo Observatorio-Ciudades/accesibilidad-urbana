@@ -32,3 +32,7 @@ root - 2020-05-25 17:44:45,910 - INFO - Monterrey supermercados data already in 
 fiona._env - 2020-05-25 18:14:40,273 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
 fiona._env - 2020-05-25 18:14:40,274 - WARNING - driver GeoJSON does not support creation option ENCODING
 root - 2020-05-25 18:15:46,960 - INFO - Monterrey farmacias data already in system
+root - 2020-05-25 18:25:36,701 - INFO - Starting the script distance.py
+root - 2020-05-25 18:25:36,703 - INFO - Starting with Monterrey
+root - 2020-05-25 18:28:56,709 - INFO - Starting the script distance.py
+root - 2020-05-25 18:28:56,709 - INFO - Starting with Monterrey
