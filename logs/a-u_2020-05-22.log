@@ -314,3 +314,6 @@ root - 2020-05-22 17:29:31,740 - INFO - Monterrey done.
 root - 2020-05-22 17:29:31,740 - INFO - Starting with Guadalajara
 root - 2020-05-22 17:30:09,490 - INFO - Guadalajara supermercados data already in system
 root - 2020-05-22 17:30:10,053 - INFO - Guadalajara farmacias data already in system
+root - 2020-05-22 17:43:09,518 - INFO - Starting the script distance.py
+root - 2020-05-22 17:43:09,519 - INFO - Starting with Monterrey
+root - 2020-05-22 17:43:45,206 - INFO - Monterrey supermercados data already in system
