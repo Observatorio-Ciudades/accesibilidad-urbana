@@ -62,18 +62,13 @@ def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
 	distances = get_distances(g,seeds,weights,voronoi_assignment)
 	df = pd.DataFrame(node_mapping ,index=[0]).T
 	df[col_dist] = distances
-	print(df.columns)
-	print(df.iloc[0])
 	try:
 		nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
 		nodes = pd.merge(nodes,df,left_on='osmid',right_index=True)
 	except:
 		nodes = ox.graph_to_gdfs(G, edges=False)
 		nodes = pd.merge(nodes,df,left_index=True,right_index=True)
-	print(f'{len(nodes)} data points')
 	nodes.drop([i for i in nodes.columns if str(i).lower()[:4] not in ['geometry'[:4],'dist'[:4],'osmid'[:4]]],axis=1,inplace=True)
-	print(nodes.columns)
-	print(f'{len(nodes)} data points')
 	return nodes
 
 def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
