@@ -2,4 +2,15 @@
 "Guadalajara":{"mpos":["Guadalajara","Zapopan","San Pedro Tlaquepaque","Tonalá","Tlajomulco de Zúñiga","El Salto","Ixtlahuacán de los Membrillos","Juanacatlán"],"edo":["14"]},
 "Mexico":{"mpos":["Azcapotzalco","Coyoacán","La Magdalena Contreras","Tlalpan","Xochimilco","Álvaro Obregón","Cuauhtémoc","Iztapalapa","Tláhuac","Cuajimalpa de Morelos","Miguel Hidalgo","Benito Juárez","Gustavo A. Madero","Milpa Alta","Iztacalco","Venustiano Carranza"],"edo":["09"]},
 "Puebla":{"mpos":["Amozoc","Coronango","Cuautlancingo","Juan C. Bonilla","Ocoyucan","Puebla","San Andrés Cholula","San Gregorio Atzompa","San Miguel Xoxtla","San Pedro Cholula","Mazatecochco de José María Morelos","Acuamanala de Miguel Hidalgo","San Pablo del Monte","Tenancingo","Teolocholco","Tepeyanco","Papalotla de Xicohténcatl","Xicohtzinco","Zacatelco","San Juan Huactzinco","San Lorenzo Axocomanitla","Santa Catarina Ayometla","Santa Cruz Quilehtla"],"edo":["21","29"]},
-"Toluca":{"mpos":["Toluca","Almoloya de Juárez","Calimaya","Chapultepec","Lerma","Metepec","Mexicaltzingo","Ocoyoacac","Otzolotepec","San Mateo Atenco","Xonacatlán","Zinacantepec"],"edo":["15"]}}
+"Toluca":{"mpos":["Toluca","Almoloya de Juárez","Calimaya","Chapultepec","Lerma","Metepec","Mexicaltzingo","Ocoyoacac","Otzolotepec","San Mateo Atenco","Xonacatlán","Zinacantepec"],"edo":["15"]},
+"Tijuana":{"mpos":["Tijuana","Tecate","Playas de Rosarito"],"edo":["02"]},
+"Leon":{"mpos":["Leon","Sialo"],"edo":["11"]},
+"Juarez":{"mpos":["Juárez"],"edo":["05"]},
+"Laguna":{"mpos":["Torreón","Matamoros","San Pedro","Francisco I. Madero","Viesca","Gómez Palacio","Lerdo","Tlahualilo","Mapimí","Rodeo","Nazas","San Juan de Guadalupe","San Luis del Cordero","General Simón Bolívar","San Pedro del Gallo"],"edo":["05","10"]},
+"Querétaro":{"mpos":["Querétaro","Corregidora","El Marqués","Huimilpan"],"edo":["22"]},
+"SLP":{"mpos":["San Luis Potosí","Soledad de Graciano Sánchez","Cerro de San Pedro","Mexquitic de Carmona","Villa de Pozos","La Pila","Escalerillas","Bocas"],"edo":["24"]},
+"Merida":{"mpos":["Mérida","Umán","Kanasín"],"edo":["31"]},
+"Aguascalientes":{"mpos":["Aguascalientes","Jesús María","San Francisco de los Romo"],"edo":["01"]},
+"Mexicali":{"mpos":["Mexicali"],"edo":["02"]},
+"Cuernavaca":{"mpos":["Cuernavaca","Emiliano Zapata","Jiutepec","Temixco","Tepoztlán","Xochitepec"],"edo":["17"]},
+"Saltillo":{"mpos":["Saltillo"],"edo":["05"]}}

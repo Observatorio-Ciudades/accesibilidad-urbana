@@ -36,3 +36,58 @@ root - 2020-05-25 18:25:36,701 - INFO - Starting the script distance.py
 root - 2020-05-25 18:25:36,703 - INFO - Starting with Monterrey
 root - 2020-05-25 18:28:56,709 - INFO - Starting the script distance.py
 root - 2020-05-25 18:28:56,709 - INFO - Starting with Monterrey
+root - 2020-05-25 19:19:49,106 - INFO - Starting the script distance.py
+root - 2020-05-25 19:19:49,107 - INFO - Starting with Monterrey
+root - 2020-05-25 19:20:25,194 - INFO - Monterrey supermercados data already in system
+root - 2020-05-25 19:55:55,153 - INFO - Starting the script distance.py
+root - 2020-05-25 19:55:55,154 - INFO - Starting with Monterrey
+root - 2020-05-25 19:56:24,659 - INFO - Monterrey supermercados data already in system
+root - 2020-05-25 20:03:54,057 - INFO - Starting the script hexplots.py
+root - 2020-05-25 20:03:54,058 - INFO - Starting with Monterrey
+root - 2020-05-25 20:03:54,129 - INFO - area loded
+root - 2020-05-25 20:04:03,476 - INFO - hex created
+root - 2020-05-25 20:04:09,511 - INFO - nodes loaded
+root - 2020-05-25 20:04:30,246 - INFO - nodes grouped by
+root - 2020-05-25 20:04:35,084 - INFO - Previous hex bins file found for Monterrey
+root - 2020-05-25 20:04:35,189 - INFO - No previous hex bins file for Monterrey
+fiona._env - 2020-05-25 20:04:35,535 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-25 20:04:35,535 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 20:04:46,646 - INFO - Hex bins from Monterrey saved
+root - 2020-05-25 20:05:31,264 - INFO - Graph loaded
+root - 2020-05-25 20:05:58,712 - INFO - Starting the plotting
+root - 2020-05-25 20:06:18,014 - INFO - Plotting supermercados finished for Monterrey
+root - 2020-05-25 20:06:28,410 - INFO - nodes grouped by
+root - 2020-05-25 20:06:36,304 - INFO - Previous hex bins file found for Monterrey
+root - 2020-05-25 20:06:36,396 - INFO - No previous hex bins file for Monterrey
+fiona._env - 2020-05-25 20:06:36,808 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-25 20:06:36,808 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 20:06:52,778 - INFO - Hex bins from Monterrey saved
+root - 2020-05-25 20:07:49,852 - INFO - Graph loaded
+root - 2020-05-25 20:08:21,990 - INFO - Starting the plotting
+root - 2020-05-25 20:08:47,695 - INFO - Plotting farmacias finished for Monterrey
+root - 2020-05-25 20:08:47,695 - INFO - Plotting done, script finished for Monterrey
+root - 2020-05-25 20:08:47,695 - INFO - Starting with Guadalajara
+root - 2020-05-25 20:08:47,761 - INFO - area loded
+root - 2020-05-25 20:08:52,193 - INFO - hex created
+root - 2020-05-25 20:08:58,824 - INFO - nodes loaded
+root - 2020-05-25 20:09:20,442 - INFO - nodes grouped by
+fiona._env - 2020-05-25 20:09:20,443 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+root - 2020-05-25 20:09:20,444 - INFO - No previous hex bins file for Guadalajara
+root - 2020-05-25 20:09:24,026 - INFO - Hex bins from Guadalajara saved
+root - 2020-05-25 20:10:00,427 - INFO - Graph loaded
+root - 2020-05-25 20:10:31,273 - INFO - Starting the plotting
+root - 2020-05-25 20:10:45,721 - INFO - Plotting supermercados finished for Guadalajara
+root - 2020-05-25 20:19:28,157 - INFO - Starting the script distance.py
+root - 2020-05-25 20:19:28,159 - INFO - Starting with Monterrey
+root - 2020-05-25 20:19:58,153 - INFO - Monterrey supermercados data already in system
+root - 2020-05-25 20:29:23,979 - INFO - Starting the script hexplots.py
+root - 2020-05-25 20:29:23,982 - INFO - Starting with Monterrey
+root - 2020-05-25 20:29:24,193 - INFO - area loded
+root - 2020-05-25 20:29:44,631 - INFO - hex created
+root - 2020-05-25 20:29:58,179 - INFO - nodes loaded
+root - 2020-05-25 20:30:28,057 - INFO - nodes grouped by
+root - 2020-05-25 20:30:32,770 - INFO - Previous hex bins file found for Monterrey
+root - 2020-05-25 20:30:32,879 - INFO - No previous hex bins file for Monterrey
+fiona._env - 2020-05-25 20:30:33,195 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-25 20:30:33,196 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 20:30:43,369 - INFO - Hex bins from Monterrey saved
