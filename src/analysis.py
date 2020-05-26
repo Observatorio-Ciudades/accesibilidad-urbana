@@ -68,7 +68,7 @@ def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
 	except:
 		nodes = ox.graph_to_gdfs(G, edges=False)
 		nodes = pd.merge(nodes,df,left_index=True,right_index=True)
-	nodes.drop([i for i in nodes.columns if str(i).lower()[:4] not in ['geometry'[:4],'dist'[:4],'osmid'[:4]]],axis=1,inplace=True)
+	nodes.drop([i for i in nodes.columns if str(i) not in ['geometry','dist_farmacias','dist_supermercados','osmid']],axis=1,inplace=True)
 	return nodes
 
 def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):

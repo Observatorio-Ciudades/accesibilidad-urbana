@@ -91,3 +91,50 @@ root - 2020-05-25 20:30:32,879 - INFO - No previous hex bins file for Monterrey
 fiona._env - 2020-05-25 20:30:33,195 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
 fiona._env - 2020-05-25 20:30:33,196 - WARNING - driver GeoJSON does not support creation option ENCODING
 root - 2020-05-25 20:30:43,369 - INFO - Hex bins from Monterrey saved
+root - 2020-05-25 20:51:28,946 - INFO - Starting the script distance.py
+root - 2020-05-25 20:51:28,947 - INFO - Starting with Monterrey
+root - 2020-05-25 20:51:58,899 - INFO - Monterrey supermercados data already in system
+fiona._env - 2020-05-25 21:05:30,208 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-25 21:05:30,209 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 21:05:44,713 - INFO - Monterrey farmacias data already in system
+fiona._env - 2020-05-25 21:09:03,162 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-25 21:09:03,163 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 21:09:17,890 - INFO - Monterrey done.
+root - 2020-05-25 21:09:17,890 - INFO - Starting with Guadalajara
+root - 2020-05-25 21:09:52,039 - INFO - Guadalajara supermercados data already in system
+fiona._env - 2020-05-25 21:16:39,745 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-05-25 21:16:39,752 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 21:16:52,123 - INFO - Guadalajara farmacias data already in system
+fiona._env - 2020-05-25 21:25:48,888 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-05-25 21:25:48,890 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 21:26:02,088 - INFO - Guadalajara done.
+root - 2020-05-25 21:26:02,088 - INFO - Starting with Mexico
+root - 2020-05-25 21:26:36,792 - INFO - Mexico supermercados data already in system
+fiona._env - 2020-05-25 21:42:53,704 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+root - 2020-05-25 21:43:15,620 - INFO - Mexico farmacias data already in system
+fiona._env - 2020-05-25 22:42:18,389 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+fiona._env - 2020-05-25 22:42:18,393 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 22:42:30,555 - INFO - Mexico done.
+root - 2020-05-25 22:42:30,555 - INFO - Starting with Puebla
+root - 2020-05-25 22:42:52,269 - INFO - Puebla supermercados data already in system
+fiona._env - 2020-05-25 22:44:17,835 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+root - 2020-05-25 22:44:29,913 - INFO - Puebla farmacias data already in system
+fiona._env - 2020-05-25 22:46:19,813 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+fiona._env - 2020-05-25 22:46:19,813 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 22:46:26,762 - INFO - Puebla done.
+root - 2020-05-25 22:46:26,763 - INFO - Starting with Toluca
+root - 2020-05-25 22:46:44,994 - INFO - Toluca supermercados data already in system
+fiona._env - 2020-05-25 22:47:58,630 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+root - 2020-05-25 22:48:08,021 - INFO - Toluca farmacias data already in system
+fiona._env - 2020-05-25 22:49:39,842 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+fiona._env - 2020-05-25 22:49:39,842 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-25 22:49:46,285 - INFO - Toluca done.
+root - 2020-05-25 22:49:46,285 - INFO - Starting with Tijuana
+numexpr.utils - 2020-05-25 22:50:02,074 - INFO - NumExpr defaulting to 4 threads.
+shapely.geos - 2020-05-25 22:50:14,212 - ERROR - TopologyException: Input geom 0 is invalid: Self-intersection at or near point -116.965696047511 32.552244488019369 at -116.965696047511 32.552244488019369
+shapely.geos - 2020-05-25 22:50:14,214 - INFO - Self-intersection at or near point -116.965696047511 32.552244488019369
+root - 2020-05-25 22:50:25,918 - INFO - Starting the script hexplots.py
+root - 2020-05-25 22:50:25,919 - INFO - Starting with Monterrey
+root - 2020-05-25 22:50:25,990 - INFO - area loded
+root - 2020-05-25 22:50:33,728 - INFO - hex created
+root - 2020-05-25 22:50:39,317 - INFO - nodes loaded
