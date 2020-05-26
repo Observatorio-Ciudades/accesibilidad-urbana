@@ -33,13 +33,17 @@ if __name__ == "__main__":
     mpos = src.load_mpos()
     cities = load_areas()
     for city, data in cities.items():
-        try:
-            print(f'starting with {city}')
-            mpos_temp = mpos[(mpos['NOMGEO'].isin(data['mpos'])) & (mpos['CVE_ENT'].isin(data['edo']))].dissolve(by='layer')
-            mpos_temp.to_file(f"../data/raw/{city}_area.geojson", driver='GeoJSON') 
-            print('Area Metropolitana loaded')
-            polygon = mpos_temp['geometry'][0]
-            get_graph(polygon,city) #Solucionar para Tijuana, tiene islas y OSMnx da un error
-            print(f'Done with {city}')
-        except:
-            pass
+        if city == 'Tijuana':
+            try:
+                print(f'starting with {city}')
+                if city == 'Tijuana':
+                    mpos_temp = gpd.read_file('../data/raw/Tijuana_area.geojson')
+                else:
+                    mpos_temp = mpos[(mpos['NOMGEO'].isin(data['mpos'])) & (mpos['CVE_ENT'].isin(data['edo']))].dissolve(by='layer')
+                    mpos_temp.to_file(f"../data/raw/{city}_area.geojson", driver='GeoJSON') 
+                print('Area Metropolitana loaded')
+                polygon = mpos_temp['geometry'][0]
+                get_graph(polygon,city) #Solucionar para Tijuana, tiene islas y OSMnx da un error
+                print(f'Done with {city}')
+            except:
+                pass
