@@ -1,0 +1,196 @@
+root - 2020-05-20 14:13:35,133 - INFO - Script initalized
+root - 2020-05-20 14:13:35,134 - INFO - Starting the script
+root - 2020-05-20 14:15:05,376 - INFO - geoDataFrame loaded
+root - 2020-05-20 14:16:36,684 - INFO - Script initalized
+root - 2020-05-20 14:16:36,685 - INFO - Starting the script
+root - 2020-05-20 14:17:59,691 - INFO - DENUE loaded
+root - 2020-05-20 14:17:59,692 - INFO - Starting with Monterrey
+root - 2020-05-20 14:19:48,330 - INFO - Graph loaded Monterrey
+numexpr.utils - 2020-05-20 14:19:48,537 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-05-20 14:29:04,357 - INFO - looking for seeds
+root - 2020-05-20 14:29:04,360 - INFO - calculating voronoi assignment
+root - 2020-05-20 14:31:02,561 - INFO - Calculating distances
+root - 2020-05-20 14:33:15,952 - INFO - DataFrame created
+root - 2020-05-20 15:01:07,230 - INFO - Script initalized
+root - 2020-05-20 15:01:07,231 - INFO - Starting the script
+root - 2020-05-20 15:02:43,772 - INFO - DENUE loaded
+root - 2020-05-20 15:02:43,772 - INFO - Starting with Monterrey
+root - 2020-05-20 15:04:38,682 - INFO - Graph loaded Monterrey
+root - 2020-05-20 15:04:40,222 - INFO - looking for seeds
+root - 2020-05-20 15:04:40,224 - INFO - calculating voronoi assignment
+root - 2020-05-20 15:06:57,867 - INFO - Calculating distances
+root - 2020-05-20 15:09:07,273 - INFO - DataFrame created
+fiona._env - 2020-05-20 15:09:39,214 - ERROR - ../data/processed/Monterrey_nodes_distance.geojson: No such file or directory
+fiona._env - 2020-05-20 15:09:39,222 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 15:14:34,988 - INFO - Script initalized
+root - 2020-05-20 15:14:34,988 - INFO - Starting the script
+root - 2020-05-20 15:16:18,499 - INFO - DENUE loaded
+root - 2020-05-20 15:16:18,500 - INFO - Starting with Monterrey
+root - 2020-05-20 15:18:18,503 - INFO - Graph loaded Monterrey
+root - 2020-05-20 15:18:19,663 - INFO - looking for seeds
+root - 2020-05-20 15:18:19,664 - INFO - calculating voronoi assignment
+root - 2020-05-20 15:20:19,359 - INFO - Calculating distances
+root - 2020-05-20 15:23:23,083 - INFO - DataFrame created
+root - 2020-05-20 15:28:19,038 - INFO - Script initalized
+root - 2020-05-20 15:28:19,039 - INFO - Starting the script
+root - 2020-05-20 15:29:22,995 - INFO - DENUE loaded
+root - 2020-05-20 15:29:22,995 - INFO - Starting with Monterrey
+root - 2020-05-20 15:30:02,093 - INFO - Graph loaded Monterrey
+root - 2020-05-20 15:30:03,250 - INFO - looking for seeds
+root - 2020-05-20 15:30:03,252 - INFO - calculating voronoi assignment
+root - 2020-05-20 15:31:39,475 - INFO - Calculating distances
+root - 2020-05-20 15:33:24,480 - INFO - DataFrame created
+fiona._env - 2020-05-20 15:33:54,183 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-20 15:33:54,184 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 15:34:05,993 - INFO - Monterrey done.
+root - 2020-05-20 15:34:05,993 - INFO - Starting with Guadalajara
+numexpr.utils - 2020-05-20 15:35:02,135 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-05-20 15:38:31,178 - INFO - Script initalized
+root - 2020-05-20 15:38:31,178 - INFO - Starting the script
+root - 2020-05-20 15:40:15,946 - INFO - DENUE loaded
+root - 2020-05-20 15:40:15,947 - INFO - Starting with Monterrey
+root - 2020-05-20 15:41:18,301 - INFO - Graph loaded Monterrey
+root - 2020-05-20 15:41:20,540 - INFO - looking for seeds
+root - 2020-05-20 15:41:20,542 - INFO - calculating voronoi assignment
+root - 2020-05-20 15:43:04,108 - INFO - Calculating distances
+root - 2020-05-20 15:45:14,633 - INFO - DataFrame created
+fiona._env - 2020-05-20 15:46:07,261 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-20 15:46:07,262 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 15:46:40,595 - INFO - Monterrey done.
+root - 2020-05-20 15:46:40,595 - INFO - Starting with Guadalajara
+root - 2020-05-20 15:48:32,873 - INFO - Graph loaded Guadalajara
+fiona._env - 2020-05-20 15:48:34,550 - ERROR - ../data/processed/farmacias_Guadalajara.geojson: No such file or directory
+numexpr.utils - 2020-05-20 15:48:35,018 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-05-20 15:51:41,337 - INFO - Script initalized
+root - 2020-05-20 15:51:41,338 - INFO - Starting the script
+root - 2020-05-20 15:53:12,087 - INFO - DENUE loaded
+root - 2020-05-20 15:53:12,088 - INFO - Starting with Monterrey
+root - 2020-05-20 15:53:54,096 - INFO - Graph loaded Monterrey
+root - 2020-05-20 15:53:54,362 - INFO - Monterrey data already in system
+root - 2020-05-20 15:53:55,239 - INFO - looking for seeds
+root - 2020-05-20 15:53:55,241 - INFO - calculating voronoi assignment
+root - 2020-05-20 15:55:33,097 - INFO - Calculating distances
+root - 2020-05-20 15:58:27,035 - INFO - DataFrame created
+fiona._env - 2020-05-20 15:59:28,996 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-05-20 15:59:29,000 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 15:59:39,798 - INFO - Monterrey done.
+root - 2020-05-20 15:59:39,798 - INFO - Starting with Guadalajara
+root - 2020-05-20 16:00:54,071 - INFO - Graph loaded Guadalajara
+fiona._env - 2020-05-20 16:00:55,262 - ERROR - ../data/processed/farmacias_Guadalajara.geojson: No such file or directory
+root - 2020-05-20 16:00:55,263 - INFO - Guadalajara data not in system, starting to look for nearest nodes
+numexpr.utils - 2020-05-20 16:00:55,562 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-05-20 16:22:17,947 - INFO - looking for seeds
+root - 2020-05-20 16:22:17,949 - INFO - calculating voronoi assignment
+root - 2020-05-20 16:31:01,143 - INFO - Calculating distances
+root - 2020-05-20 16:32:12,324 - INFO - Script initalized
+root - 2020-05-20 16:32:12,325 - INFO - Starting the script
+root - 2020-05-20 16:32:37,769 - INFO - Script initalized
+root - 2020-05-20 16:32:37,770 - INFO - Starting the script
+root - 2020-05-20 16:33:21,021 - INFO - Script initalized
+root - 2020-05-20 16:33:21,021 - INFO - Starting the script
+root - 2020-05-20 16:33:21,022 - INFO - Starting with Monterrey
+root - 2020-05-20 16:33:21,119 - INFO - area loded
+root - 2020-05-20 16:33:42,458 - INFO - hex created
+fiona._env - 2020-05-20 16:33:42,466 - ERROR - ../data/processed/Monterrey_nodes_distance.geojson: No such file or directory
+root - 2020-05-20 16:37:04,630 - INFO - Script initalized
+root - 2020-05-20 16:37:04,631 - INFO - Starting the script
+root - 2020-05-20 16:37:04,632 - INFO - Starting with Monterrey
+root - 2020-05-20 16:37:04,866 - INFO - area loded
+root - 2020-05-20 16:37:31,846 - INFO - hex created
+root - 2020-05-20 16:37:47,726 - INFO - nodes loaded
+root - 2020-05-20 16:41:03,367 - INFO - Starting the script hexplots.py
+root - 2020-05-20 16:41:03,369 - INFO - Starting with Monterrey
+root - 2020-05-20 16:41:03,784 - INFO - area loded
+root - 2020-05-20 16:41:36,196 - INFO - hex created
+root - 2020-05-20 16:41:45,805 - INFO - nodes loaded
+root - 2020-05-20 16:42:17,354 - INFO - nodes grouped by
+root - 2020-05-20 16:42:18,980 - INFO - DataFrame created
+root - 2020-05-20 16:42:40,127 - INFO - Hex bins from Monterrey saved
+root - 2020-05-20 16:44:05,005 - INFO - Graph loaded
+root - 2020-05-20 16:44:15,456 - INFO - Guadalajara done.
+root - 2020-05-20 16:44:15,456 - INFO - Starting with Mexico
+root - 2020-05-20 16:44:42,926 - INFO - Starting the plotting
+root - 2020-05-20 16:45:08,510 - INFO - Plotting done, script finished for Monterrey
+root - 2020-05-20 16:45:08,511 - INFO - Starting with Guadalajara
+root - 2020-05-20 16:45:08,598 - INFO - area loded
+root - 2020-05-20 16:45:15,959 - INFO - hex created
+root - 2020-05-20 16:45:29,786 - INFO - nodes loaded
+root - 2020-05-20 16:46:08,654 - INFO - nodes grouped by
+root - 2020-05-20 16:46:18,816 - INFO - Hex bins from Guadalajara saved
+root - 2020-05-20 16:46:50,107 - INFO - Graph loaded Mexico
+fiona._env - 2020-05-20 16:46:52,668 - ERROR - ../data/processed/farmacias_Mexico.geojson: No such file or directory
+root - 2020-05-20 16:46:52,668 - INFO - Mexico data not in system, starting to look for nearest nodes
+root - 2020-05-20 16:47:43,765 - INFO - Graph loaded
+root - 2020-05-20 16:48:39,335 - INFO - Starting the plotting
+root - 2020-05-20 16:48:55,252 - INFO - Plotting done, script finished for Guadalajara
+root - 2020-05-20 16:48:55,253 - INFO - Starting with Mexico
+root - 2020-05-20 16:48:55,338 - INFO - area loded
+root - 2020-05-20 16:48:58,880 - INFO - hex created
+fiona._env - 2020-05-20 16:48:58,889 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+root - 2020-05-20 16:58:44,185 - INFO - Starting the script hexplots.py
+root - 2020-05-20 16:58:44,187 - INFO - Starting with Monterrey
+root - 2020-05-20 16:58:44,361 - INFO - area loded
+root - 2020-05-20 16:59:11,771 - INFO - hex created
+root - 2020-05-20 16:59:25,399 - INFO - nodes loaded
+root - 2020-05-20 17:00:58,961 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:00:58,961 - INFO - Starting with Monterrey
+root - 2020-05-20 17:00:59,053 - INFO - area loded
+root - 2020-05-20 17:01:25,872 - INFO - hex created
+root - 2020-05-20 17:01:38,988 - INFO - nodes loaded
+root - 2020-05-20 17:05:47,579 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:05:47,579 - INFO - Starting with Monterrey
+root - 2020-05-20 17:05:47,677 - INFO - area loded
+root - 2020-05-20 17:06:05,715 - INFO - hex created
+root - 2020-05-20 17:06:17,473 - INFO - nodes loaded
+root - 2020-05-20 17:07:40,586 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:07:40,588 - INFO - Starting with Monterrey
+root - 2020-05-20 17:07:40,765 - INFO - area loded
+root - 2020-05-20 17:08:04,030 - INFO - hex created
+root - 2020-05-20 17:08:16,015 - INFO - nodes loaded
+root - 2020-05-20 17:08:53,488 - INFO - nodes grouped by
+fiona._env - 2020-05-20 17:08:54,248 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-20 17:08:54,251 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 17:09:16,634 - INFO - Hex bins from Monterrey saved
+root - 2020-05-20 17:10:44,117 - INFO - Graph loaded
+root - 2020-05-20 17:19:24,214 - INFO - Starting the script hexplots.py
+root - 2020-05-20 17:19:24,215 - INFO - Starting with Monterrey
+root - 2020-05-20 17:19:24,398 - INFO - area loded
+root - 2020-05-20 17:19:49,752 - INFO - hex created
+root - 2020-05-20 17:20:04,049 - INFO - nodes loaded
+root - 2020-05-20 17:20:55,842 - INFO - nodes grouped by
+fiona._env - 2020-05-20 17:20:56,248 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-20 17:20:56,249 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 17:21:17,715 - INFO - Hex bins from Monterrey saved
+root - 2020-05-20 17:22:40,686 - INFO - Graph loaded
+root - 2020-05-20 17:24:25,675 - INFO - Starting the plotting
+root - 2020-05-20 17:25:12,973 - INFO - Plotting done, script finished for Monterrey
+root - 2020-05-20 17:25:12,973 - INFO - Starting with Guadalajara
+root - 2020-05-20 17:25:13,061 - INFO - area loded
+root - 2020-05-20 17:25:21,364 - INFO - hex created
+root - 2020-05-20 17:25:37,663 - INFO - nodes loaded
+root - 2020-05-20 17:26:18,393 - INFO - nodes grouped by
+fiona._env - 2020-05-20 17:26:18,847 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+fiona._env - 2020-05-20 17:26:18,848 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-05-20 17:26:33,931 - INFO - Hex bins from Guadalajara saved
+root - 2020-05-20 17:28:02,019 - INFO - Graph loaded
+root - 2020-05-20 17:29:10,116 - INFO - Starting the plotting
+root - 2020-05-20 17:29:26,050 - INFO - Plotting done, script finished for Guadalajara
+root - 2020-05-20 17:29:26,050 - INFO - Starting with Mexico
+root - 2020-05-20 17:29:26,144 - INFO - area loded
+root - 2020-05-20 17:29:29,179 - INFO - hex created
+fiona._env - 2020-05-20 17:29:29,181 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+root - 2020-05-20 17:56:47,132 - INFO - looking for seeds
+root - 2020-05-20 17:56:47,178 - INFO - calculating voronoi assignment
+root - 2020-05-20 22:37:38,490 - INFO - Starting the script distance.py
+root - 2020-05-20 22:39:23,099 - INFO - Starting with Monterrey
+root - 2020-05-20 22:40:06,136 - INFO - Monterrey data already in system
+root - 2020-05-20 22:40:12,149 - INFO - Monterrey done.
+root - 2020-05-20 22:40:12,149 - INFO - Starting with Guadalajara
+root - 2020-05-20 22:41:03,238 - INFO - Guadalajara data already in system
+root - 2020-05-20 22:41:08,254 - INFO - Guadalajara done.
+root - 2020-05-20 22:41:08,255 - INFO - Starting with Mexico
+root - 2020-05-20 22:42:04,877 - INFO - Mexico data already in system
+fiona._env - 2020-05-20 22:42:04,886 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+root - 2020-05-20 23:42:47,436 - INFO - Starting the script distance.py
+root - 2020-05-20 23:43:44,360 - INFO - Starting with Monterrey
+root - 2020-05-20 23:44:18,658 - INFO - Monterrey data already in system

@@ -9,7 +9,11 @@
 import osmnx as ox
 from .utils import *
 from shapely.geometry import Polygon
+import json
 
+ox.config(data_folder='../data', cache_folder='../data/raw/cache',
+          use_cache=True, log_console=True)
+		  
 def create_polygon(bbox, city, save=True):
 	"""Create a polygon from a bounding box and save it to a file
 	
@@ -48,12 +52,15 @@ def download_graph(polygon, city, network_type='walk', save=True):
 		nx.MultiDiGraph
 	"""	
 	try:
-		G = ox.load_graphml('data/raw/network_{}_{}.graphml'.format(city,network_type))
+		G = ox.load_graphml('raw/network_{}_{}.graphml'.format(city,network_type))
+		print('retrived graph')
+		return G
 	except:
+		print('Graph not in data/raw')
 		G = ox.graph_from_polygon(polygon,network_type=network_type, simplify=True, retain_all=False, truncate_by_edge=False, name=city)
-	if save:
-		ox.save_graphml(G, filename='data/raw/network_{}_{}.graphml'.format(city,network_type), folder='../data/{}/networks/'.format(city))
-	return G
+		if save:
+			ox.save_graphml(G, filename='raw/network_{}_{}.graphml'.format(city,network_type))
+		return G
 
 def df_to_geodf(df, x, y, crs):
 	"""Create a geo data frame from a pandas data frame
@@ -71,3 +78,54 @@ def df_to_geodf(df, x, y, crs):
 	df['x'] = df[x].astype(float)
 	geometry = [Point(xy) for xy in zip(df.x, df.y)]
 	return gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
+
+def load_study_areas():
+	"""
+	Load the study areas json as dict
+
+	Returns:
+		dict -- dictionary with the study areas and attributes
+	"""
+	with open('areas.json', 'r') as f:
+		distros_dict = json.load(f)
+	return distros_dict
+
+def load_polygon(city):
+	"""
+	Load the polygon of a city from the raw data
+
+	Arguments:
+		city {str} -- string with the name of the city/metropolitan area to load
+
+	Returns:
+		geopandas.GeoDataFrame -- geoDataFrame with the area
+	"""
+	return gpd.read_file(f"../data/raw/{city}_area.geojson")
+
+def load_mpos():
+    """
+    Load Mexico's municipal boundaries
+
+    Returns:
+            geopandas.geoDataFrame -- geoDataFrame with all the Mexican municipal boundaries
+    """
+    return  gpd.read_file('../data/external/LimitesPoliticos/MunicipiosMexico_INEGI19_GCS_v1.shp')
+
+def load_denue(amenity_name):
+	"""
+	Load the DENUE into a geoDataFrame
+
+	Arguments:
+		amenity_name {str} -- string with the name of the amenity to load the availables are: ('farmacias','supermercados')
+
+	Returns:
+		geopandas.geoDataFrame -- geoDataFrame with the DENUE
+	"""
+	if amenity_name == 'farmacias':
+		gdf = gpd.read_file('../data/external/DENUE/denue_00_46321-46531_shp/conjunto_de_datos/denue_inegi_46321-46531_.shp')
+		gdf = gdf[(gdf['codigo_act']=="464111")|(gdf['codigo_act']=="464112")]
+		return gdf
+	elif amenity_name == 'supermercados':
+		gdf = gpd.read_file('../data/external/DENUE/denue_00_46112-46311_shp/conjunto_de_datos/denue_inegi_46112-46311_.shp')
+		gdf = gdf[(gdf['codigo_act']=="462111")|(gdf['codigo_act']=="462112")]
+		return gdf
