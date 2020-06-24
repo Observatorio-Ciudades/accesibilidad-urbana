@@ -1,0 +1,423 @@
+root - 2020-06-24 10:59:47,566 - INFO - Starting the script distance.py
+root - 2020-06-24 10:59:47,567 - INFO - Starting with Tijuana
+root - 2020-06-24 10:59:47,863 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:47,864 - INFO - Starting with Leon
+fiona._env - 2020-06-24 10:59:47,869 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 10:59:47,870 - ERROR - Error: ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 10:59:47,871 - INFO - Starting with Juarez
+root - 2020-06-24 10:59:47,882 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:47,883 - INFO - Starting with Laguna
+root - 2020-06-24 10:59:47,988 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:47,988 - INFO - Starting with Querétaro
+root - 2020-06-24 10:59:48,009 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:48,009 - INFO - Starting with SLP
+root - 2020-06-24 10:59:48,028 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:48,028 - INFO - Starting with Merida
+root - 2020-06-24 10:59:48,047 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:48,048 - INFO - Starting with Aguascalientes
+root - 2020-06-24 10:59:48,080 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:48,081 - INFO - Starting with Mexicali
+root - 2020-06-24 10:59:48,181 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:48,182 - INFO - Starting with Cuernavaca
+root - 2020-06-24 10:59:48,208 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 10:59:48,209 - INFO - Starting with Saltillo
+root - 2020-06-24 10:59:48,235 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 11:02:54,820 - INFO - Starting the script distance.py
+root - 2020-06-24 11:02:54,821 - INFO - Starting with Tijuana
+root - 2020-06-24 11:02:54,919 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 11:02:54,919 - INFO - Starting with Leon
+fiona._env - 2020-06-24 11:02:54,920 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 11:02:54,920 - ERROR - Error: ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 11:02:54,921 - INFO - Starting with Juarez
+fiona._env - 2020-06-24 11:02:55,097 - ERROR - ../data/processed/supermercados_Juarez.geojson: No such file or directory
+root - 2020-06-24 11:04:08,242 - INFO - Starting the script distance.py
+root - 2020-06-24 11:04:08,243 - INFO - Starting with Tijuana
+root - 2020-06-24 11:04:08,326 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 11:04:08,326 - INFO - Starting with Leon
+fiona._env - 2020-06-24 11:04:08,327 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 11:04:08,327 - ERROR - Error: ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 11:04:08,327 - INFO - Starting with Juarez
+fiona._env - 2020-06-24 11:04:08,492 - ERROR - ../data/processed/supermercados_Juarez.geojson: No such file or directory
+root - 2020-06-24 11:05:15,608 - INFO - Juarez supermercados data not in system, starting to look for nearest nodes
+root - 2020-06-24 11:05:15,611 - ERROR - Error: 'NoneType' object has no attribute 'x'
+root - 2020-06-24 11:05:15,611 - INFO - Starting with Laguna
+root - 2020-06-24 11:05:27,214 - INFO - Laguna supermercados data already in system
+fiona._env - 2020-06-24 11:06:33,436 - ERROR - ../data/processed/nodes_Laguna.geojson: No such file or directory
+fiona._env - 2020-06-24 11:06:33,472 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:06:37,750 - INFO - Laguna supermercados done.
+root - 2020-06-24 11:06:37,907 - INFO - Laguna farmacias data already in system
+fiona._env - 2020-06-24 11:07:02,147 - ERROR - ../data/processed/nodes_Laguna.geojson: No such file or directory
+fiona._env - 2020-06-24 11:07:02,148 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:07:07,377 - INFO - Laguna farmacias done.
+fiona._env - 2020-06-24 11:07:07,378 - ERROR - ../data/processed/hospitales_Laguna.geojson: No such file or directory
+root - 2020-06-24 11:07:35,828 - INFO - Laguna hospitales data not in system, starting to look for nearest nodes
+numexpr.utils - 2020-06-24 11:07:35,899 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-06-24 11:07:43,998 - INFO - Laguna hospitales nearest nodes saved.
+fiona._env - 2020-06-24 11:07:52,788 - ERROR - ../data/processed/nodes_Laguna.geojson: No such file or directory
+fiona._env - 2020-06-24 11:07:52,788 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:07:57,212 - INFO - Laguna hospitales done.
+root - 2020-06-24 11:07:57,212 - INFO - Laguna done.
+root - 2020-06-24 11:07:57,212 - INFO - Starting with Querétaro
+root - 2020-06-24 11:08:16,418 - INFO - Querétaro supermercados data already in system
+fiona._env - 2020-06-24 11:09:56,342 - ERROR - ../data/processed/nodes_Querétaro.geojson: No such file or directory
+fiona._env - 2020-06-24 11:09:56,343 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:10:04,110 - INFO - Querétaro supermercados done.
+root - 2020-06-24 11:10:04,340 - INFO - Querétaro farmacias data already in system
+fiona._env - 2020-06-24 11:11:47,857 - ERROR - ../data/processed/nodes_Querétaro.geojson: No such file or directory
+fiona._env - 2020-06-24 11:11:47,858 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:12:03,091 - INFO - Querétaro farmacias done.
+fiona._env - 2020-06-24 11:12:03,092 - ERROR - ../data/processed/hospitales_Querétaro.geojson: No such file or directory
+root - 2020-06-24 11:12:50,414 - INFO - Querétaro hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 11:13:05,013 - INFO - Querétaro hospitales nearest nodes saved.
+fiona._env - 2020-06-24 11:13:18,925 - ERROR - ../data/processed/nodes_Querétaro.geojson: No such file or directory
+fiona._env - 2020-06-24 11:13:18,925 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:13:25,282 - INFO - Querétaro hospitales done.
+root - 2020-06-24 11:13:25,282 - INFO - Querétaro done.
+root - 2020-06-24 11:13:25,282 - INFO - Starting with SLP
+root - 2020-06-24 11:13:38,776 - INFO - SLP supermercados data already in system
+fiona._env - 2020-06-24 11:13:56,163 - ERROR - ../data/processed/nodes_SLP.geojson: No such file or directory
+fiona._env - 2020-06-24 11:13:56,163 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:13:59,000 - INFO - SLP supermercados done.
+root - 2020-06-24 11:13:59,089 - INFO - SLP farmacias data already in system
+fiona._env - 2020-06-24 11:14:17,493 - ERROR - ../data/processed/nodes_SLP.geojson: No such file or directory
+fiona._env - 2020-06-24 11:14:17,493 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:14:20,158 - INFO - SLP farmacias done.
+fiona._env - 2020-06-24 11:14:20,159 - ERROR - ../data/processed/hospitales_SLP.geojson: No such file or directory
+root - 2020-06-24 11:14:54,036 - INFO - SLP hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 11:14:57,857 - INFO - SLP hospitales nearest nodes saved.
+fiona._env - 2020-06-24 11:15:04,173 - ERROR - ../data/processed/nodes_SLP.geojson: No such file or directory
+fiona._env - 2020-06-24 11:15:04,173 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:15:07,899 - INFO - SLP hospitales done.
+root - 2020-06-24 11:15:07,900 - INFO - SLP done.
+root - 2020-06-24 11:15:07,900 - INFO - Starting with Merida
+root - 2020-06-24 11:15:27,221 - INFO - Merida supermercados data already in system
+fiona._env - 2020-06-24 11:16:44,035 - ERROR - ../data/processed/nodes_Merida.geojson: No such file or directory
+fiona._env - 2020-06-24 11:16:44,035 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:16:53,180 - INFO - Merida supermercados done.
+root - 2020-06-24 11:16:53,418 - INFO - Merida farmacias data already in system
+fiona._env - 2020-06-24 11:17:35,464 - ERROR - ../data/processed/nodes_Merida.geojson: No such file or directory
+fiona._env - 2020-06-24 11:17:35,464 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:17:38,727 - INFO - Merida farmacias done.
+fiona._env - 2020-06-24 11:17:38,728 - ERROR - ../data/processed/hospitales_Merida.geojson: No such file or directory
+root - 2020-06-24 11:18:20,198 - INFO - Merida hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 11:18:25,555 - INFO - Merida hospitales nearest nodes saved.
+fiona._env - 2020-06-24 11:18:36,878 - ERROR - ../data/processed/nodes_Merida.geojson: No such file or directory
+fiona._env - 2020-06-24 11:18:36,879 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:18:40,057 - INFO - Merida hospitales done.
+root - 2020-06-24 11:18:40,057 - INFO - Merida done.
+root - 2020-06-24 11:18:40,058 - INFO - Starting with Aguascalientes
+root - 2020-06-24 11:18:53,531 - INFO - Aguascalientes supermercados data already in system
+fiona._env - 2020-06-24 11:19:20,638 - ERROR - ../data/processed/nodes_Aguascalientes.geojson: No such file or directory
+fiona._env - 2020-06-24 11:19:20,639 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:19:22,973 - INFO - Aguascalientes supermercados done.
+root - 2020-06-24 11:19:23,059 - INFO - Aguascalientes farmacias data already in system
+fiona._env - 2020-06-24 11:19:43,279 - ERROR - ../data/processed/nodes_Aguascalientes.geojson: No such file or directory
+fiona._env - 2020-06-24 11:19:43,280 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:19:48,983 - INFO - Aguascalientes farmacias done.
+fiona._env - 2020-06-24 11:19:48,984 - ERROR - ../data/processed/hospitales_Aguascalientes.geojson: No such file or directory
+root - 2020-06-24 11:20:27,486 - INFO - Aguascalientes hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 11:20:35,495 - INFO - Aguascalientes hospitales nearest nodes saved.
+fiona._env - 2020-06-24 11:20:53,338 - ERROR - ../data/processed/nodes_Aguascalientes.geojson: No such file or directory
+fiona._env - 2020-06-24 11:20:53,339 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 11:21:01,405 - INFO - Aguascalientes hospitales done.
+root - 2020-06-24 11:21:01,406 - INFO - Aguascalientes done.
+root - 2020-06-24 11:21:01,406 - INFO - Starting with Mexicali
+root - 2020-06-24 11:21:34,993 - INFO - Mexicali supermercados data already in system
+root - 2020-06-24 11:25:59,717 - INFO - Starting the script distance.py
+root - 2020-06-24 11:25:59,718 - INFO - Starting with Monterrey
+root - 2020-06-24 11:26:32,618 - INFO - Monterrey supermercados data already in system
+root - 2020-06-24 11:42:30,977 - INFO - Starting the script distance.py
+root - 2020-06-24 11:42:30,978 - INFO - Starting with Monterrey
+root - 2020-06-24 11:43:13,342 - INFO - Monterrey supermercados data already in system
+root - 2020-06-24 12:04:13,733 - INFO - Starting the script distance.py
+root - 2020-06-24 12:04:13,733 - INFO - Starting with Guadalajara
+root - 2020-06-24 12:04:42,819 - INFO - Guadalajara supermercados data already in system
+root - 2020-06-24 12:04:42,819 - INFO - Guadalajara supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 12:12:10,072 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 12:12:10,077 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 12:12:22,818 - INFO - Guadalajara supermercados done.
+root - 2020-06-24 12:12:23,645 - INFO - Guadalajara farmacias data already in system
+root - 2020-06-24 12:12:23,645 - INFO - Guadalajara farmacias, calculating distances to nearest POI
+root - 2020-06-24 12:22:46,020 - INFO - Starting the script distance.py
+root - 2020-06-24 12:22:46,021 - INFO - Starting with Guadalajara
+root - 2020-06-24 12:23:11,255 - INFO - Guadalajara supermercados data already in system
+root - 2020-06-24 12:23:11,255 - INFO - Guadalajara supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 12:30:18,765 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 12:30:18,768 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 12:30:37,733 - INFO - Guadalajara supermercados done.
+root - 2020-06-24 12:30:38,359 - INFO - Guadalajara farmacias data already in system
+root - 2020-06-24 12:30:38,359 - INFO - Guadalajara farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 12:40:45,094 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 12:40:45,095 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 12:41:02,067 - INFO - Guadalajara farmacias done.
+fiona._env - 2020-06-24 12:41:02,068 - ERROR - ../data/processed/hospitales_Guadalajara.geojson: No such file or directory
+root - 2020-06-24 12:41:47,611 - INFO - Guadalajara hospitales data not in system, starting to look for nearest nodes
+numexpr.utils - 2020-06-24 12:41:47,848 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-06-24 12:42:55,716 - INFO - Guadalajara hospitales nearest nodes saved.
+root - 2020-06-24 12:42:55,716 - INFO - Guadalajara hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 12:43:43,931 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 12:43:43,932 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 12:44:01,777 - INFO - Guadalajara hospitales done.
+root - 2020-06-24 12:44:01,777 - INFO - Guadalajara done.
+root - 2020-06-24 12:44:01,777 - INFO - Starting with Monterrey
+root - 2020-06-24 12:44:49,293 - INFO - Monterrey supermercados data already in system
+root - 2020-06-24 12:44:49,294 - INFO - Monterrey supermercados, calculating distances to nearest POI
+root - 2020-06-24 13:50:23,937 - INFO - Starting the script distance.py
+root - 2020-06-24 13:50:23,937 - INFO - Starting with Guadalajara
+root - 2020-06-24 13:50:49,646 - INFO - Guadalajara supermercados data already in system
+root - 2020-06-24 13:50:49,646 - INFO - Guadalajara supermercados, calculating distances to nearest POI
+root - 2020-06-24 13:54:20,794 - INFO - Starting the script distance.py
+root - 2020-06-24 13:54:20,795 - INFO - Starting with Guadalajara
+root - 2020-06-24 13:54:46,494 - INFO - Guadalajara supermercados data already in system
+root - 2020-06-24 13:54:46,494 - INFO - Guadalajara supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 14:00:44,501 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 14:00:44,506 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 14:00:56,816 - INFO - Guadalajara supermercados done.
+root - 2020-06-24 14:00:57,457 - INFO - Guadalajara farmacias data already in system
+root - 2020-06-24 14:00:57,459 - INFO - Guadalajara farmacias, calculating distances to nearest POI
+root - 2020-06-24 14:13:46,486 - INFO - Starting the script distance.py
+root - 2020-06-24 14:13:46,486 - INFO - Starting with Guadalajara
+root - 2020-06-24 14:14:23,054 - INFO - Guadalajara supermercados data already in system
+root - 2020-06-24 14:14:23,054 - INFO - Guadalajara supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 14:26:04,959 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 14:26:04,964 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 14:26:32,114 - INFO - Guadalajara supermercados done.
+root - 2020-06-24 14:26:33,507 - INFO - Guadalajara farmacias data already in system
+root - 2020-06-24 14:26:33,507 - INFO - Guadalajara farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 14:46:51,992 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 14:46:51,994 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 14:47:16,162 - INFO - Guadalajara farmacias done.
+root - 2020-06-24 14:47:16,276 - INFO - Guadalajara hospitales data already in system
+root - 2020-06-24 14:47:16,276 - INFO - Guadalajara hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 14:48:21,325 - ERROR - ../data/processed/nodes_Guadalajara.geojson: No such file or directory
+fiona._env - 2020-06-24 14:48:21,326 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 14:48:46,966 - INFO - Guadalajara hospitales done.
+root - 2020-06-24 14:48:46,966 - INFO - Guadalajara done.
+root - 2020-06-24 14:48:46,967 - INFO - Starting with Monterrey
+root - 2020-06-24 14:49:42,108 - INFO - Monterrey supermercados data already in system
+root - 2020-06-24 14:49:42,109 - INFO - Monterrey supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 15:23:10,843 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-06-24 15:23:10,859 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 15:24:32,580 - INFO - Monterrey supermercados done.
+root - 2020-06-24 15:24:34,347 - INFO - Monterrey farmacias data already in system
+root - 2020-06-24 15:24:34,353 - INFO - Monterrey farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 15:36:05,554 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-06-24 15:36:05,556 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 15:36:41,978 - INFO - Monterrey farmacias done.
+fiona._env - 2020-06-24 15:36:41,979 - ERROR - ../data/processed/hospitales_Monterrey.geojson: No such file or directory
+root - 2020-06-24 15:37:59,927 - INFO - Monterrey hospitales data not in system, starting to look for nearest nodes
+numexpr.utils - 2020-06-24 15:38:00,256 - INFO - NumExpr defaulting to 4 threads.
+root - 2020-06-24 15:39:47,197 - INFO - Monterrey hospitales nearest nodes saved.
+root - 2020-06-24 15:39:47,197 - INFO - Monterrey hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 15:41:48,375 - ERROR - ../data/processed/nodes_Monterrey.geojson: No such file or directory
+fiona._env - 2020-06-24 15:41:48,380 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 15:42:23,054 - INFO - Monterrey hospitales done.
+root - 2020-06-24 15:42:23,054 - INFO - Monterrey done.
+root - 2020-06-24 15:42:23,054 - INFO - Starting with Mexico
+root - 2020-06-24 15:43:38,580 - INFO - Mexico supermercados data already in system
+root - 2020-06-24 15:43:38,580 - INFO - Mexico supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 16:31:21,870 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+fiona._env - 2020-06-24 16:31:21,873 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 16:31:58,053 - INFO - Mexico supermercados done.
+root - 2020-06-24 16:32:02,151 - INFO - Mexico farmacias data already in system
+root - 2020-06-24 16:32:02,151 - INFO - Mexico farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:15:32,779 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+fiona._env - 2020-06-24 18:15:32,783 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:15:44,163 - INFO - Mexico farmacias done.
+fiona._env - 2020-06-24 18:15:44,164 - ERROR - ../data/processed/hospitales_Mexico.geojson: No such file or directory
+root - 2020-06-24 18:16:14,075 - INFO - Mexico hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 18:18:01,434 - INFO - Mexico hospitales nearest nodes saved.
+root - 2020-06-24 18:18:01,434 - INFO - Mexico hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:19:03,188 - ERROR - ../data/processed/nodes_Mexico.geojson: No such file or directory
+fiona._env - 2020-06-24 18:19:03,188 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:19:16,419 - INFO - Mexico hospitales done.
+root - 2020-06-24 18:19:16,419 - INFO - Mexico done.
+root - 2020-06-24 18:19:16,419 - INFO - Starting with Puebla
+root - 2020-06-24 18:19:35,536 - INFO - Puebla supermercados data already in system
+root - 2020-06-24 18:19:35,536 - INFO - Puebla supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:21:02,635 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+fiona._env - 2020-06-24 18:21:02,635 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:21:08,861 - INFO - Puebla supermercados done.
+root - 2020-06-24 18:21:09,144 - INFO - Puebla farmacias data already in system
+root - 2020-06-24 18:21:09,144 - INFO - Puebla farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:22:54,593 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+fiona._env - 2020-06-24 18:22:54,593 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:23:00,842 - INFO - Puebla farmacias done.
+fiona._env - 2020-06-24 18:23:00,843 - ERROR - ../data/processed/hospitales_Puebla.geojson: No such file or directory
+root - 2020-06-24 18:23:25,782 - INFO - Puebla hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 18:23:42,575 - INFO - Puebla hospitales nearest nodes saved.
+root - 2020-06-24 18:23:42,575 - INFO - Puebla hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:23:56,842 - ERROR - ../data/processed/nodes_Puebla.geojson: No such file or directory
+fiona._env - 2020-06-24 18:23:56,843 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:24:04,150 - INFO - Puebla hospitales done.
+root - 2020-06-24 18:24:04,151 - INFO - Puebla done.
+root - 2020-06-24 18:24:04,151 - INFO - Starting with Toluca
+root - 2020-06-24 18:24:21,074 - INFO - Toluca supermercados data already in system
+root - 2020-06-24 18:24:21,074 - INFO - Toluca supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:25:36,191 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+fiona._env - 2020-06-24 18:25:36,192 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:25:42,675 - INFO - Toluca supermercados done.
+root - 2020-06-24 18:25:42,881 - INFO - Toluca farmacias data already in system
+root - 2020-06-24 18:25:42,881 - INFO - Toluca farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:27:18,906 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+fiona._env - 2020-06-24 18:27:18,906 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:27:31,029 - INFO - Toluca farmacias done.
+fiona._env - 2020-06-24 18:27:31,030 - ERROR - ../data/processed/hospitales_Toluca.geojson: No such file or directory
+root - 2020-06-24 18:28:15,945 - INFO - Toluca hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 18:28:32,235 - INFO - Toluca hospitales nearest nodes saved.
+root - 2020-06-24 18:28:32,236 - INFO - Toluca hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:30:04,927 - ERROR - ../data/processed/nodes_Toluca.geojson: No such file or directory
+fiona._env - 2020-06-24 18:30:04,930 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:30:37,645 - INFO - Toluca hospitales done.
+root - 2020-06-24 18:30:37,645 - INFO - Toluca done.
+root - 2020-06-24 18:30:37,645 - INFO - Starting with Tijuana
+root - 2020-06-24 18:30:37,875 - ERROR - Error: graph_from_polygon() got an unexpected keyword argument 'name'
+root - 2020-06-24 18:30:37,876 - INFO - Starting with Leon
+fiona._env - 2020-06-24 18:30:37,877 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 18:30:37,877 - ERROR - Error: ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-24 18:30:37,878 - INFO - Starting with Juarez
+fiona._env - 2020-06-24 18:30:41,578 - ERROR - ../data/processed/supermercados_Juarez.geojson: No such file or directory
+root - 2020-06-24 18:37:46,932 - INFO - Juarez supermercados data not in system, starting to look for nearest nodes
+root - 2020-06-24 18:37:46,947 - ERROR - Error: 'NoneType' object has no attribute 'x'
+root - 2020-06-24 18:37:46,947 - INFO - Starting with Laguna
+root - 2020-06-24 18:40:37,947 - INFO - Laguna supermercados data already in system
+root - 2020-06-24 18:40:37,976 - INFO - Laguna supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:50:10,524 - ERROR - ../data/processed/nodes_Laguna.geojson: No such file or directory
+fiona._env - 2020-06-24 18:50:10,526 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:51:06,404 - INFO - Laguna supermercados done.
+root - 2020-06-24 18:51:08,530 - INFO - Laguna farmacias data already in system
+root - 2020-06-24 18:51:08,559 - INFO - Laguna farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:57:02,727 - ERROR - ../data/processed/nodes_Laguna.geojson: No such file or directory
+fiona._env - 2020-06-24 18:57:02,735 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:57:36,811 - INFO - Laguna farmacias done.
+root - 2020-06-24 18:57:36,979 - INFO - Laguna hospitales data already in system
+root - 2020-06-24 18:57:36,979 - INFO - Laguna hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 18:58:14,979 - ERROR - ../data/processed/nodes_Laguna.geojson: No such file or directory
+fiona._env - 2020-06-24 18:58:14,979 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 18:58:27,980 - INFO - Laguna hospitales done.
+root - 2020-06-24 18:58:27,980 - INFO - Laguna done.
+root - 2020-06-24 18:58:27,980 - INFO - Starting with Querétaro
+root - 2020-06-24 19:00:06,719 - INFO - Querétaro supermercados data already in system
+root - 2020-06-24 19:00:06,719 - INFO - Querétaro supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:11:27,945 - ERROR - ../data/processed/nodes_Querétaro.geojson: No such file or directory
+fiona._env - 2020-06-24 19:11:27,946 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:12:19,228 - INFO - Querétaro supermercados done.
+root - 2020-06-24 19:12:20,418 - INFO - Querétaro farmacias data already in system
+root - 2020-06-24 19:12:20,423 - INFO - Querétaro farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:15:04,396 - ERROR - ../data/processed/nodes_Querétaro.geojson: No such file or directory
+fiona._env - 2020-06-24 19:15:04,397 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:15:29,745 - INFO - Querétaro farmacias done.
+root - 2020-06-24 19:15:29,782 - INFO - Querétaro hospitales data already in system
+root - 2020-06-24 19:15:29,782 - INFO - Querétaro hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:16:26,380 - ERROR - ../data/processed/nodes_Querétaro.geojson: No such file or directory
+fiona._env - 2020-06-24 19:16:26,380 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:16:45,887 - INFO - Querétaro hospitales done.
+root - 2020-06-24 19:16:45,887 - INFO - Querétaro done.
+root - 2020-06-24 19:16:45,887 - INFO - Starting with SLP
+root - 2020-06-24 19:17:19,564 - INFO - SLP supermercados data already in system
+root - 2020-06-24 19:17:19,564 - INFO - SLP supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:18:01,428 - ERROR - ../data/processed/nodes_SLP.geojson: No such file or directory
+fiona._env - 2020-06-24 19:18:01,430 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:18:09,432 - INFO - SLP supermercados done.
+root - 2020-06-24 19:18:09,729 - INFO - SLP farmacias data already in system
+root - 2020-06-24 19:18:09,730 - INFO - SLP farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:19:13,421 - ERROR - ../data/processed/nodes_SLP.geojson: No such file or directory
+fiona._env - 2020-06-24 19:19:13,422 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:19:22,133 - INFO - SLP farmacias done.
+root - 2020-06-24 19:19:22,206 - INFO - SLP hospitales data already in system
+root - 2020-06-24 19:19:22,206 - INFO - SLP hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:19:47,176 - ERROR - ../data/processed/nodes_SLP.geojson: No such file or directory
+fiona._env - 2020-06-24 19:19:47,178 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:20:21,312 - INFO - SLP hospitales done.
+root - 2020-06-24 19:20:21,313 - INFO - SLP done.
+root - 2020-06-24 19:20:21,313 - INFO - Starting with Merida
+root - 2020-06-24 19:21:38,643 - INFO - Merida supermercados data already in system
+root - 2020-06-24 19:21:38,654 - INFO - Merida supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:24:29,129 - ERROR - ../data/processed/nodes_Merida.geojson: No such file or directory
+fiona._env - 2020-06-24 19:24:29,129 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:24:47,864 - INFO - Merida supermercados done.
+root - 2020-06-24 19:24:49,028 - INFO - Merida farmacias data already in system
+root - 2020-06-24 19:24:49,028 - INFO - Merida farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:27:02,007 - ERROR - ../data/processed/nodes_Merida.geojson: No such file or directory
+fiona._env - 2020-06-24 19:27:02,008 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:27:26,578 - INFO - Merida farmacias done.
+root - 2020-06-24 19:27:26,664 - INFO - Merida hospitales data already in system
+root - 2020-06-24 19:27:26,664 - INFO - Merida hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:28:03,819 - ERROR - ../data/processed/nodes_Merida.geojson: No such file or directory
+fiona._env - 2020-06-24 19:28:03,819 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:28:30,501 - INFO - Merida hospitales done.
+root - 2020-06-24 19:28:30,501 - INFO - Merida done.
+root - 2020-06-24 19:28:30,501 - INFO - Starting with Aguascalientes
+root - 2020-06-24 19:29:15,791 - INFO - Aguascalientes supermercados data already in system
+root - 2020-06-24 19:29:15,792 - INFO - Aguascalientes supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:30:44,001 - ERROR - ../data/processed/nodes_Aguascalientes.geojson: No such file or directory
+fiona._env - 2020-06-24 19:30:44,002 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:30:58,786 - INFO - Aguascalientes supermercados done.
+root - 2020-06-24 19:30:59,323 - INFO - Aguascalientes farmacias data already in system
+root - 2020-06-24 19:30:59,323 - INFO - Aguascalientes farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:32:12,141 - ERROR - ../data/processed/nodes_Aguascalientes.geojson: No such file or directory
+fiona._env - 2020-06-24 19:32:12,142 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:32:32,657 - INFO - Aguascalientes farmacias done.
+root - 2020-06-24 19:32:32,763 - INFO - Aguascalientes hospitales data already in system
+root - 2020-06-24 19:32:32,764 - INFO - Aguascalientes hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:33:01,256 - ERROR - ../data/processed/nodes_Aguascalientes.geojson: No such file or directory
+fiona._env - 2020-06-24 19:33:01,257 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:33:22,693 - INFO - Aguascalientes hospitales done.
+root - 2020-06-24 19:33:22,693 - INFO - Aguascalientes done.
+root - 2020-06-24 19:33:22,694 - INFO - Starting with Mexicali
+root - 2020-06-24 19:34:26,845 - INFO - Mexicali supermercados data already in system
+root - 2020-06-24 19:34:26,845 - INFO - Mexicali supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:36:54,222 - ERROR - ../data/processed/nodes_Mexicali.geojson: No such file or directory
+fiona._env - 2020-06-24 19:36:54,223 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:37:03,697 - INFO - Mexicali supermercados done.
+root - 2020-06-24 19:37:03,791 - INFO - Mexicali farmacias data already in system
+root - 2020-06-24 19:37:03,792 - INFO - Mexicali farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:37:35,055 - ERROR - ../data/processed/nodes_Mexicali.geojson: No such file or directory
+fiona._env - 2020-06-24 19:37:35,056 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:37:42,782 - INFO - Mexicali farmacias done.
+fiona._env - 2020-06-24 19:37:42,783 - ERROR - ../data/processed/hospitales_Mexicali.geojson: No such file or directory
+root - 2020-06-24 19:38:21,303 - INFO - Mexicali hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 19:38:27,667 - INFO - Mexicali hospitales nearest nodes saved.
+root - 2020-06-24 19:38:27,667 - INFO - Mexicali hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:38:38,170 - ERROR - ../data/processed/nodes_Mexicali.geojson: No such file or directory
+fiona._env - 2020-06-24 19:38:38,170 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:38:46,596 - INFO - Mexicali hospitales done.
+root - 2020-06-24 19:38:46,596 - INFO - Mexicali done.
+root - 2020-06-24 19:38:46,596 - INFO - Starting with Cuernavaca
+root - 2020-06-24 19:38:59,375 - INFO - Cuernavaca supermercados data already in system
+root - 2020-06-24 19:38:59,375 - INFO - Cuernavaca supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:39:14,802 - ERROR - ../data/processed/nodes_Cuernavaca.geojson: No such file or directory
+fiona._env - 2020-06-24 19:39:14,803 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:39:17,438 - INFO - Cuernavaca supermercados done.
+root - 2020-06-24 19:39:17,661 - INFO - Cuernavaca farmacias data already in system
+root - 2020-06-24 19:39:17,661 - INFO - Cuernavaca farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:39:36,317 - ERROR - ../data/processed/nodes_Cuernavaca.geojson: No such file or directory
+fiona._env - 2020-06-24 19:39:36,317 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:39:41,828 - INFO - Cuernavaca farmacias done.
+fiona._env - 2020-06-24 19:39:41,830 - ERROR - ../data/processed/hospitales_Cuernavaca.geojson: No such file or directory
+root - 2020-06-24 19:40:14,397 - INFO - Cuernavaca hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 19:40:19,689 - INFO - Cuernavaca hospitales nearest nodes saved.
+root - 2020-06-24 19:40:19,689 - INFO - Cuernavaca hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:40:25,198 - ERROR - ../data/processed/nodes_Cuernavaca.geojson: No such file or directory
+fiona._env - 2020-06-24 19:40:25,198 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:40:27,956 - INFO - Cuernavaca hospitales done.
+root - 2020-06-24 19:40:27,956 - INFO - Cuernavaca done.
+root - 2020-06-24 19:40:27,956 - INFO - Starting with Saltillo
+root - 2020-06-24 19:40:42,309 - INFO - Saltillo supermercados data already in system
+root - 2020-06-24 19:40:42,309 - INFO - Saltillo supermercados, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:41:09,143 - ERROR - ../data/processed/nodes_Saltillo.geojson: No such file or directory
+fiona._env - 2020-06-24 19:41:09,144 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:41:11,923 - INFO - Saltillo supermercados done.
+root - 2020-06-24 19:41:12,083 - INFO - Saltillo farmacias data already in system
+root - 2020-06-24 19:41:12,083 - INFO - Saltillo farmacias, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:41:29,357 - ERROR - ../data/processed/nodes_Saltillo.geojson: No such file or directory
+fiona._env - 2020-06-24 19:41:29,358 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:41:32,116 - INFO - Saltillo farmacias done.
+fiona._env - 2020-06-24 19:41:32,117 - ERROR - ../data/processed/hospitales_Saltillo.geojson: No such file or directory
+root - 2020-06-24 19:42:07,414 - INFO - Saltillo hospitales data not in system, starting to look for nearest nodes
+root - 2020-06-24 19:42:09,363 - INFO - Saltillo hospitales nearest nodes saved.
+root - 2020-06-24 19:42:09,364 - INFO - Saltillo hospitales, calculating distances to nearest POI
+fiona._env - 2020-06-24 19:42:14,936 - ERROR - ../data/processed/nodes_Saltillo.geojson: No such file or directory
+fiona._env - 2020-06-24 19:42:14,937 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-24 19:42:21,968 - INFO - Saltillo hospitales done.
+root - 2020-06-24 19:42:21,969 - INFO - Saltillo done.
