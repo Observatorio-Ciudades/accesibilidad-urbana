@@ -4,7 +4,7 @@
 # name of the city as key.
 # developed by: Luis Natera @natera
 # 			  nateraluis@gmail.com
-# updated: 08/05/2020
+# updated: 24/06/2020
 ################################################################################
 import osmnx as ox
 from .utils import *
@@ -116,7 +116,7 @@ def load_denue(amenity_name):
 	Load the DENUE into a geoDataFrame
 
 	Arguments:
-		amenity_name {str} -- string with the name of the amenity to load the availables are: ('farmacias','supermercados')
+		amenity_name {str} -- string with the name of the amenity to load the availables are: ('farmacias','supermercados','hospitales')
 
 	Returns:
 		geopandas.geoDataFrame -- geoDataFrame with the DENUE
@@ -124,6 +124,10 @@ def load_denue(amenity_name):
 	if amenity_name == 'farmacias':
 		gdf = gpd.read_file('../data/external/DENUE/denue_00_46321-46531_shp/conjunto_de_datos/denue_inegi_46321-46531_.shp')
 		gdf = gdf[(gdf['codigo_act']=="464111")|(gdf['codigo_act']=="464112")]
+		return gdf
+	if amenity_name == 'hospitales':
+		gdf = gpd.read_file('../data/external/DENUE/denue_00_62_shp/conjunto_de_datos/denue_inegi_62_.shp')
+		gdf = gdf[(gdf['codigo_act']=="622111")|(gdf['codigo_act']=="622112")]
 		return gdf
 	elif amenity_name == 'supermercados':
 		gdf = gpd.read_file('../data/external/DENUE/denue_00_46112-46311_shp/conjunto_de_datos/denue_inegi_46112-46311_.shp')
