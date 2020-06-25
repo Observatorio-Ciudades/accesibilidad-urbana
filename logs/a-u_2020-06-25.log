@@ -1,0 +1,430 @@
+root - 2020-06-25 09:48:49,982 - INFO - Starting the script hexplots.py
+root - 2020-06-25 09:48:49,983 - INFO - Starting with Guadalajara
+root - 2020-06-25 09:48:50,408 - INFO - area loded
+root - 2020-06-25 09:49:00,836 - INFO - hex created
+root - 2020-06-25 09:49:21,860 - INFO - nodes loaded
+root - 2020-06-25 09:50:30,254 - INFO - nodes grouped by
+root - 2020-06-25 09:50:39,486 - INFO - Previous hex bins file found for Guadalajara
+root - 2020-06-25 09:50:39,646 - INFO - No previous hex bins file for Guadalajara
+fiona._env - 2020-06-25 09:50:40,375 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 09:50:40,496 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 09:51:26,513 - INFO - Hex bins from Guadalajara saved
+root - 2020-06-25 09:54:45,316 - INFO - Graph loaded
+root - 2020-06-25 09:56:50,263 - INFO - Starting the plotting
+root - 2020-06-25 09:57:15,773 - INFO - Plotting supermercados finished for Guadalajara
+root - 2020-06-25 09:57:37,045 - INFO - nodes grouped by
+root - 2020-06-25 09:57:45,465 - INFO - Previous hex bins file found for Guadalajara
+root - 2020-06-25 09:57:45,568 - INFO - No previous hex bins file for Guadalajara
+fiona._env - 2020-06-25 09:57:46,204 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 09:57:46,204 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 09:58:09,243 - INFO - Hex bins from Guadalajara saved
+root - 2020-06-25 10:00:21,606 - INFO - Graph loaded
+root - 2020-06-25 10:01:56,060 - INFO - Starting the plotting
+root - 2020-06-25 10:02:22,139 - INFO - Plotting farmacias finished for Guadalajara
+root - 2020-06-25 10:02:45,485 - INFO - nodes grouped by
+root - 2020-06-25 10:02:53,354 - INFO - Previous hex bins file found for Guadalajara
+root - 2020-06-25 10:02:53,509 - INFO - No previous hex bins file for Guadalajara
+fiona._env - 2020-06-25 10:02:54,017 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:02:54,018 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:03:11,146 - INFO - Hex bins from Guadalajara saved
+root - 2020-06-25 10:05:09,312 - INFO - Graph loaded
+root - 2020-06-25 10:07:01,879 - INFO - Starting the plotting
+root - 2020-06-25 10:07:33,660 - INFO - Plotting hospitales finished for Guadalajara
+root - 2020-06-25 10:07:33,661 - INFO - Plotting done, script finished for Guadalajara
+root - 2020-06-25 10:07:33,661 - INFO - Starting with Monterrey
+root - 2020-06-25 10:07:33,825 - INFO - area loded
+root - 2020-06-25 10:08:05,348 - INFO - hex created
+root - 2020-06-25 10:08:33,013 - INFO - nodes loaded
+root - 2020-06-25 10:09:49,669 - INFO - nodes grouped by
+root - 2020-06-25 10:09:59,922 - INFO - Previous hex bins file found for Monterrey
+root - 2020-06-25 10:10:00,307 - INFO - No previous hex bins file for Monterrey
+fiona._env - 2020-06-25 10:10:01,764 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:10:01,764 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:10:39,090 - INFO - Hex bins from Monterrey saved
+root - 2020-06-25 10:12:25,850 - INFO - Graph loaded
+root - 2020-06-25 10:13:28,824 - INFO - Starting the plotting
+root - 2020-06-25 10:13:49,323 - INFO - Plotting supermercados finished for Monterrey
+root - 2020-06-25 10:14:05,631 - INFO - nodes grouped by
+root - 2020-06-25 10:14:16,264 - INFO - Previous hex bins file found for Monterrey
+root - 2020-06-25 10:14:16,373 - INFO - No previous hex bins file for Monterrey
+fiona._env - 2020-06-25 10:14:16,943 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:14:16,943 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:14:37,327 - INFO - Hex bins from Monterrey saved
+root - 2020-06-25 10:16:30,721 - INFO - Graph loaded
+root - 2020-06-25 10:18:19,198 - INFO - Starting the plotting
+root - 2020-06-25 10:19:15,259 - INFO - Plotting farmacias finished for Monterrey
+root - 2020-06-25 10:19:49,238 - INFO - nodes grouped by
+root - 2020-06-25 10:20:07,329 - INFO - Previous hex bins file found for Monterrey
+root - 2020-06-25 10:20:07,573 - INFO - No previous hex bins file for Monterrey
+fiona._env - 2020-06-25 10:20:09,091 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:20:09,093 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:20:49,740 - INFO - Hex bins from Monterrey saved
+root - 2020-06-25 10:23:03,952 - INFO - Graph loaded
+root - 2020-06-25 10:24:12,848 - INFO - Starting the plotting
+root - 2020-06-25 10:24:44,417 - INFO - Plotting hospitales finished for Monterrey
+root - 2020-06-25 10:24:44,417 - INFO - Plotting done, script finished for Monterrey
+root - 2020-06-25 10:24:44,418 - INFO - Starting with Mexico
+root - 2020-06-25 10:24:44,554 - INFO - area loded
+root - 2020-06-25 10:24:49,236 - INFO - hex created
+root - 2020-06-25 10:25:10,453 - INFO - nodes loaded
+root - 2020-06-25 10:26:06,788 - INFO - nodes grouped by
+root - 2020-06-25 10:26:13,999 - INFO - Previous hex bins file found for Mexico
+root - 2020-06-25 10:26:14,061 - INFO - No previous hex bins file for Mexico
+fiona._env - 2020-06-25 10:26:14,511 - ERROR - ../data/processed/Mexico_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:26:14,511 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:26:25,380 - INFO - Hex bins from Mexico saved
+root - 2020-06-25 10:28:04,886 - INFO - Graph loaded
+root - 2020-06-25 10:28:58,513 - INFO - Starting the plotting
+root - 2020-06-25 10:29:07,408 - INFO - Plotting supermercados finished for Mexico
+root - 2020-06-25 10:29:19,949 - INFO - nodes grouped by
+root - 2020-06-25 10:29:23,348 - INFO - Previous hex bins file found for Mexico
+root - 2020-06-25 10:29:23,409 - INFO - No previous hex bins file for Mexico
+fiona._env - 2020-06-25 10:29:23,669 - ERROR - ../data/processed/Mexico_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:29:23,670 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:29:29,300 - INFO - Hex bins from Mexico saved
+root - 2020-06-25 10:30:47,465 - INFO - Graph loaded
+root - 2020-06-25 10:31:49,262 - INFO - Starting the plotting
+root - 2020-06-25 10:32:08,636 - INFO - Plotting farmacias finished for Mexico
+root - 2020-06-25 10:32:26,679 - INFO - nodes grouped by
+root - 2020-06-25 10:32:31,984 - INFO - Previous hex bins file found for Mexico
+root - 2020-06-25 10:32:32,099 - INFO - No previous hex bins file for Mexico
+fiona._env - 2020-06-25 10:32:32,532 - ERROR - ../data/processed/Mexico_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:32:32,532 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:32:43,085 - INFO - Hex bins from Mexico saved
+root - 2020-06-25 10:35:04,368 - INFO - Graph loaded
+root - 2020-06-25 10:36:48,426 - INFO - Starting the plotting
+root - 2020-06-25 10:37:06,753 - INFO - Plotting hospitales finished for Mexico
+root - 2020-06-25 10:37:06,754 - INFO - Plotting done, script finished for Mexico
+root - 2020-06-25 10:37:06,754 - INFO - Starting with Puebla
+root - 2020-06-25 10:37:07,125 - INFO - area loded
+root - 2020-06-25 10:37:14,609 - INFO - hex created
+root - 2020-06-25 10:37:30,083 - INFO - nodes loaded
+root - 2020-06-25 10:38:03,062 - INFO - nodes grouped by
+root - 2020-06-25 10:38:07,595 - INFO - Previous hex bins file found for Puebla
+root - 2020-06-25 10:38:07,691 - INFO - No previous hex bins file for Puebla
+fiona._env - 2020-06-25 10:38:08,099 - ERROR - ../data/processed/Puebla_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:38:08,099 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:38:19,509 - INFO - Hex bins from Puebla saved
+root - 2020-06-25 10:39:29,750 - INFO - Graph loaded
+root - 2020-06-25 10:40:26,029 - INFO - Starting the plotting
+root - 2020-06-25 10:40:43,106 - INFO - Plotting supermercados finished for Puebla
+root - 2020-06-25 10:40:54,204 - INFO - nodes grouped by
+root - 2020-06-25 10:40:59,043 - INFO - Previous hex bins file found for Puebla
+root - 2020-06-25 10:40:59,106 - INFO - No previous hex bins file for Puebla
+fiona._env - 2020-06-25 10:40:59,458 - ERROR - ../data/processed/Puebla_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:40:59,459 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:41:08,989 - INFO - Hex bins from Puebla saved
+root - 2020-06-25 10:42:20,802 - INFO - Graph loaded
+root - 2020-06-25 10:42:47,425 - INFO - Starting the plotting
+root - 2020-06-25 10:42:50,883 - INFO - Plotting farmacias finished for Puebla
+root - 2020-06-25 10:42:53,396 - INFO - nodes grouped by
+root - 2020-06-25 10:42:54,284 - INFO - Previous hex bins file found for Puebla
+root - 2020-06-25 10:42:54,304 - INFO - No previous hex bins file for Puebla
+fiona._env - 2020-06-25 10:42:54,378 - ERROR - ../data/processed/Puebla_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:42:54,379 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:42:57,269 - INFO - Hex bins from Puebla saved
+root - 2020-06-25 10:43:20,110 - INFO - Graph loaded
+root - 2020-06-25 10:43:35,465 - INFO - Starting the plotting
+root - 2020-06-25 10:43:38,666 - INFO - Plotting hospitales finished for Puebla
+root - 2020-06-25 10:43:38,666 - INFO - Plotting done, script finished for Puebla
+root - 2020-06-25 10:43:38,666 - INFO - Starting with Toluca
+root - 2020-06-25 10:43:38,707 - INFO - area loded
+root - 2020-06-25 10:43:40,543 - INFO - hex created
+root - 2020-06-25 10:43:44,138 - INFO - nodes loaded
+root - 2020-06-25 10:43:56,337 - INFO - nodes grouped by
+root - 2020-06-25 10:43:57,616 - INFO - Previous hex bins file found for Toluca
+root - 2020-06-25 10:43:57,645 - INFO - No previous hex bins file for Toluca
+fiona._env - 2020-06-25 10:43:57,755 - ERROR - ../data/processed/Toluca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:43:57,756 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:44:00,867 - INFO - Hex bins from Toluca saved
+root - 2020-06-25 10:44:22,358 - INFO - Graph loaded
+root - 2020-06-25 10:44:36,178 - INFO - Starting the plotting
+root - 2020-06-25 10:44:40,207 - INFO - Plotting supermercados finished for Toluca
+root - 2020-06-25 10:44:43,742 - INFO - nodes grouped by
+root - 2020-06-25 10:44:45,123 - INFO - Previous hex bins file found for Toluca
+root - 2020-06-25 10:44:45,152 - INFO - No previous hex bins file for Toluca
+fiona._env - 2020-06-25 10:44:45,315 - ERROR - ../data/processed/Toluca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:44:45,316 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:44:51,288 - INFO - Hex bins from Toluca saved
+root - 2020-06-25 10:45:10,092 - INFO - Graph loaded
+root - 2020-06-25 10:45:22,445 - INFO - Starting the plotting
+root - 2020-06-25 10:45:29,414 - INFO - Plotting farmacias finished for Toluca
+root - 2020-06-25 10:45:33,298 - INFO - nodes grouped by
+root - 2020-06-25 10:45:34,624 - INFO - Previous hex bins file found for Toluca
+root - 2020-06-25 10:45:34,656 - INFO - No previous hex bins file for Toluca
+fiona._env - 2020-06-25 10:45:34,770 - ERROR - ../data/processed/Toluca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:45:34,770 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:45:37,633 - INFO - Hex bins from Toluca saved
+root - 2020-06-25 10:45:57,862 - INFO - Graph loaded
+root - 2020-06-25 10:46:10,837 - INFO - Starting the plotting
+root - 2020-06-25 10:46:15,373 - INFO - Plotting hospitales finished for Toluca
+root - 2020-06-25 10:46:15,373 - INFO - Plotting done, script finished for Toluca
+root - 2020-06-25 10:46:15,373 - INFO - Starting with Tijuana
+root - 2020-06-25 10:46:15,427 - INFO - area loded
+root - 2020-06-25 10:46:19,402 - INFO - hex created
+fiona._env - 2020-06-25 10:46:19,403 - ERROR - ../data/processed/nodes_Tijuana.geojson: No such file or directory
+root - 2020-06-25 10:46:19,404 - INFO - Error: ../data/processed/nodes_Tijuana.geojson: No such file or directory
+root - 2020-06-25 10:46:19,404 - INFO - Starting with Leon
+fiona._env - 2020-06-25 10:46:19,404 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-25 10:46:19,404 - INFO - Error: ../data/raw/Leon_area.geojson: No such file or directory
+root - 2020-06-25 10:46:19,404 - INFO - Starting with Juarez
+root - 2020-06-25 10:46:19,418 - INFO - area loded
+root - 2020-06-25 10:46:22,301 - INFO - hex created
+fiona._env - 2020-06-25 10:46:22,303 - ERROR - ../data/processed/nodes_Juarez.geojson: No such file or directory
+root - 2020-06-25 10:46:22,303 - INFO - Error: ../data/processed/nodes_Juarez.geojson: No such file or directory
+root - 2020-06-25 10:46:22,303 - INFO - Starting with Laguna
+root - 2020-06-25 10:46:22,522 - INFO - area loded
+root - 2020-06-25 10:47:32,105 - INFO - hex created
+root - 2020-06-25 10:47:33,801 - INFO - nodes loaded
+root - 2020-06-25 10:48:47,417 - INFO - nodes grouped by
+root - 2020-06-25 10:49:19,185 - INFO - Previous hex bins file found for Laguna
+root - 2020-06-25 10:49:19,968 - INFO - No previous hex bins file for Laguna
+fiona._env - 2020-06-25 10:49:21,895 - ERROR - ../data/processed/Laguna_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:49:21,895 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:50:36,616 - INFO - Hex bins from Laguna saved
+root - 2020-06-25 10:50:50,801 - INFO - Graph loaded
+root - 2020-06-25 10:50:58,215 - INFO - Starting the plotting
+root - 2020-06-25 10:52:30,252 - INFO - Plotting supermercados finished for Laguna
+root - 2020-06-25 10:52:35,064 - INFO - nodes grouped by
+root - 2020-06-25 10:53:09,924 - INFO - Previous hex bins file found for Laguna
+root - 2020-06-25 10:53:10,932 - INFO - No previous hex bins file for Laguna
+fiona._env - 2020-06-25 10:53:15,189 - ERROR - ../data/processed/Laguna_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:53:15,189 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:54:22,975 - INFO - Hex bins from Laguna saved
+root - 2020-06-25 10:54:40,506 - INFO - Graph loaded
+root - 2020-06-25 10:54:47,987 - INFO - Starting the plotting
+root - 2020-06-25 10:56:14,535 - INFO - Plotting farmacias finished for Laguna
+root - 2020-06-25 10:56:19,039 - INFO - nodes grouped by
+root - 2020-06-25 10:56:52,527 - INFO - Previous hex bins file found for Laguna
+root - 2020-06-25 10:56:53,061 - INFO - No previous hex bins file for Laguna
+fiona._env - 2020-06-25 10:56:57,026 - ERROR - ../data/processed/Laguna_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 10:56:57,027 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 10:58:06,081 - INFO - Hex bins from Laguna saved
+root - 2020-06-25 10:58:19,551 - INFO - Graph loaded
+root - 2020-06-25 10:58:25,909 - INFO - Starting the plotting
+root - 2020-06-25 10:59:52,301 - INFO - Plotting hospitales finished for Laguna
+root - 2020-06-25 10:59:52,301 - INFO - Plotting done, script finished for Laguna
+root - 2020-06-25 10:59:52,301 - INFO - Starting with Querétaro
+root - 2020-06-25 10:59:52,324 - INFO - area loded
+root - 2020-06-25 10:59:53,715 - INFO - hex created
+root - 2020-06-25 10:59:56,809 - INFO - nodes loaded
+root - 2020-06-25 11:00:09,225 - INFO - nodes grouped by
+root - 2020-06-25 11:00:12,119 - INFO - Previous hex bins file found for Querétaro
+root - 2020-06-25 11:00:12,146 - INFO - No previous hex bins file for Querétaro
+fiona._env - 2020-06-25 11:00:12,260 - ERROR - ../data/processed/Querétaro_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:00:12,260 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:00:15,120 - INFO - Hex bins from Querétaro saved
+root - 2020-06-25 11:00:40,967 - INFO - Graph loaded
+root - 2020-06-25 11:01:01,635 - INFO - Starting the plotting
+root - 2020-06-25 11:01:15,794 - INFO - Plotting supermercados finished for Querétaro
+root - 2020-06-25 11:01:23,128 - INFO - nodes grouped by
+root - 2020-06-25 11:01:25,469 - INFO - Previous hex bins file found for Querétaro
+root - 2020-06-25 11:01:25,506 - INFO - No previous hex bins file for Querétaro
+fiona._env - 2020-06-25 11:01:25,639 - ERROR - ../data/processed/Querétaro_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:01:25,639 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:01:31,328 - INFO - Hex bins from Querétaro saved
+root - 2020-06-25 11:02:07,178 - INFO - Graph loaded
+root - 2020-06-25 11:02:24,511 - INFO - Starting the plotting
+root - 2020-06-25 11:02:29,262 - INFO - Plotting farmacias finished for Querétaro
+root - 2020-06-25 11:02:35,684 - INFO - nodes grouped by
+root - 2020-06-25 11:02:38,840 - INFO - Previous hex bins file found for Querétaro
+root - 2020-06-25 11:02:38,896 - INFO - No previous hex bins file for Querétaro
+fiona._env - 2020-06-25 11:02:39,025 - ERROR - ../data/processed/Querétaro_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:02:39,026 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:02:45,044 - INFO - Hex bins from Querétaro saved
+root - 2020-06-25 11:03:13,110 - INFO - Graph loaded
+root - 2020-06-25 11:03:30,957 - INFO - Starting the plotting
+root - 2020-06-25 11:03:37,071 - INFO - Plotting hospitales finished for Querétaro
+root - 2020-06-25 11:03:37,072 - INFO - Plotting done, script finished for Querétaro
+root - 2020-06-25 11:03:37,072 - INFO - Starting with SLP
+root - 2020-06-25 11:03:37,101 - INFO - area loded
+root - 2020-06-25 11:03:41,160 - INFO - hex created
+root - 2020-06-25 11:03:44,548 - INFO - nodes loaded
+root - 2020-06-25 11:03:52,065 - INFO - nodes grouped by
+root - 2020-06-25 11:03:53,892 - INFO - Previous hex bins file found for SLP
+root - 2020-06-25 11:03:53,933 - INFO - No previous hex bins file for SLP
+fiona._env - 2020-06-25 11:03:54,088 - ERROR - ../data/processed/SLP_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:03:54,088 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:04:01,663 - INFO - Hex bins from SLP saved
+root - 2020-06-25 11:04:15,681 - INFO - Graph loaded
+root - 2020-06-25 11:04:24,194 - INFO - Starting the plotting
+root - 2020-06-25 11:04:38,196 - INFO - Plotting supermercados finished for SLP
+root - 2020-06-25 11:04:44,002 - INFO - nodes grouped by
+root - 2020-06-25 11:04:46,117 - INFO - Previous hex bins file found for SLP
+root - 2020-06-25 11:04:46,168 - INFO - No previous hex bins file for SLP
+fiona._env - 2020-06-25 11:04:46,360 - ERROR - ../data/processed/SLP_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:04:46,361 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:04:54,273 - INFO - Hex bins from SLP saved
+root - 2020-06-25 11:05:07,513 - INFO - Graph loaded
+root - 2020-06-25 11:05:16,595 - INFO - Starting the plotting
+root - 2020-06-25 11:05:30,376 - INFO - Plotting farmacias finished for SLP
+root - 2020-06-25 11:05:36,283 - INFO - nodes grouped by
+root - 2020-06-25 11:05:38,871 - INFO - Previous hex bins file found for SLP
+root - 2020-06-25 11:05:38,929 - INFO - No previous hex bins file for SLP
+fiona._env - 2020-06-25 11:05:39,119 - ERROR - ../data/processed/SLP_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:05:39,125 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:05:46,687 - INFO - Hex bins from SLP saved
+root - 2020-06-25 11:06:00,824 - INFO - Graph loaded
+root - 2020-06-25 11:06:09,944 - INFO - Starting the plotting
+root - 2020-06-25 11:06:18,016 - INFO - Plotting hospitales finished for SLP
+root - 2020-06-25 11:06:18,016 - INFO - Plotting done, script finished for SLP
+root - 2020-06-25 11:06:18,016 - INFO - Starting with Merida
+root - 2020-06-25 11:06:18,042 - INFO - area loded
+root - 2020-06-25 11:06:19,830 - INFO - hex created
+root - 2020-06-25 11:06:24,494 - INFO - nodes loaded
+root - 2020-06-25 11:06:43,275 - INFO - nodes grouped by
+root - 2020-06-25 11:06:52,064 - INFO - Previous hex bins file found for Merida
+root - 2020-06-25 11:06:52,239 - INFO - No previous hex bins file for Merida
+fiona._env - 2020-06-25 11:06:53,201 - ERROR - ../data/processed/Merida_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:06:53,202 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:07:02,828 - INFO - Hex bins from Merida saved
+root - 2020-06-25 11:07:45,471 - INFO - Graph loaded
+root - 2020-06-25 11:08:20,769 - INFO - Starting the plotting
+root - 2020-06-25 11:08:36,809 - INFO - Plotting supermercados finished for Merida
+root - 2020-06-25 11:08:47,873 - INFO - nodes grouped by
+root - 2020-06-25 11:08:54,478 - INFO - Previous hex bins file found for Merida
+root - 2020-06-25 11:08:54,656 - INFO - No previous hex bins file for Merida
+fiona._env - 2020-06-25 11:08:55,009 - ERROR - ../data/processed/Merida_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:08:55,010 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:09:04,092 - INFO - Hex bins from Merida saved
+root - 2020-06-25 11:09:54,480 - INFO - Graph loaded
+root - 2020-06-25 11:10:36,943 - INFO - Starting the plotting
+root - 2020-06-25 11:10:53,181 - INFO - Plotting farmacias finished for Merida
+root - 2020-06-25 11:11:03,855 - INFO - nodes grouped by
+root - 2020-06-25 11:11:09,215 - INFO - Previous hex bins file found for Merida
+root - 2020-06-25 11:11:09,350 - INFO - No previous hex bins file for Merida
+fiona._env - 2020-06-25 11:11:09,947 - ERROR - ../data/processed/Merida_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:11:09,948 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:11:24,252 - INFO - Hex bins from Merida saved
+root - 2020-06-25 11:12:06,899 - INFO - Graph loaded
+root - 2020-06-25 11:12:47,653 - INFO - Starting the plotting
+root - 2020-06-25 11:13:13,618 - INFO - Plotting hospitales finished for Merida
+root - 2020-06-25 11:13:13,618 - INFO - Plotting done, script finished for Merida
+root - 2020-06-25 11:13:13,618 - INFO - Starting with Aguascalientes
+root - 2020-06-25 11:13:13,777 - INFO - area loded
+root - 2020-06-25 11:13:19,906 - INFO - hex created
+root - 2020-06-25 11:13:26,134 - INFO - nodes loaded
+root - 2020-06-25 11:13:48,771 - INFO - nodes grouped by
+root - 2020-06-25 11:13:54,632 - INFO - Previous hex bins file found for Aguascalientes
+root - 2020-06-25 11:13:54,706 - INFO - No previous hex bins file for Aguascalientes
+fiona._env - 2020-06-25 11:13:55,089 - ERROR - ../data/processed/Aguascalientes_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:13:55,090 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:14:06,222 - INFO - Hex bins from Aguascalientes saved
+root - 2020-06-25 11:14:32,090 - INFO - Graph loaded
+root - 2020-06-25 11:14:57,124 - INFO - Starting the plotting
+root - 2020-06-25 11:15:17,072 - INFO - Plotting supermercados finished for Aguascalientes
+root - 2020-06-25 11:15:25,977 - INFO - nodes grouped by
+root - 2020-06-25 11:15:31,187 - INFO - Previous hex bins file found for Aguascalientes
+root - 2020-06-25 11:15:31,263 - INFO - No previous hex bins file for Aguascalientes
+fiona._env - 2020-06-25 11:15:31,572 - ERROR - ../data/processed/Aguascalientes_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:15:31,573 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:15:44,200 - INFO - Hex bins from Aguascalientes saved
+root - 2020-06-25 11:16:10,526 - INFO - Graph loaded
+root - 2020-06-25 11:16:31,660 - INFO - Starting the plotting
+root - 2020-06-25 11:16:51,927 - INFO - Plotting farmacias finished for Aguascalientes
+root - 2020-06-25 11:17:01,475 - INFO - nodes grouped by
+root - 2020-06-25 11:17:08,447 - INFO - Previous hex bins file found for Aguascalientes
+root - 2020-06-25 11:17:08,535 - INFO - No previous hex bins file for Aguascalientes
+fiona._env - 2020-06-25 11:17:09,158 - ERROR - ../data/processed/Aguascalientes_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:17:09,160 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:17:21,210 - INFO - Hex bins from Aguascalientes saved
+root - 2020-06-25 11:17:51,124 - INFO - Graph loaded
+root - 2020-06-25 11:18:15,677 - INFO - Starting the plotting
+root - 2020-06-25 11:18:34,687 - INFO - Plotting hospitales finished for Aguascalientes
+root - 2020-06-25 11:18:34,687 - INFO - Plotting done, script finished for Aguascalientes
+root - 2020-06-25 11:18:34,688 - INFO - Starting with Mexicali
+root - 2020-06-25 11:18:35,024 - INFO - area loded
+root - 2020-06-25 11:19:29,886 - INFO - hex created
+root - 2020-06-25 11:19:40,262 - INFO - nodes loaded
+root - 2020-06-25 11:21:56,727 - INFO - nodes grouped by
+root - 2020-06-25 11:22:53,942 - INFO - Previous hex bins file found for Mexicali
+root - 2020-06-25 11:22:55,066 - INFO - No previous hex bins file for Mexicali
+fiona._env - 2020-06-25 11:22:59,634 - ERROR - ../data/processed/Mexicali_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:22:59,635 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:23:54,675 - INFO - Hex bins from Mexicali saved
+root - 2020-06-25 11:24:16,553 - INFO - Graph loaded
+root - 2020-06-25 11:24:31,484 - INFO - Starting the plotting
+root - 2020-06-25 11:25:18,047 - INFO - Plotting supermercados finished for Mexicali
+root - 2020-06-25 11:25:26,004 - INFO - nodes grouped by
+root - 2020-06-25 11:25:49,886 - INFO - Previous hex bins file found for Mexicali
+root - 2020-06-25 11:25:50,629 - INFO - No previous hex bins file for Mexicali
+fiona._env - 2020-06-25 11:25:53,205 - ERROR - ../data/processed/Mexicali_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:25:53,205 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:26:49,523 - INFO - Hex bins from Mexicali saved
+root - 2020-06-25 11:27:14,589 - INFO - Graph loaded
+root - 2020-06-25 11:27:33,722 - INFO - Starting the plotting
+root - 2020-06-25 11:28:53,979 - INFO - Plotting farmacias finished for Mexicali
+root - 2020-06-25 11:29:05,464 - INFO - nodes grouped by
+root - 2020-06-25 11:29:28,386 - INFO - Previous hex bins file found for Mexicali
+root - 2020-06-25 11:29:28,768 - INFO - No previous hex bins file for Mexicali
+fiona._env - 2020-06-25 11:29:30,443 - ERROR - ../data/processed/Mexicali_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:29:30,444 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:30:18,075 - INFO - Hex bins from Mexicali saved
+root - 2020-06-25 11:30:44,539 - INFO - Graph loaded
+root - 2020-06-25 11:31:00,742 - INFO - Starting the plotting
+root - 2020-06-25 11:32:28,724 - INFO - Plotting hospitales finished for Mexicali
+root - 2020-06-25 11:32:28,724 - INFO - Plotting done, script finished for Mexicali
+root - 2020-06-25 11:32:28,725 - INFO - Starting with Cuernavaca
+root - 2020-06-25 11:32:28,762 - INFO - area loded
+root - 2020-06-25 11:32:30,795 - INFO - hex created
+root - 2020-06-25 11:32:33,889 - INFO - nodes loaded
+root - 2020-06-25 11:32:40,948 - INFO - nodes grouped by
+root - 2020-06-25 11:32:46,715 - INFO - Previous hex bins file found for Cuernavaca
+root - 2020-06-25 11:32:46,748 - INFO - No previous hex bins file for Cuernavaca
+fiona._env - 2020-06-25 11:32:46,872 - ERROR - ../data/processed/Cuernavaca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:32:46,873 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:32:50,188 - INFO - Hex bins from Cuernavaca saved
+root - 2020-06-25 11:33:10,937 - INFO - Graph loaded
+root - 2020-06-25 11:33:23,579 - INFO - Starting the plotting
+root - 2020-06-25 11:33:39,470 - INFO - Plotting supermercados finished for Cuernavaca
+root - 2020-06-25 11:33:45,706 - INFO - nodes grouped by
+root - 2020-06-25 11:33:48,173 - INFO - Previous hex bins file found for Cuernavaca
+root - 2020-06-25 11:33:48,210 - INFO - No previous hex bins file for Cuernavaca
+fiona._env - 2020-06-25 11:33:48,341 - ERROR - ../data/processed/Cuernavaca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:33:48,342 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:33:52,435 - INFO - Hex bins from Cuernavaca saved
+root - 2020-06-25 11:34:17,956 - INFO - Graph loaded
+root - 2020-06-25 11:34:35,190 - INFO - Starting the plotting
+root - 2020-06-25 11:34:45,260 - INFO - Plotting farmacias finished for Cuernavaca
+root - 2020-06-25 11:34:50,982 - INFO - nodes grouped by
+root - 2020-06-25 11:34:53,780 - INFO - Previous hex bins file found for Cuernavaca
+root - 2020-06-25 11:34:53,829 - INFO - No previous hex bins file for Cuernavaca
+fiona._env - 2020-06-25 11:34:54,140 - ERROR - ../data/processed/Cuernavaca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:34:54,141 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:34:59,649 - INFO - Hex bins from Cuernavaca saved
+root - 2020-06-25 11:35:28,366 - INFO - Graph loaded
+root - 2020-06-25 11:35:51,750 - INFO - Starting the plotting
+root - 2020-06-25 11:36:01,815 - INFO - Plotting hospitales finished for Cuernavaca
+root - 2020-06-25 11:36:01,816 - INFO - Plotting done, script finished for Cuernavaca
+root - 2020-06-25 11:36:01,816 - INFO - Starting with Saltillo
+root - 2020-06-25 11:36:01,911 - INFO - area loded
+root - 2020-06-25 11:36:17,189 - INFO - hex created
+root - 2020-06-25 11:36:23,038 - INFO - nodes loaded
+root - 2020-06-25 11:37:13,225 - INFO - nodes grouped by
+root - 2020-06-25 11:37:30,389 - INFO - Previous hex bins file found for Saltillo
+root - 2020-06-25 11:37:30,660 - INFO - No previous hex bins file for Saltillo
+fiona._env - 2020-06-25 11:37:31,887 - ERROR - ../data/processed/Saltillo_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:37:31,887 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:38:08,684 - INFO - Hex bins from Saltillo saved
+root - 2020-06-25 11:38:36,943 - INFO - Graph loaded
+root - 2020-06-25 11:38:53,604 - INFO - Starting the plotting
+root - 2020-06-25 11:39:15,799 - INFO - Plotting supermercados finished for Saltillo
+root - 2020-06-25 11:39:21,308 - INFO - nodes grouped by
+root - 2020-06-25 11:39:30,449 - INFO - Previous hex bins file found for Saltillo
+root - 2020-06-25 11:39:30,614 - INFO - No previous hex bins file for Saltillo
+fiona._env - 2020-06-25 11:39:31,278 - ERROR - ../data/processed/Saltillo_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:39:31,279 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:39:46,966 - INFO - Hex bins from Saltillo saved
+root - 2020-06-25 11:39:58,696 - INFO - Graph loaded
+root - 2020-06-25 11:40:09,064 - INFO - Starting the plotting
+root - 2020-06-25 11:40:35,770 - INFO - Plotting farmacias finished for Saltillo
+root - 2020-06-25 11:40:42,791 - INFO - nodes grouped by
+root - 2020-06-25 11:40:52,144 - INFO - Previous hex bins file found for Saltillo
+root - 2020-06-25 11:40:52,275 - INFO - No previous hex bins file for Saltillo
+fiona._env - 2020-06-25 11:40:52,831 - ERROR - ../data/processed/Saltillo_hex_bins.geojson: No such file or directory
+fiona._env - 2020-06-25 11:40:52,831 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-06-25 11:41:15,694 - INFO - Hex bins from Saltillo saved
+root - 2020-06-25 11:41:31,796 - INFO - Graph loaded
+root - 2020-06-25 11:41:44,493 - INFO - Starting the plotting
+root - 2020-06-25 11:42:14,040 - INFO - Plotting hospitales finished for Saltillo
+root - 2020-06-25 11:42:14,047 - INFO - Plotting done, script finished for Saltillo
