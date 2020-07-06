@@ -1,0 +1,422 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUP package &#8212; AUP 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="AUP’s documentation" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="aup-package">
+<h1>AUP package<a class="headerlink" href="#aup-package" title="Permalink to this headline">¶</a></h1>
+<p>Users’ reference for the AUP api.</p>
+</div>
+<div class="section" id="module-src.data">
+<span id="src-data-module"></span><h1>src.data module<a class="headerlink" href="#module-src.data" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.data.create_polygon">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">create_polygon</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">bbox</span></em>, <em class="sig-param"><span class="n">city</span></em>, <em class="sig-param"><span class="n">save</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data.create_polygon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a polygon from a bounding box and save it to a file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>{list} -- list containing the coordinates of the bounding box</strong><strong> [</strong><strong>north</strong><strong>, </strong><strong>south</strong><strong>, </strong><strong>east</strong><strong>, </strong><strong>west</strong><strong>]</strong> (<em>bbox</em>) – </p>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><p><strong>{bool} -- boolean to save</strong><strong> or </strong><strong>not the polygon to a file as a GeoJSON</strong><strong> (</strong><strong>default</strong> (<em>save</em>) – {True})</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>polygon – GoeDataFrame with the geometry of the polygon to be used to download the data</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.data.df_to_geodf">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">df_to_geodf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">df</span></em>, <em class="sig-param"><span class="n">x</span></em>, <em class="sig-param"><span class="n">y</span></em>, <em class="sig-param"><span class="n">crs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data.df_to_geodf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a geo data frame from a pandas data frame</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{pandas.DataFrame} -- pandas data frame with lat</strong><strong>, </strong><strong>lon</strong><strong> or </strong><strong>x</strong><strong>, </strong><strong>y</strong><strong>, </strong><strong>columns</strong> (<em>df</em>) – </p></li>
+<li><p><strong>{str} -- Name of the column that contains the x</strong><strong> or </strong><strong>Longitud values</strong> (<em>x</em>) – </p></li>
+<li><p><strong>{str} -- Name of the column that contains the y</strong><strong> or </strong><strong>Latitud values</strong> (<em>y</em>) – </p></li>
+<li><p><strong>{dict} -- Coordinate reference system to use</strong> (<em>crs</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>geopandas.GeoDataFrame – GeoDataFrame with Points as geometry</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.data.download_graph">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">download_graph</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">polygon</span></em>, <em class="sig-param"><span class="n">city</span></em>, <em class="sig-param"><span class="n">network_type</span><span class="o">=</span><span class="default_value">'walk'</span></em>, <em class="sig-param"><span class="n">save</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data.download_graph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Download a graph from a bounding box, and saves it to disk</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{polygon} -- polygon to use as boundary to download the network</strong> (<em>polygon</em>) – </p></li>
+<li><p><strong>{str} -- string with the name of the city</strong> (<em>city</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>{str} -- String with the type of network to download</strong> (<em>network_type</em>) – </p></li>
+<li><p><strong>{bool} -- Save the graph to disk</strong><strong> or </strong><strong>not</strong><strong> (</strong><strong>default</strong> (<em>save</em>) – {True})</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>nx.MultiDiGraph</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.data.load_denue">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">load_denue</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">amenity_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data.load_denue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load the DENUE into a geoDataFrame</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>{str} -- string with the name of the amenity to load the availables are</strong> (<em>amenity_name</em>) – (‘farmacias’,’supermercados’,’hospitales’)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>geopandas.geoDataFrame – geoDataFrame with the DENUE</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.data.load_mpos">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">load_mpos</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.data.load_mpos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load Mexico’s municipal boundaries</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>geopandas.geoDataFrame – geoDataFrame with all the Mexican municipal boundaries</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.data.load_polygon">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">load_polygon</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">city</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.data.load_polygon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load the polygon of a city from the raw data</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>{str} -- string with the name of the city/metropolitan area to load</strong> (<em>city</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>geopandas.GeoDataFrame – geoDataFrame with the area</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.data.load_study_areas">
+<code class="sig-prename descclassname">src.data.</code><code class="sig-name descname">load_study_areas</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#src.data.load_study_areas" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load the study areas json as dict</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>dict – dictionary with the study areas and attributes</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-src.utils">
+<span id="src-utils-module"></span><h1>src.utils module<a class="headerlink" href="#module-src.utils" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.utils.create_hexgrid">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">create_hexgrid</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">polygon</span></em>, <em class="sig-param"><span class="n">hex_res</span></em>, <em class="sig-param"><span class="n">geometry_col</span><span class="o">=</span><span class="default_value">'geometry'</span></em>, <em class="sig-param"><span class="n">buffer</span><span class="o">=</span><span class="default_value">0.0</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.create_hexgrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Takes in a geopandas geodataframe, the desired resolution, the specified geometry column and some map parameters to create a hexagon grid (and potentially plot the hexgrid</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{geopandas.geoDataFrame} -- geoDataFrame to be used</strong> (<em>polygon</em>) – </p></li>
+<li><p><strong>{int} -- Resolution to use</strong> (<em>hex_res</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>{str} -- column in the geoDataFrame that contains the geometry</strong><strong> (</strong><strong>default</strong> (<em>geometry_col</em>) – {‘geometry’})</p></li>
+<li><p><strong>{float} -- buffer to be used</strong><strong> (</strong><strong>default</strong> (<em>buffer</em>) – {0.000})</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>geopandas.geoDataFrame – geoDataFrame with the hexbins and the hex_id_{resolution} column</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.utils.find_nearest">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">find_nearest</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">G</span></em>, <em class="sig-param"><span class="n">gdf</span></em>, <em class="sig-param"><span class="n">amenity_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.find_nearest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the nearest graph nodes to the points in a GeoDataFrame</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{networkx.Graph} -- Graph created with OSMnx that contains geographic information</strong> (<em>G</em>) – </p></li>
+<li><p><strong>{geopandas.GeoDataFrame} -- GeoDataFrame with the points to locate</strong> (<em>gdf</em>) – </p></li>
+<li><p><strong>{str} -- string with the name of the amenity that is used as seed</strong> (<em>amenity_name</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>geopandas.GeoDataFrame – GeoDataFrame original dataframe with a new column call ‘nearest’ with the node id closser to the point</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.utils.get_seeds">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">get_seeds</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">gdf</span></em>, <em class="sig-param"><span class="n">node_mapping</span></em>, <em class="sig-param"><span class="n">amenity_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.get_seeds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate the seed to be used to calculate shortest paths for the Voronoi’s</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{geopandas.GeoDataFrame} -- GeoDataFrame with 'nearest' column</strong> (<em>gdf</em>) – </p></li>
+<li><p><strong>{dict} -- dictionary containing the node mapping from networkx.Graph to igraph.Graph</strong> (<em>node_mapping</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>np.array – numpy.array with the set of seeds</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.utils.haversine">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">haversine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coord1</span></em>, <em class="sig-param"><span class="n">coord2</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.haversine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate distance between two coordinates in meters with the Haversine formula</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{tuple} -- tuple with coordinates in decimal degrees</strong> (<em>coord2</em>) – </p></li>
+<li><p><strong>{tuple} -- tuple with coordinates in decimal degrees</strong> – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>float – distance between coord1 and coord2 in meters</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.utils.to_igraph">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">to_igraph</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">G</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.to_igraph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a graph from networkx to igraph</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>{networkx.Graph} -- networkx Graph to be converted</strong> (<em>G</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>igraph.Graph – Graph with the same number of nodes and edges as the original one
+np.array  – With the weight of the graph, if the original graph G is from OSMnx the weights are lengths
+dict – With the node mapping, index is the node in networkx.Graph, value is the node in igraph.Graph</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-src.analysis">
+<span id="src-analysis-module"></span><h1>src.analysis module<a class="headerlink" href="#module-src.analysis" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.analysis.calculate_distance_nearest_poi">
+<code class="sig-prename descclassname">src.analysis.</code><code class="sig-name descname">calculate_distance_nearest_poi</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">gdf_f</span></em>, <em class="sig-param"><span class="n">G</span></em>, <em class="sig-param"><span class="n">amenity_name</span></em>, <em class="sig-param"><span class="n">city</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.analysis.calculate_distance_nearest_poi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{geopandas.geoDataFrame} -- geoDataFrame with the Points of Interest the geometry type has to be shapely.Point</strong> (<em>gdf_f</em>) – </p></li>
+<li><p><strong>{networkx.MultiDiGraph} -- Graph created with OSMnx</strong> (<em>G</em>) – </p></li>
+<li><p><strong>{str} -- string with the name of the amenity that is used as seed</strong> (<em>amenity_name</em>) – </p></li>
+<li><p><strong>{str} -- string with the name of the city</strong> (<em>city</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>geopandas.GeoDataFrame – geoDataFrame with geometry and distance to the nearest POI</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.analysis.get_distances">
+<code class="sig-prename descclassname">src.analysis.</code><code class="sig-name descname">get_distances</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">g</span></em>, <em class="sig-param"><span class="n">seeds</span></em>, <em class="sig-param"><span class="n">weights</span></em>, <em class="sig-param"><span class="n">voronoi_assignment</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.analysis.get_distances" title="Permalink to this definition">¶</a></dt>
+<dd><p>Distance for the shortest path for each node to the closest seed</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{</strong><strong>[</strong><strong>type</strong><strong>]</strong><strong>} --</strong><strong> [</strong><strong>description</strong><strong>]</strong> (<em>voronoi_assignment</em>) – </p></li>
+<li><p><strong>{</strong><strong>[</strong><strong>type</strong><strong>]</strong><strong>} --</strong><strong> [</strong><strong>description</strong><strong>]</strong> – </p></li>
+<li><p><strong>{</strong><strong>[</strong><strong>type</strong><strong>]</strong><strong>} --</strong><strong> [</strong><strong>description</strong><strong>]</strong> – </p></li>
+<li><p><strong>{</strong><strong>[</strong><strong>type</strong><strong>]</strong><strong>} --</strong><strong> [</strong><strong>description</strong><strong>]</strong> – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>[type] – [description]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.analysis.group_by_hex_mean">
+<code class="sig-prename descclassname">src.analysis.</code><code class="sig-name descname">group_by_hex_mean</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">nodes</span></em>, <em class="sig-param"><span class="n">hex_bins</span></em>, <em class="sig-param"><span class="n">resolution</span></em>, <em class="sig-param"><span class="n">amenity_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.analysis.group_by_hex_mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest pharmacy</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{geopandas.geoDataFrame} -- geoDataFrame with the nodes to group</strong> (<em>nodes</em>) – </p></li>
+<li><p><strong>{geopandas.geoDataFrame} -- geoDataFrame with the hexbins</strong> (<em>hex_bins</em>) – </p></li>
+<li><p><strong>{int} -- resolution of the hexbins</strong><strong>, </strong><strong>used when doing the group by and to save the column</strong> (<em>resolution</em>) – </p></li>
+<li><p><strong>{str} -- string with the name of the amenity that is used as seed</strong> (<em>amenity_name</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>geopandas.geoDataFrame – geoDataFrame with the hex_id{resolution}, geometry and average distance to pharmacy for each hexbin</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.analysis.voronoi_cpu">
+<code class="sig-prename descclassname">src.analysis.</code><code class="sig-name descname">voronoi_cpu</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">g</span></em>, <em class="sig-param"><span class="n">weights</span></em>, <em class="sig-param"><span class="n">seeds</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.analysis.voronoi_cpu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Voronoi diagram calculator for undirected graphs
+Optimized for computational efficiency</p>
+<p>g - igraph.Graph object (N, V)
+weights - array of weights for all edges of length len(V)(numpy.ndarray)
+generators - generator points as a numpy array of indeces from the node array</p>
+<p>Returns:
+numpy array of length len(N). Location (index) refers to the node,
+the value is the generator point the respective node belongs to.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-src.visualization">
+<span id="src-visualization-module"></span><h1>src.visualization module<a class="headerlink" href="#module-src.visualization" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="src.visualization.hex_plot">
+<code class="sig-prename descclassname">src.visualization.</code><code class="sig-name descname">hex_plot</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ax</span></em>, <em class="sig-param"><span class="n">gdf_data</span></em>, <em class="sig-param"><span class="n">gdf_boundary</span></em>, <em class="sig-param"><span class="n">gdf_edges</span></em>, <em class="sig-param"><span class="n">column</span></em>, <em class="sig-param"><span class="n">title</span></em>, <em class="sig-param"><span class="n">save_png</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">save_pdf</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">show</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'plot'</span></em>, <em class="sig-param"><span class="n">dpi</span><span class="o">=</span><span class="default_value">300</span></em>, <em class="sig-param"><span class="n">transparent</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">close_figure</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.visualization.hex_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot hexbin geoDataFrames to create the accesibility plots.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>{matplotlib.axes} -- ax to use in the plot</strong> (<em>ax</em>) – </p></li>
+<li><p><strong>{geopandas.GeoDataFrame} -- geoDataFrame with the data to be plotted</strong> (<em>gdf_data</em>) – </p></li>
+<li><p><strong>{geopandas.GeoDataFrame} -- geoDataFrame with the boundary to use</strong> (<em>gdf_boundary</em>) – </p></li>
+<li><p><strong>{geopandas.GeoDataFrame} -- geoDataFrame with the edges</strong> (<em>gdf_edges</em>) – </p></li>
+<li><p><strong>{geopandas.GeoDataFrame} -- column to plot from the gdf_data geoDataFrame</strong> (<em>column</em>) – </p></li>
+<li><p><strong>{str} -- string with the title to use in the plot</strong> (<em>title</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>{bool} -- save the plot in png</strong><strong> or </strong><strong>not</strong><strong> (</strong><strong>default</strong> (<em>save_png</em>) – {False})</p></li>
+<li><p><strong>{bool} -- save the plot in pdf</strong><strong> or </strong><strong>not</strong><strong> (</strong><strong>default</strong> (<em>save_pdf</em>) – {False})</p></li>
+<li><p><strong>{bool} -- show the plot</strong><strong> or </strong><strong>not</strong><strong> (</strong><strong>default</strong> (<em>show</em>) – {False})</p></li>
+<li><p><strong>{str} -- name for the plot to be saved if save=True</strong><strong> (</strong><strong>default</strong> (<em>name</em>) – {plot})</p></li>
+<li><p><strong>{int} -- resolution to use</strong><strong> (</strong><strong>default</strong> (<em>dpi</em>) – {300})</p></li>
+<li><p><strong>{bool} -- save with transparency</strong><strong> or </strong><strong>not</strong><strong> (</strong><strong>default</strong> (<em>transparent</em>) – {True})</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">AUP</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">AUP package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-src.data">src.data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-src.utils">src.utils module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-src.analysis">src.analysis module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-src.visualization">src.visualization module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">AUP’s documentation</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Luis G. Natera Orozco.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/src.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

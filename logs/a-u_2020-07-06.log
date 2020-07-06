@@ -1,0 +1,5 @@
+root - 2020-07-06 15:10:17,528 - INFO - starting with Guadalajara
+fiona._env - 2020-07-06 15:10:17,834 - ERROR - ../data/raw/Guadalajara_area.geojson: No such file or directory
+fiona._env - 2020-07-06 15:10:17,841 - WARNING - driver GeoJSON does not support creation option ENCODING
+root - 2020-07-06 15:10:17,887 - INFO - Area Metropolitana loaded
+numexpr.utils - 2020-07-06 15:12:18,404 - INFO - NumExpr defaulting to 4 threads.
