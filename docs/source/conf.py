@@ -41,7 +41,7 @@ autodoc_mock_imports = [
 # -- Project information -----------------------------------------------------
 
 project = 'AUP'
-copyright = '2020, Luis G. Natera Orozco'
+copyright = '2020, Luis Natera Orozco'
 author = 'Luis G. Natera Orozco'
 
 # The full version, including alpha/beta/rc tags
@@ -78,6 +78,8 @@ html_static_path = ['_static']
 
 # -- Options for LaTeX output ---------------------------------------------
 
+master_doc = "index"
+
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
@@ -96,6 +98,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-# latex_documents = [
-#     (master_doc, "AUP.tex", "AUP Documentation", "Luis G. Natera", "manual"),
-# ]
+latex_documents = [
+     (master_doc, "AUP.tex", "AUP Documentation", "Luis G. Natera", "manual"),
+ ]
+man_pages = [(master_doc, "AUP", "AUP Documentation", [author], 1)]

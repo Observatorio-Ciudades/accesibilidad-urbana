@@ -10,7 +10,7 @@ AUP's documentation
    :maxdepth: 2
    :caption: Reference
    
-   src
+   aup
 
 
 Indices and tables

@@ -1,18 +1,18 @@
 ---------------------------------- page 1 ----------------------------------
 #### DownExpandingContainer('title')
   StaticGroupedFlowables()
-    Paragraph('AUP', style='title page title')
+    Paragraph('AUP Documentation', style='title page title')
          > (0,0,1,0,2) title page title
            (0,0,0,0,2) body
-      SingleStyledText('AUP')
+      SingleStyledText('AUP Documentation')
     Paragraph('Release 0.1.0', style='title page subtitle')
          > (0,0,1,0,2) title page subtitle
            (0,0,0,0,2) body
       SingleStyledText('Release 0.1.0')
-    Paragraph('Luis G.\@{} Natera Orozco', style='title page author')
+    Paragraph('Luis G. Natera', style='title page author')
          > (0,0,1,0,2) title page author
            (0,0,0,0,2) body
-      SingleStyledText('Luis G.\@{} Natera Orozco')
+      SingleStyledText('Luis G. Natera')
     Paragraph('Jul 06, 2020', style='title page date')
          > (0,0,1,0,2) title page date
            (0,0,0,0,2) body
@@ -52,69 +52,69 @@
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('1')
-        TableOfContentsEntry('2	src.data module	3')
+        TableOfContentsEntry('2	aup.data module	3')
              > (0,0,0,1,2) toc level 1
-            MixedStyledText('2	src.data module	3')
+            MixedStyledText('2	aup.data module	3')
               ReferenceField('2')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('2')
               Tab('	')
-              ReferenceField('src.data module')
+              ReferenceField('aup.data module')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
-                SingleStyledText('src.data module')
+                SingleStyledText('aup.data module')
               Tab('	')
               ReferenceField('3')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('3')
-        TableOfContentsEntry('3	src.utils module	5')
+        TableOfContentsEntry('3	aup.utils module	5')
              > (0,0,0,1,2) toc level 1
-            MixedStyledText('3	src.utils module	5')
+            MixedStyledText('3	aup.utils module	5')
               ReferenceField('3')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('3')
               Tab('	')
-              ReferenceField('src.utils module')
+              ReferenceField('aup.utils module')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
-                SingleStyledText('src.utils module')
+                SingleStyledText('aup.utils module')
               Tab('	')
               ReferenceField('5')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('5')
-        TableOfContentsEntry('4	src.analysis module	7')
+        TableOfContentsEntry('4	aup.analysis module	7')
              > (0,0,0,1,2) toc level 1
-            MixedStyledText('4	src.analysis module	7')
+            MixedStyledText('4	aup.analysis module	7')
               ReferenceField('4')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('4')
               Tab('	')
-              ReferenceField('src.analysis module')
+              ReferenceField('aup.analysis module')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
-                SingleStyledText('src.analysis module')
+                SingleStyledText('aup.analysis module')
               Tab('	')
               ReferenceField('7')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('7')
-        TableOfContentsEntry('5	src.visualization module	9')
+        TableOfContentsEntry('5	aup.visualization module	9')
              > (0,0,0,1,2) toc level 1
-            MixedStyledText('5	src.visualization module	9')
+            MixedStyledText('5	aup.visualization module	9')
               ReferenceField('5')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('5')
               Tab('	')
-              ReferenceField('src.visualization module')
+              ReferenceField('aup.visualization module')
                    x (0,0,0,1,3) toc linked reference
                    > (0,0,0,1,1) linked reference
-                SingleStyledText('src.visualization module')
+                SingleStyledText('aup.visualization module')
               Tab('	')
               ReferenceField('9')
                    x (0,0,0,1,3) toc linked reference
@@ -190,10 +190,10 @@
   StaticGroupedFlowables()
     DocumentTree()
       StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          Section(id='%src#aup-package')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:2 <section>
+        StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          Section(id='%aup#aup-package')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:2 <section>
                > (0,0,0,1,2) chapter
-            Paragraph('Users’ reference for the AUP api...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:4 <paragraph>
+            Paragraph('Users’ reference for the AUP api...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:4 <paragraph>
                  > (0,0,0,0,2) body
               MixedStyledText('Users’ reference for the AUP api...')
                 SingleStyledText('Users’ reference for the AUP api...')
@@ -216,15 +216,15 @@
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
 #### UpExpandingContainer('header')
   StaticGroupedFlowables()
-    Header('AUP, Release 0.1.0')
+    Header('AUP Documentation, Release 0.1.0')
          > (0,0,0,0,2) header
            (0,0,0,0,1) body
-      MixedStyledText('AUP, Release 0.1.0')
-        Field('AUP')
-          SingleStyledText('AUP')
+      MixedStyledText('AUP Documentation, Release 0.1.0')
+        Field('AUP Documentation')
+          SingleStyledText('AUP Documentation')
         SingleStyledText(', ')
         Field('Release 0.1.0')
           SingleStyledText('Release 0.1.0')
@@ -263,33 +263,33 @@
       Field('2', style='number')
            > (0,0,2,0,3) body matter chapter number
         SingleStyledText('2')
-  Paragraph('src.data module', style='body matter chapter title')
+  Paragraph('aup.data module', style='body matter chapter title')
        > (0,0,1,0,2) body matter chapter title
          (0,0,0,0,2) body
-    Field('src.data module')
-      SingleStyledText('src.data module')
+    Field('aup.data module')
+      SingleStyledText('aup.data module')
 #### ChainedContainer('column1')
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          Section(id='%src#src-data-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:7 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          Section(id='%aup#aup-data-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:7 <section>
                > (0,0,0,1,2) chapter
             LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.create_polygon ( bbox, ...', id='%src#src.data.create_polygon')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:1 <desc_signature>
+                Paragraph('aup.data.create_polygon ( bbox, ...', id='%aup#aup.data.create_polygon')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.create_polygon ( bbox, ...')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:None <desc_addname>
+                  MixedStyledText('aup.data.create_polygon ( bbox, ...')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('create_polygon', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('create_polygon', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('create_polygon')
-                    MixedStyledText(' ( bbox, city, save=True ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:None <desc_parameterlist>
+                    MixedStyledText(' ( bbox, city, save=True ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:None <desc_parameterlist>
                       MixedStyledText(' ( bbox, city, save=True')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -315,9 +315,9 @@
                               SingleStyledText('True')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Create a polygon from a bounding...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:1 <paragraph>
+                Paragraph('Create a polygon from a bounding...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Create a polygon from a bounding...')
@@ -331,7 +331,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('{list} -- list containing the co...')   None:None <paragraph>
@@ -379,7 +379,7 @@
                     Paragraph('Keyword Arguments', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:0 <field_name>
+                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:0 <field_name>
                         SingleStyledText('Keyword Arguments')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('{bool} -- boolean to save or not...')   None:None <paragraph>
@@ -413,7 +413,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.create_polygon:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.create_polygon:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('polygon – GoeDataFrame with the ...')   None:None <paragraph>
@@ -424,17 +424,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.df_to_geodf ( df, x, y,...', id='%src#src.data.df_to_geodf')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:1 <desc_signature>
+                Paragraph('aup.data.df_to_geodf ( df, x, y,...', id='%aup#aup.data.df_to_geodf')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.df_to_geodf ( df, x, y,...')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:None <desc_addname>
+                  MixedStyledText('aup.data.df_to_geodf ( df, x, y,...')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('df_to_geodf', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('df_to_geodf', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('df_to_geodf')
-                    MixedStyledText(' ( df, x, y, crs ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:None <desc_parameterlist>
+                    MixedStyledText(' ( df, x, y, crs ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:None <desc_parameterlist>
                       MixedStyledText(' ( df, x, y, crs')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -461,9 +461,9 @@
                               SingleStyledText('crs')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Create a geo data frame from a p...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:1 <paragraph>
+                Paragraph('Create a geo data frame from a p...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Create a geo data frame from a p...')
@@ -477,7 +477,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -624,7 +624,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.df_to_geodf:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.df_to_geodf:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.GeoDataFrame – GeoData...')   None:None <paragraph>
@@ -635,17 +635,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.download_graph ( polygo...', id='%src#src.data.download_graph')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:1 <desc_signature>
+                Paragraph('aup.data.download_graph ( polygo...', id='%aup#aup.data.download_graph')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.download_graph ( polygo...')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:None <desc_addname>
+                  MixedStyledText('aup.data.download_graph ( polygo...')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('download_graph', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('download_graph', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('download_graph')
-                    MixedStyledText(' ( polygon, city, network_type='...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:None <desc_parameterlist>
+                    MixedStyledText(' ( polygon, city, network_type='...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:None <desc_parameterlist>
                       MixedStyledText(' ( polygon, city, network_type='...')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -680,9 +680,9 @@
                               SingleStyledText('True')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Download a graph from a bounding...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:1 <paragraph>
+                Paragraph('Download a graph from a bounding...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Download a graph from a bounding...')
@@ -696,7 +696,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -757,7 +757,7 @@
                     Paragraph('Keyword Arguments', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:0 <field_name>
+                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:0 <field_name>
                         SingleStyledText('Keyword Arguments')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -831,7 +831,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.download_graph:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.download_graph:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('nx.MultiDiGraph')   None:None <paragraph>
@@ -857,24 +857,24 @@
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          (continued) Section(id='%src#src-data-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:7 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          (continued) Section(id='%aup#aup-data-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:7 <section>
                > (0,0,0,1,2) chapter
             LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.load_denue ( amenity_na...', id='%src#src.data.load_denue')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:1 <desc_signature>
+                Paragraph('aup.data.load_denue ( amenity_na...', id='%aup#aup.data.load_denue')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.load_denue ( amenity_na...')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:None <desc_addname>
+                  MixedStyledText('aup.data.load_denue ( amenity_na...')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('load_denue', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('load_denue', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('load_denue')
-                    MixedStyledText(' ( amenity_name ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:None <desc_parameterlist>
+                    MixedStyledText(' ( amenity_name ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:None <desc_parameterlist>
                       MixedStyledText(' ( amenity_name')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -886,9 +886,9 @@
                               SingleStyledText('amenity_name')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Load the DENUE into a geoDataFra...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:1 <paragraph>
+                Paragraph('Load the DENUE into a geoDataFra...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Load the DENUE into a geoDataFra...')
@@ -902,7 +902,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('{str} -- string with the name of...')   None:None <paragraph>
@@ -924,7 +924,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_denue:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_denue:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.geoDataFrame – geoData...')   None:None <paragraph>
@@ -935,17 +935,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.load_mpos (  ) ', id='%src#src.data.load_mpos')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:1 <desc_signature>
+                Paragraph('aup.data.load_mpos (  ) ', id='%aup#aup.data.load_mpos')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.load_mpos (  ) ')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:None <desc_addname>
+                  MixedStyledText('aup.data.load_mpos (  ) ')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('load_mpos', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('load_mpos', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('load_mpos')
-                    MixedStyledText(' (  ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:None <desc_parameterlist>
+                    MixedStyledText(' (  ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:None <desc_parameterlist>
                       MixedStyledText(' ( ')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -953,9 +953,9 @@
                              > (0,0,3,0,6) object parameter list
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Load Mexico’s municipal boundari...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:1 <paragraph>
+                Paragraph('Load Mexico’s municipal boundari...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Load Mexico’s municipal boundari...')
@@ -969,7 +969,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_mpos:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_mpos:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.geoDataFrame – geoData...')   None:None <paragraph>
@@ -980,17 +980,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.load_polygon ( city ) ', id='%src#src.data.load_polygon')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:1 <desc_signature>
+                Paragraph('aup.data.load_polygon ( city ) ', id='%aup#aup.data.load_polygon')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.load_polygon ( city ) ')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:None <desc_addname>
+                  MixedStyledText('aup.data.load_polygon ( city ) ')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('load_polygon', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('load_polygon', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('load_polygon')
-                    MixedStyledText(' ( city ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:None <desc_parameterlist>
+                    MixedStyledText(' ( city ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:None <desc_parameterlist>
                       MixedStyledText(' ( city')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1002,9 +1002,9 @@
                               SingleStyledText('city')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Load the polygon of a city from ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:1 <paragraph>
+                Paragraph('Load the polygon of a city from ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Load the polygon of a city from ...')
@@ -1018,7 +1018,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('{str} -- string with the name of...')   None:None <paragraph>
@@ -1039,7 +1039,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_polygon:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_polygon:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.GeoDataFrame – geoData...')   None:None <paragraph>
@@ -1050,17 +1050,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.data.load_study_areas (  ) ', id='%src#src.data.load_study_areas')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:1 <desc_signature>
+                Paragraph('aup.data.load_study_areas (  ) ', id='%aup#aup.data.load_study_areas')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.data.load_study_areas (  ) ')
-                    MixedStyledText('src.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:None <desc_addname>
+                  MixedStyledText('aup.data.load_study_areas (  ) ')
+                    MixedStyledText('aup.data.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.data.')
-                    MixedStyledText('load_study_areas', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:None <desc_name>
+                      SingleStyledText('aup.data.')
+                    MixedStyledText('load_study_areas', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('load_study_areas')
-                    MixedStyledText(' (  ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:None <desc_parameterlist>
+                    MixedStyledText(' (  ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:None <desc_parameterlist>
                       MixedStyledText(' ( ')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1068,9 +1068,9 @@
                              > (0,0,3,0,6) object parameter list
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Load the study areas json as dic...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:1 <paragraph>
+                Paragraph('Load the study areas json as dic...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Load the study areas json as dic...')
@@ -1084,7 +1084,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/data.py:docstring of src.data.load_study_areas:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/data.py:docstring of aup.data.load_study_areas:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('dict – dictionary with the study...')   None:None <paragraph>
@@ -1093,21 +1093,21 @@
                           SingleStyledText('dict – dictionary with the study...')
 #### UpExpandingContainer('header')
   StaticGroupedFlowables()
-    Header('AUP, Release 0.1.0')
+    Header('AUP Documentation, Release 0.1.0')
          > (0,0,0,0,2) header
            (0,0,0,0,1) body
-      MixedStyledText('AUP, Release 0.1.0')
-        Field('AUP')
-          SingleStyledText('AUP')
+      MixedStyledText('AUP Documentation, Release 0.1.0')
+        Field('AUP Documentation')
+          SingleStyledText('AUP Documentation')
         SingleStyledText(', ')
         Field('Release 0.1.0')
           SingleStyledText('Release 0.1.0')
 #### DownExpandingContainer('footer')
   StaticGroupedFlowables()
-    Footer('4		Chapter 2.  src.data module')
+    Footer('4		Chapter 2.  aup.data module')
          > (0,0,0,0,2) footer
            (0,0,0,0,1) body
-      MixedStyledText('4		Chapter 2.  src.data module')
+      MixedStyledText('4		Chapter 2.  aup.data module')
         Field('4')
           SingleStyledText('4')
         Tab('	')
@@ -1118,8 +1118,8 @@
         Field('2')
           SingleStyledText('2')
         SingleStyledText('.  ')
-        Field('src.data module')
-          SingleStyledText('src.data module')
+        Field('aup.data module')
+          SingleStyledText('aup.data module')
 ---------------------------------- page 5 ----------------------------------
 #### FootnoteContainer('footnotes')
   StaticGroupedFlowables()
@@ -1137,33 +1137,33 @@
       Field('3', style='number')
            > (0,0,2,0,3) body matter chapter number
         SingleStyledText('3')
-  Paragraph('src.utils module', style='body matter chapter title')
+  Paragraph('aup.utils module', style='body matter chapter title')
        > (0,0,1,0,2) body matter chapter title
          (0,0,0,0,2) body
-    Field('src.utils module')
-      SingleStyledText('src.utils module')
+    Field('aup.utils module')
+      SingleStyledText('aup.utils module')
 #### ChainedContainer('column1')
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          Section(id='%src#src-utils-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:12 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          Section(id='%aup#aup-utils-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:12 <section>
                > (0,0,0,1,2) chapter
             LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.utils.create_hexgrid ( polyg...', id='%src#src.utils.create_hexgrid')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:1 <desc_signature>
+                Paragraph('aup.utils.create_hexgrid ( polyg...', id='%aup#aup.utils.create_hexgrid')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.utils.create_hexgrid ( polyg...')
-                    MixedStyledText('src.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:None <desc_addname>
+                  MixedStyledText('aup.utils.create_hexgrid ( polyg...')
+                    MixedStyledText('aup.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.utils.')
-                    MixedStyledText('create_hexgrid', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:None <desc_name>
+                      SingleStyledText('aup.utils.')
+                    MixedStyledText('create_hexgrid', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('create_hexgrid')
-                    MixedStyledText(' ( polygon, hex_res, geometry_co...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:None <desc_parameterlist>
+                    MixedStyledText(' ( polygon, hex_res, geometry_co...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:None <desc_parameterlist>
                       MixedStyledText(' ( polygon, hex_res, geometry_co...')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1198,9 +1198,9 @@
                               SingleStyledText('0.0')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Takes in a geopandas geodatafram...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:1 <paragraph>
+                Paragraph('Takes in a geopandas geodatafram...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Takes in a geopandas geodatafram...')
@@ -1214,7 +1214,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -1275,7 +1275,7 @@
                     Paragraph('Keyword Arguments', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:0 <field_name>
+                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:0 <field_name>
                         SingleStyledText('Keyword Arguments')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -1350,7 +1350,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.create_hexgrid:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.create_hexgrid:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.geoDataFrame – geoData...')   None:None <paragraph>
@@ -1361,17 +1361,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.utils.find_nearest ( G, gdf,...', id='%src#src.utils.find_nearest')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:1 <desc_signature>
+                Paragraph('aup.utils.find_nearest ( G, gdf,...', id='%aup#aup.utils.find_nearest')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.utils.find_nearest ( G, gdf,...')
-                    MixedStyledText('src.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:None <desc_addname>
+                  MixedStyledText('aup.utils.find_nearest ( G, gdf,...')
+                    MixedStyledText('aup.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.utils.')
-                    MixedStyledText('find_nearest', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:None <desc_name>
+                      SingleStyledText('aup.utils.')
+                    MixedStyledText('find_nearest', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('find_nearest')
-                    MixedStyledText(' ( G, gdf, amenity_name ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:None <desc_parameterlist>
+                    MixedStyledText(' ( G, gdf, amenity_name ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:None <desc_parameterlist>
                       MixedStyledText(' ( G, gdf, amenity_name')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1393,9 +1393,9 @@
                               SingleStyledText('amenity_name')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Find the nearest graph nodes to ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:1 <paragraph>
+                Paragraph('Find the nearest graph nodes to ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Find the nearest graph nodes to ...')
@@ -1409,7 +1409,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -1495,7 +1495,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.find_nearest:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.find_nearest:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.GeoDataFrame – GeoData...')   None:None <paragraph>
@@ -1506,17 +1506,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.utils.get_seeds ( gdf, node_...', id='%src#src.utils.get_seeds')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:1 <desc_signature>
+                Paragraph('aup.utils.get_seeds ( gdf, node_...', id='%aup#aup.utils.get_seeds')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.utils.get_seeds ( gdf, node_...')
-                    MixedStyledText('src.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:None <desc_addname>
+                  MixedStyledText('aup.utils.get_seeds ( gdf, node_...')
+                    MixedStyledText('aup.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.utils.')
-                    MixedStyledText('get_seeds', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:None <desc_name>
+                      SingleStyledText('aup.utils.')
+                    MixedStyledText('get_seeds', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('get_seeds')
-                    MixedStyledText(' ( gdf, node_mapping, amenity_na...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:None <desc_parameterlist>
+                    MixedStyledText(' ( gdf, node_mapping, amenity_na...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:None <desc_parameterlist>
                       MixedStyledText(' ( gdf, node_mapping, amenity_na...')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1538,9 +1538,9 @@
                               SingleStyledText('amenity_name')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Generate the seed to be used to ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:1 <paragraph>
+                Paragraph('Generate the seed to be used to ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Generate the seed to be used to ...')
@@ -1554,7 +1554,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -1615,7 +1615,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.get_seeds:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.get_seeds:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('np.array – numpy.array with the ...')   None:None <paragraph>
@@ -1641,24 +1641,24 @@
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          (continued) Section(id='%src#src-utils-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:12 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          (continued) Section(id='%aup#aup-utils-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:12 <section>
                > (0,0,0,1,2) chapter
             LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.utils.haversine ( coord1, co...', id='%src#src.utils.haversine')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:1 <desc_signature>
+                Paragraph('aup.utils.haversine ( coord1, co...', id='%aup#aup.utils.haversine')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.utils.haversine ( coord1, co...')
-                    MixedStyledText('src.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:None <desc_addname>
+                  MixedStyledText('aup.utils.haversine ( coord1, co...')
+                    MixedStyledText('aup.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.utils.')
-                    MixedStyledText('haversine', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:None <desc_name>
+                      SingleStyledText('aup.utils.')
+                    MixedStyledText('haversine', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('haversine')
-                    MixedStyledText(' ( coord1, coord2 ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:None <desc_parameterlist>
+                    MixedStyledText(' ( coord1, coord2 ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:None <desc_parameterlist>
                       MixedStyledText(' ( coord1, coord2')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1675,9 +1675,9 @@
                               SingleStyledText('coord2')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Calculate distance between two c...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:1 <paragraph>
+                Paragraph('Calculate distance between two c...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Calculate distance between two c...')
@@ -1691,7 +1691,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -1747,7 +1747,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.haversine:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.haversine:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('float – distance between coord1 ...')   None:None <paragraph>
@@ -1758,17 +1758,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.utils.to_igraph ( G ) ', id='%src#src.utils.to_igraph')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:1 <desc_signature>
+                Paragraph('aup.utils.to_igraph ( G ) ', id='%aup#aup.utils.to_igraph')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.utils.to_igraph ( G ) ')
-                    MixedStyledText('src.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:None <desc_addname>
+                  MixedStyledText('aup.utils.to_igraph ( G ) ')
+                    MixedStyledText('aup.utils.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.utils.')
-                    MixedStyledText('to_igraph', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:None <desc_name>
+                      SingleStyledText('aup.utils.')
+                    MixedStyledText('to_igraph', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('to_igraph')
-                    MixedStyledText(' ( G ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:None <desc_parameterlist>
+                    MixedStyledText(' ( G ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:None <desc_parameterlist>
                       MixedStyledText(' ( G')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1780,9 +1780,9 @@
                               SingleStyledText('G')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Convert a graph from networkx to...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:1 <paragraph>
+                Paragraph('Convert a graph from networkx to...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Convert a graph from networkx to...')
@@ -1796,7 +1796,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('{networkx.Graph} -- networkx Gra...')   None:None <paragraph>
@@ -1817,7 +1817,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/utils.py:docstring of src.utils.to_igraph:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/utils.py:docstring of aup.utils.to_igraph:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('igraph.Graph – Graph with the sa...')   None:None <paragraph>
@@ -1826,21 +1826,21 @@
                           SingleStyledText('igraph.Graph – Graph with the sa...')
 #### UpExpandingContainer('header')
   StaticGroupedFlowables()
-    Header('AUP, Release 0.1.0')
+    Header('AUP Documentation, Release 0.1.0')
          > (0,0,0,0,2) header
            (0,0,0,0,1) body
-      MixedStyledText('AUP, Release 0.1.0')
-        Field('AUP')
-          SingleStyledText('AUP')
+      MixedStyledText('AUP Documentation, Release 0.1.0')
+        Field('AUP Documentation')
+          SingleStyledText('AUP Documentation')
         SingleStyledText(', ')
         Field('Release 0.1.0')
           SingleStyledText('Release 0.1.0')
 #### DownExpandingContainer('footer')
   StaticGroupedFlowables()
-    Footer('6		Chapter 3.  src.utils module')
+    Footer('6		Chapter 3.  aup.utils module')
          > (0,0,0,0,2) footer
            (0,0,0,0,1) body
-      MixedStyledText('6		Chapter 3.  src.utils module')
+      MixedStyledText('6		Chapter 3.  aup.utils module')
         Field('6')
           SingleStyledText('6')
         Tab('	')
@@ -1851,8 +1851,8 @@
         Field('3')
           SingleStyledText('3')
         SingleStyledText('.  ')
-        Field('src.utils module')
-          SingleStyledText('src.utils module')
+        Field('aup.utils module')
+          SingleStyledText('aup.utils module')
 ---------------------------------- page 7 ----------------------------------
 #### FootnoteContainer('footnotes')
   StaticGroupedFlowables()
@@ -1870,33 +1870,33 @@
       Field('4', style='number')
            > (0,0,2,0,3) body matter chapter number
         SingleStyledText('4')
-  Paragraph('src.analysis module', style='body matter chapter title')
+  Paragraph('aup.analysis module', style='body matter chapter title')
        > (0,0,1,0,2) body matter chapter title
          (0,0,0,0,2) body
-    Field('src.analysis module')
-      SingleStyledText('src.analysis module')
+    Field('aup.analysis module')
+      SingleStyledText('aup.analysis module')
 #### ChainedContainer('column1')
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          Section(id='%src#src-analysis-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:17 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          Section(id='%aup#aup-analysis-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:17 <section>
                > (0,0,0,1,2) chapter
             LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.analysis.calculate_distance_...', id='%src#src.analysis.calculate_distance_nearest_poi')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:1 <desc_signature>
+                Paragraph('aup.analysis.calculate_distance_...', id='%aup#aup.analysis.calculate_distance_nearest_poi')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.analysis.calculate_distance_...')
-                    MixedStyledText('src.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:None <desc_addname>
+                  MixedStyledText('aup.analysis.calculate_distance_...')
+                    MixedStyledText('aup.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.analysis.')
-                    MixedStyledText('calculate_distance_nearest_poi', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:None <desc_name>
+                      SingleStyledText('aup.analysis.')
+                    MixedStyledText('calculate_distance_nearest_poi', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('calculate_distance_nearest_poi')
-                    MixedStyledText(' ( gdf_f, G, amenity_name, city ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:None <desc_parameterlist>
+                    MixedStyledText(' ( gdf_f, G, amenity_name, city ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:None <desc_parameterlist>
                       MixedStyledText(' ( gdf_f, G, amenity_name, city')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -1923,9 +1923,9 @@
                               SingleStyledText('city')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Calculate the distance to the sh...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:1 <paragraph>
+                Paragraph('Calculate the distance to the sh...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Calculate the distance to the sh...')
@@ -1939,7 +1939,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -2050,7 +2050,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.calculate_distance_nearest_poi:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.calculate_distance_nearest_poi:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.GeoDataFrame – geoData...')   None:None <paragraph>
@@ -2061,17 +2061,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.analysis.get_distances ( g, ...', id='%src#src.analysis.get_distances')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:1 <desc_signature>
+                Paragraph('aup.analysis.get_distances ( g, ...', id='%aup#aup.analysis.get_distances')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.analysis.get_distances ( g, ...')
-                    MixedStyledText('src.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:None <desc_addname>
+                  MixedStyledText('aup.analysis.get_distances ( g, ...')
+                    MixedStyledText('aup.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.analysis.')
-                    MixedStyledText('get_distances', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:None <desc_name>
+                      SingleStyledText('aup.analysis.')
+                    MixedStyledText('get_distances', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('get_distances')
-                    MixedStyledText(' ( g, seeds, weights, voronoi_as...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:None <desc_parameterlist>
+                    MixedStyledText(' ( g, seeds, weights, voronoi_as...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:None <desc_parameterlist>
                       MixedStyledText(' ( g, seeds, weights, voronoi_as...')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -2098,9 +2098,9 @@
                               SingleStyledText('voronoi_assignment')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Distance for the shortest path f...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:1 <paragraph>
+                Paragraph('Distance for the shortest path f...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Distance for the shortest path f...')
@@ -2114,7 +2114,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -2294,7 +2294,7 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.get_distances:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.get_distances:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('[type] – [description]')   None:None <paragraph>
@@ -2305,17 +2305,17 @@
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.analysis.group_by_hex_mean (...', id='%src#src.analysis.group_by_hex_mean')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:1 <desc_signature>
+                Paragraph('aup.analysis.group_by_hex_mean (...', id='%aup#aup.analysis.group_by_hex_mean')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.analysis.group_by_hex_mean (...')
-                    MixedStyledText('src.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:None <desc_addname>
+                  MixedStyledText('aup.analysis.group_by_hex_mean (...')
+                    MixedStyledText('aup.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.analysis.')
-                    MixedStyledText('group_by_hex_mean', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:None <desc_name>
+                      SingleStyledText('aup.analysis.')
+                    MixedStyledText('group_by_hex_mean', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('group_by_hex_mean')
-                    MixedStyledText(' ( nodes, hex_bins, resolution, ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:None <desc_parameterlist>
+                    MixedStyledText(' ( nodes, hex_bins, resolution, ...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:None <desc_parameterlist>
                       MixedStyledText(' ( nodes, hex_bins, resolution, ...')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -2342,9 +2342,9 @@
                               SingleStyledText('amenity_name')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Group by hexbin the nodes and ca...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:1 <paragraph>
+                Paragraph('Group by hexbin the nodes and ca...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Group by hexbin the nodes and ca...')
@@ -2358,7 +2358,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -2488,12 +2488,12 @@
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          (continued) Section(id='%src#src-analysis-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:17 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          (continued) Section(id='%aup#aup-analysis-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:17 <section>
                > (0,0,0,1,2) chapter
             (continued) LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
-              (continued) StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:None <desc_content>
+              (continued) StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:None <desc_content>
                    > (0,0,2,0,3) object description content
                 (continued) DefinitionList(style='field list')   None:None <field_list>
                      > (0,0,1,0,2) field list
@@ -2504,28 +2504,28 @@
                     Paragraph('Returns', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.group_by_hex_mean:0 <field_name>
+                      MixedStyledText('Returns')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.group_by_hex_mean:0 <field_name>
                         SingleStyledText('Returns')
                     StaticGroupedFlowables()   None:None <field_body>
                       Paragraph('geopandas.geoDataFrame – geoData...')   None:None <paragraph>
                            > (0,0,0,0,2) body
                         MixedStyledText('geopandas.geoDataFrame – geoData...')
                           SingleStyledText('geopandas.geoDataFrame – geoData...')
-            LabeledFlowable(style='object description')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:None <desc>
+            LabeledFlowable(style='object description')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.analysis.voronoi_cpu ( g, we...', id='%src#src.analysis.voronoi_cpu')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:1 <desc_signature>
+                Paragraph('aup.analysis.voronoi_cpu ( g, we...', id='%aup#aup.analysis.voronoi_cpu')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.analysis.voronoi_cpu ( g, we...')
-                    MixedStyledText('src.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:None <desc_addname>
+                  MixedStyledText('aup.analysis.voronoi_cpu ( g, we...')
+                    MixedStyledText('aup.analysis.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.analysis.')
-                    MixedStyledText('voronoi_cpu', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:None <desc_name>
+                      SingleStyledText('aup.analysis.')
+                    MixedStyledText('voronoi_cpu', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('voronoi_cpu')
-                    MixedStyledText(' ( g, weights, seeds ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:None <desc_parameterlist>
+                    MixedStyledText(' ( g, weights, seeds ) ')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:None <desc_parameterlist>
                       MixedStyledText(' ( g, weights, seeds')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -2547,40 +2547,72 @@
                               SingleStyledText('seeds')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Voronoi diagram calculator for u...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:1 <paragraph>
+                StaticGroupedFlowables(style='block quote')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:None <block_quote>
+                     > (0,0,1,0,1) block quote
+                  Paragraph('Voronoi diagram calculator for u...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:1 <paragraph>
+                       > (0,0,0,0,2) body
+                    MixedStyledText('Voronoi diagram calculator for u...')
+                      SingleStyledText('Voronoi diagram calculator for u...')
+                Paragraph('Optimized for computational effi...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:2 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
-                  MixedStyledText('Voronoi diagram calculator for u...')
-                    SingleStyledText('Voronoi diagram calculator for u...')
-                Paragraph('g - igraph.Graph object (N, V) w...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:4 <paragraph>
-                     > (0,0,2,0,5) object description content paragraph
-                       (0,0,0,0,2) body
-                  MixedStyledText('g - igraph.Graph object (N, V) w...')
-                    SingleStyledText('g - igraph.Graph object (N, V) w...')
-                Paragraph('Returns: numpy array of length l...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/analysis.py:docstring of src.analysis.voronoi_cpu:8 <paragraph>
-                     > (0,0,2,0,5) object description content paragraph
-                       (0,0,0,0,2) body
-                  MixedStyledText('Returns: numpy array of length l...')
-                    SingleStyledText('Returns: numpy array of length l...')
+                  MixedStyledText('Optimized for computational effi...')
+                    SingleStyledText('Optimized for computational effi...')
+                StaticGroupedFlowables(style='block quote')   None:None <block_quote>
+                     > (0,0,1,0,1) block quote
+                  DefinitionList()   None:None <definition_list>
+                       > (0,0,0,0,2) definition list
+                    LabeledFlowable()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:7 <definition_list_item>
+                         > (0,0,0,0,4) definition list item
+                      StaticGroupedFlowables(style='definition term')
+                           > (0,0,1,0,5) definition term
+                        Paragraph('Args:')
+                             > (0,0,1,0,7) definition term paragraph
+                               (0,0,0,0,2) body
+                          MixedStyledText('Args:')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:7 <term>
+                            SingleStyledText('Args:')
+                      StaticGroupedFlowables(style='definition')   None:None <definition>
+                           > (0,0,1,0,5) definition
+                        Paragraph('g (igraph.Graph): graph object w...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:5 <paragraph>
+                             > (0,0,1,0,7) definition paragraph
+                               (0,0,0,0,2) body
+                          MixedStyledText('g (igraph.Graph): graph object w...')
+                            SingleStyledText('g (igraph.Graph): graph object w...')
+                    LabeledFlowable()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:9 <definition_list_item>
+                         > (0,0,0,0,4) definition list item
+                      StaticGroupedFlowables(style='definition term')
+                           > (0,0,1,0,5) definition term
+                        Paragraph('Returns:')
+                             > (0,0,1,0,7) definition term paragraph
+                               (0,0,0,0,2) body
+                          MixedStyledText('Returns:')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:9 <term>
+                            SingleStyledText('Returns:')
+                      StaticGroupedFlowables(style='definition')   None:None <definition>
+                           > (0,0,1,0,5) definition
+                        Paragraph('[numpy.array]: numpy.array on le...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/analysis.py:docstring of aup.analysis.voronoi_cpu:10 <paragraph>
+                             > (0,0,1,0,7) definition paragraph
+                               (0,0,0,0,2) body
+                          MixedStyledText('[numpy.array]: numpy.array on le...')
+                            SingleStyledText('[numpy.array]: numpy.array on le...')
 #### UpExpandingContainer('header')
   StaticGroupedFlowables()
-    Header('AUP, Release 0.1.0')
+    Header('AUP Documentation, Release 0.1.0')
          > (0,0,0,0,2) header
            (0,0,0,0,1) body
-      MixedStyledText('AUP, Release 0.1.0')
-        Field('AUP')
-          SingleStyledText('AUP')
+      MixedStyledText('AUP Documentation, Release 0.1.0')
+        Field('AUP Documentation')
+          SingleStyledText('AUP Documentation')
         SingleStyledText(', ')
         Field('Release 0.1.0')
           SingleStyledText('Release 0.1.0')
 #### DownExpandingContainer('footer')
   StaticGroupedFlowables()
-    Footer('8		Chapter 4.  src.analysis modu...')
+    Footer('8		Chapter 4.  aup.analysis modu...')
          > (0,0,0,0,2) footer
            (0,0,0,0,1) body
-      MixedStyledText('8		Chapter 4.  src.analysis modu...')
+      MixedStyledText('8		Chapter 4.  aup.analysis modu...')
         Field('8')
           SingleStyledText('8')
         Tab('	')
@@ -2591,8 +2623,8 @@
         Field('4')
           SingleStyledText('4')
         SingleStyledText('.  ')
-        Field('src.analysis module')
-          SingleStyledText('src.analysis module')
+        Field('aup.analysis module')
+          SingleStyledText('aup.analysis module')
 ---------------------------------- page 9 ----------------------------------
 #### FootnoteContainer('footnotes')
   StaticGroupedFlowables()
@@ -2610,33 +2642,33 @@
       Field('5', style='number')
            > (0,0,2,0,3) body matter chapter number
         SingleStyledText('5')
-  Paragraph('src.visualization module', style='body matter chapter title')
+  Paragraph('aup.visualization module', style='body matter chapter title')
        > (0,0,1,0,2) body matter chapter title
          (0,0,0,0,2) body
-    Field('src.visualization module')
-      SingleStyledText('src.visualization module')
+    Field('aup.visualization module')
+      SingleStyledText('aup.visualization module')
 #### ChainedContainer('column1')
   (continued) StaticGroupedFlowables()
     (continued) DocumentTree()
       (continued) StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:0 <compound>
-        (continued) StaticGroupedFlowables(id='%src')   None:None <start_of_file>
-          Section(id='%src#src-visualization-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/src.rst:22 <section>
+        (continued) StaticGroupedFlowables(id='%aup')   None:None <start_of_file>
+          Section(id='%aup#aup-visualization-module')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/aup.rst:22 <section>
                > (0,0,0,1,2) chapter
             LabeledFlowable(style='object description')   None:None <desc>
                  > (0,0,1,0,2) object description
               StaticGroupedFlowables(style='signatures')
                    > (0,0,2,0,3) object signatures
-                Paragraph('src.visualization.hex_plot ( ax,...', id='%src#src.visualization.hex_plot')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:1 <desc_signature>
+                Paragraph('aup.visualization.hex_plot ( ax,...', id='%aup#aup.visualization.hex_plot')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:1 <desc_signature>
                      > (0,0,2,0,5) object signature
                        (0,0,0,0,2) body
-                  MixedStyledText('src.visualization.hex_plot ( ax,...')
-                    MixedStyledText('src.visualization.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:None <desc_addname>
+                  MixedStyledText('aup.visualization.hex_plot ( ax,...')
+                    MixedStyledText('aup.visualization.', style='additional name part')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:None <desc_addname>
                          > (0,0,3,0,6) additional name part
-                      SingleStyledText('src.visualization.')
-                    MixedStyledText('hex_plot', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:None <desc_name>
+                      SingleStyledText('aup.visualization.')
+                    MixedStyledText('hex_plot', style='main object name')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:None <desc_name>
                          > (0,0,3,0,6) object name
                       SingleStyledText('hex_plot')
-                    MixedStyledText(' ( ax, gdf_data, gdf_boundary, g...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:None <desc_parameterlist>
+                    MixedStyledText(' ( ax, gdf_data, gdf_boundary, g...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:None <desc_parameterlist>
                       MixedStyledText(' ( ax, gdf_data, gdf_boundary, g...')
                         SingleStyledText(' ( ', style='parentheses')
                              > (0,0,3,0,6) object parentheses
@@ -2736,9 +2768,9 @@
                               SingleStyledText('True')
                       SingleStyledText(' ) ', style='parentheses')
                            > (0,0,3,0,6) object parentheses
-              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:None <desc_content>
+              StaticGroupedFlowables(style='content')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:None <desc_content>
                    > (0,0,2,0,3) object description content
-                Paragraph('Plot hexbin geoDataFrames to cre...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:1 <paragraph>
+                Paragraph('Plot hexbin geoDataFrames to cre...')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:1 <paragraph>
                      > (0,0,2,0,5) object description content paragraph
                        (0,0,0,0,2) body
                   MixedStyledText('Plot hexbin geoDataFrames to cre...')
@@ -2752,7 +2784,7 @@
                     Paragraph('Parameters', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:0 <field_name>
+                      MixedStyledText('Parameters')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:0 <field_name>
                         SingleStyledText('Parameters')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -2913,7 +2945,7 @@
                     Paragraph('Keyword Arguments', style='field name')
                          > (0,0,2,0,6) field name
                            (0,0,0,0,2) body
-                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/src/visualization.py:docstring of src.visualization.hex_plot:0 <field_name>
+                      MixedStyledText('Keyword Arguments')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/aup/visualization.py:docstring of aup.visualization.hex_plot:0 <field_name>
                         SingleStyledText('Keyword Arguments')
                     StaticGroupedFlowables()   None:None <field_body>
                       List(style='bulleted')   None:None <bullet_list>
@@ -3134,7 +3166,7 @@
                                 SingleStyledText(')')
                                 SingleStyledText(' – ')
                                 SingleStyledText('{True})')
-      List(style='bulleted')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:20 <bullet_list>
+      List(style='bulleted')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:19 <bullet_list>
            > (0,0,1,0,2) bulleted list
         ListItem()
              x (0,0,1,0,4) bulleted list item
@@ -3148,7 +3180,7 @@
                 SingleStyledText('')
           StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:None <list_item>
                > (0,0,0,0,3) list item body
-            Paragraph('Index')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:20 <paragraph>
+            Paragraph('Index')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:19 <paragraph>
                  > (0,0,0,0,5) list item paragraph
                    (0,0,0,0,2) body
               MixedStyledText('Index')
@@ -3169,7 +3201,7 @@
                 SingleStyledText('')
           StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:None <list_item>
                > (0,0,0,0,3) list item body
-            Paragraph('Module Index')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:21 <paragraph>
+            Paragraph('Module Index')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:20 <paragraph>
                  > (0,0,0,0,5) list item paragraph
                    (0,0,0,0,2) body
               MixedStyledText('Module Index')
@@ -3190,7 +3222,7 @@
                 SingleStyledText('')
           StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:None <list_item>
                > (0,0,0,0,3) list item body
-            Paragraph('Search Page')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:22 <paragraph>
+            Paragraph('Search Page')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:21 <paragraph>
                  > (0,0,0,0,5) list item paragraph
                    (0,0,0,0,2) body
               MixedStyledText('Search Page')
@@ -3199,24 +3231,6 @@
                   MixedStyledText('Search Page')
                     MixedStyledText('Search Page')   None:None <inline>
                       SingleStyledText('Search Page')
-        ListItem()
-             x (0,0,1,0,4) bulleted list item
-             > fallback to default style
-          ListItemLabel('•')
-               > (0,0,1,0,6) bulleted list item label
-                 (0,0,0,0,2) list item label
-              MixedStyledText('•')
-                SingleStyledText('')
-                SingleStyledText('•')
-                SingleStyledText('')
-          StaticGroupedFlowables()   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:None <list_item>
-               > (0,0,0,0,3) list item body
-            Paragraph('`Internals Reference`_')   /Users/natera/Dropbox/Projects/20_TEC/Observatorio/accesibilidad-urbana/docs/source/index.rst:23 <paragraph>
-                 > (0,0,0,0,5) list item paragraph
-                   (0,0,0,0,2) body
-              MixedStyledText('`Internals Reference`_')
-                SingleStyledText('`Internals Reference`_', style='error')   None:None <problematic>
-                     > (0,0,1,0,1) error
 #### DownExpandingContainer('footer')
   StaticGroupedFlowables()
     Footer('		9')
@@ -3243,50 +3257,50 @@
     StaticGroupedFlowables()
       IndexSection()
            > (0,0,0,1,1) chapter
-        IndexLabel('s')
+        IndexLabel('a')
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
-          SingleStyledText('s')
-        IndexEntry('src')
+          SingleStyledText('a')
+        IndexEntry('aup')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          SingleStyledText('src', style='domain')
+          SingleStyledText('aup', style='domain')
                > (0,0,1,0,3) domain index entry name
-        IndexEntry('src.analysis, 7')
+        IndexEntry('aup.analysis, 7')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.analysis, 7')
-            SingleStyledText('src.analysis', style='domain')
+          MixedStyledText('aup.analysis, 7')
+            SingleStyledText('aup.analysis', style='domain')
                  > (0,0,1,0,3) domain index entry name
             SingleStyledText(', ')
             Reference('7')
                  > (0,0,0,1,1) linked reference
               SingleStyledText('7')
-        IndexEntry('src.data, 3')
+        IndexEntry('aup.data, 3')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.data, 3')
-            SingleStyledText('src.data', style='domain')
+          MixedStyledText('aup.data, 3')
+            SingleStyledText('aup.data', style='domain')
                  > (0,0,1,0,3) domain index entry name
             SingleStyledText(', ')
             Reference('3')
                  > (0,0,0,1,1) linked reference
               SingleStyledText('3')
-        IndexEntry('src.utils, 5')
+        IndexEntry('aup.utils, 5')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.utils, 5')
-            SingleStyledText('src.utils', style='domain')
+          MixedStyledText('aup.utils, 5')
+            SingleStyledText('aup.utils', style='domain')
                  > (0,0,1,0,3) domain index entry name
             SingleStyledText(', ')
             Reference('5')
                  > (0,0,0,1,1) linked reference
               SingleStyledText('5')
-        IndexEntry('src.visualization, 9')
+        IndexEntry('aup.visualization, 9')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.visualization, 9')
-            SingleStyledText('src.visualization', style='domain')
+          MixedStyledText('aup.visualization, 9')
+            SingleStyledText('aup.visualization', style='domain')
                  > (0,0,1,0,3) domain index entry name
             SingleStyledText(', ')
             Reference('9')
@@ -3311,12 +3325,12 @@
   (continued) StaticGroupedFlowables()
 #### UpExpandingContainer('header')
   StaticGroupedFlowables()
-    Header('AUP, Release 0.1.0')
+    Header('AUP Documentation, Release 0.1.0')
          > (0,0,0,0,2) header
            (0,0,0,0,1) body
-      MixedStyledText('AUP, Release 0.1.0')
-        Field('AUP')
-          SingleStyledText('AUP')
+      MixedStyledText('AUP Documentation, Release 0.1.0')
+        Field('AUP Documentation')
+          SingleStyledText('AUP Documentation')
         SingleStyledText(', ')
         Field('Release 0.1.0')
           SingleStyledText('Release 0.1.0')
@@ -3349,6 +3363,62 @@
          > (0,0,0,1,1) chapter
       Index()   index
            > (0,0,0,0,2) index
+        IndexLabel('A')
+             > (0,0,0,0,2) index section label
+               (0,0,0,0,1) body
+          SingleStyledText('A')
+        IndexEntry('aup.analysis')
+             > (0,0,0,1,2) level 1 index entry
+               (0,0,0,0,1) body
+          SingleStyledText('aup.analysis')
+        IndexEntry('module, 7')
+             > (0,0,0,1,2) level 2 index entry
+               (0,0,0,0,1) body
+          MixedStyledText('module, 7')
+            SingleStyledText('module, ')
+            MixedStyledText('7')
+              Reference('7')
+                   > (0,0,0,1,1) linked reference
+                SingleStyledText('7')
+        IndexEntry('aup.data')
+             > (0,0,0,1,2) level 1 index entry
+               (0,0,0,0,1) body
+          SingleStyledText('aup.data')
+        IndexEntry('module, 3')
+             > (0,0,0,1,2) level 2 index entry
+               (0,0,0,0,1) body
+          MixedStyledText('module, 3')
+            SingleStyledText('module, ')
+            MixedStyledText('3')
+              Reference('3')
+                   > (0,0,0,1,1) linked reference
+                SingleStyledText('3')
+        IndexEntry('aup.utils')
+             > (0,0,0,1,2) level 1 index entry
+               (0,0,0,0,1) body
+          SingleStyledText('aup.utils')
+        IndexEntry('module, 5')
+             > (0,0,0,1,2) level 2 index entry
+               (0,0,0,0,1) body
+          MixedStyledText('module, 5')
+            SingleStyledText('module, ')
+            MixedStyledText('5')
+              Reference('5')
+                   > (0,0,0,1,1) linked reference
+                SingleStyledText('5')
+        IndexEntry('aup.visualization')
+             > (0,0,0,1,2) level 1 index entry
+               (0,0,0,0,1) body
+          SingleStyledText('aup.visualization')
+        IndexEntry('module, 9')
+             > (0,0,0,1,2) level 2 index entry
+               (0,0,0,0,1) body
+          MixedStyledText('module, 9')
+            SingleStyledText('module, ')
+            MixedStyledText('9')
+              Reference('9')
+                   > (0,0,0,1,1) linked reference
+                SingleStyledText('9')
         IndexLabel('C')
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
@@ -3362,20 +3432,20 @@
               Reference('7')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('7')
-        IndexEntry('create_hexgrid() (in module src....')
+        IndexEntry('create_hexgrid() (in module aup....')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('create_hexgrid() (in module src....')
-            SingleStyledText('create_hexgrid() (in module src....')
+          MixedStyledText('create_hexgrid() (in module aup....')
+            SingleStyledText('create_hexgrid() (in module aup....')
             MixedStyledText('5')
               Reference('5')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('5')
-        IndexEntry('create_polygon() (in module src....')
+        IndexEntry('create_polygon() (in module aup....')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('create_polygon() (in module src....')
-            SingleStyledText('create_polygon() (in module src....')
+          MixedStyledText('create_polygon() (in module aup....')
+            SingleStyledText('create_polygon() (in module aup....')
             MixedStyledText('3')
               Reference('3')
                    > (0,0,0,1,1) linked reference
@@ -3384,20 +3454,20 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('D')
-        IndexEntry('df_to_geodf() (in module src.dat...')
+        IndexEntry('df_to_geodf() (in module aup.dat...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('df_to_geodf() (in module src.dat...')
-            SingleStyledText('df_to_geodf() (in module src.dat...')
+          MixedStyledText('df_to_geodf() (in module aup.dat...')
+            SingleStyledText('df_to_geodf() (in module aup.dat...')
             MixedStyledText('3')
               Reference('3')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('3')
-        IndexEntry('download_graph() (in module src....')
+        IndexEntry('download_graph() (in module aup....')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('download_graph() (in module src....')
-            SingleStyledText('download_graph() (in module src....')
+          MixedStyledText('download_graph() (in module aup....')
+            SingleStyledText('download_graph() (in module aup....')
             MixedStyledText('3')
               Reference('3')
                    > (0,0,0,1,1) linked reference
@@ -3406,11 +3476,11 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('F')
-        IndexEntry('find_nearest() (in module src.ut...')
+        IndexEntry('find_nearest() (in module aup.ut...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('find_nearest() (in module src.ut...')
-            SingleStyledText('find_nearest() (in module src.ut...')
+          MixedStyledText('find_nearest() (in module aup.ut...')
+            SingleStyledText('find_nearest() (in module aup.ut...')
             MixedStyledText('5')
               Reference('5')
                    > (0,0,0,1,1) linked reference
@@ -3419,29 +3489,29 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('G')
-        IndexEntry('get_distances() (in module src.a...')
+        IndexEntry('get_distances() (in module aup.a...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('get_distances() (in module src.a...')
-            SingleStyledText('get_distances() (in module src.a...')
+          MixedStyledText('get_distances() (in module aup.a...')
+            SingleStyledText('get_distances() (in module aup.a...')
             MixedStyledText('7')
               Reference('7')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('7')
-        IndexEntry('get_seeds() (in module src.utils...')
+        IndexEntry('get_seeds() (in module aup.utils...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('get_seeds() (in module src.utils...')
-            SingleStyledText('get_seeds() (in module src.utils...')
+          MixedStyledText('get_seeds() (in module aup.utils...')
+            SingleStyledText('get_seeds() (in module aup.utils...')
             MixedStyledText('5')
               Reference('5')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('5')
-        IndexEntry('group_by_hex_mean() (in module s...')
+        IndexEntry('group_by_hex_mean() (in module a...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('group_by_hex_mean() (in module s...')
-            SingleStyledText('group_by_hex_mean() (in module s...')
+          MixedStyledText('group_by_hex_mean() (in module a...')
+            SingleStyledText('group_by_hex_mean() (in module a...')
             MixedStyledText('7')
               Reference('7')
                    > (0,0,0,1,1) linked reference
@@ -3450,20 +3520,20 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('H')
-        IndexEntry('haversine() (in module src.utils...')
+        IndexEntry('haversine() (in module aup.utils...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('haversine() (in module src.utils...')
-            SingleStyledText('haversine() (in module src.utils...')
+          MixedStyledText('haversine() (in module aup.utils...')
+            SingleStyledText('haversine() (in module aup.utils...')
             MixedStyledText('6')
               Reference('6')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('6')
-        IndexEntry('hex_plot() (in module src.visual...')
+        IndexEntry('hex_plot() (in module aup.visual...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('hex_plot() (in module src.visual...')
-            SingleStyledText('hex_plot() (in module src.visual...')
+          MixedStyledText('hex_plot() (in module aup.visual...')
+            SingleStyledText('hex_plot() (in module aup.visual...')
             MixedStyledText('9')
               Reference('9')
                    > (0,0,0,1,1) linked reference
@@ -3472,38 +3542,38 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('L')
-        IndexEntry('load_denue() (in module src.data...')
+        IndexEntry('load_denue() (in module aup.data...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('load_denue() (in module src.data...')
-            SingleStyledText('load_denue() (in module src.data...')
+          MixedStyledText('load_denue() (in module aup.data...')
+            SingleStyledText('load_denue() (in module aup.data...')
             MixedStyledText('4')
               Reference('4')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('4')
-        IndexEntry('load_mpos() (in module src.data)...')
+#### ChainedContainer('column2')
+  (continued) StaticGroupedFlowables()
+    (continued) IndexSection()
+         > (0,0,0,1,1) chapter
+      (continued) Index()   index
+           > (0,0,0,0,2) index
+        IndexEntry('load_mpos() (in module aup.data)...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('load_mpos() (in module src.data)...')
-            SingleStyledText('load_mpos() (in module src.data)...')
+        IndexEntry('load_polygon() (in module aup.da...')
+             > (0,0,0,1,2) level 1 index entry
+               (0,0,0,0,1) body
+          MixedStyledText('load_polygon() (in module aup.da...')
+            SingleStyledText('load_polygon() (in module aup.da...')
             MixedStyledText('4')
               Reference('4')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('4')
-        IndexEntry('load_polygon() (in module src.da...')
+        IndexEntry('load_study_areas() (in module au...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('load_polygon() (in module src.da...')
-            SingleStyledText('load_polygon() (in module src.da...')
-            MixedStyledText('4')
-              Reference('4')
-                   > (0,0,0,1,1) linked reference
-                SingleStyledText('4')
-        IndexEntry('load_study_areas() (in module sr...')
-             > (0,0,0,1,2) level 1 index entry
-               (0,0,0,0,1) body
-          MixedStyledText('load_study_areas() (in module sr...')
-            SingleStyledText('load_study_areas() (in module sr...')
+          MixedStyledText('load_study_areas() (in module au...')
+            SingleStyledText('load_study_areas() (in module au...')
             MixedStyledText('4')
               Reference('4')
                    > (0,0,0,1,1) linked reference
@@ -3516,99 +3586,38 @@
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
           SingleStyledText('module')
-        IndexEntry('src.analysis, 7')
+        IndexEntry('aup.analysis, 7')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.analysis, 7')
-            SingleStyledText('src.analysis, ')
+          MixedStyledText('aup.analysis, 7')
+            SingleStyledText('aup.analysis, ')
             MixedStyledText('7')
               Reference('7')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('7')
-        IndexEntry('src.data, 3')
+        IndexEntry('aup.data, 3')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.data, 3')
-            SingleStyledText('src.data, ')
+          MixedStyledText('aup.data, 3')
+            SingleStyledText('aup.data, ')
             MixedStyledText('3')
               Reference('3')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('3')
-        IndexEntry('src.utils, 5')
+        IndexEntry('aup.utils, 5')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.utils, 5')
-            SingleStyledText('src.utils, ')
+          MixedStyledText('aup.utils, 5')
+            SingleStyledText('aup.utils, ')
             MixedStyledText('5')
               Reference('5')
                    > (0,0,0,1,1) linked reference
                 SingleStyledText('5')
-        IndexEntry('src.visualization, 9')
+        IndexEntry('aup.visualization, 9')
              > (0,0,0,1,2) level 2 index entry
                (0,0,0,0,1) body
-          MixedStyledText('src.visualization, 9')
-            SingleStyledText('src.visualization, ')
-            MixedStyledText('9')
-              Reference('9')
-                   > (0,0,0,1,1) linked reference
-                SingleStyledText('9')
-#### ChainedContainer('column2')
-  (continued) StaticGroupedFlowables()
-    (continued) IndexSection()
-         > (0,0,0,1,1) chapter
-      (continued) Index()   index
-           > (0,0,0,0,2) index
-        IndexLabel('S')
-             > (0,0,0,0,2) index section label
-               (0,0,0,0,1) body
-        IndexEntry('src.analysis')
-             > (0,0,0,1,2) level 1 index entry
-               (0,0,0,0,1) body
-          SingleStyledText('src.analysis')
-        IndexEntry('module, 7')
-             > (0,0,0,1,2) level 2 index entry
-               (0,0,0,0,1) body
-          MixedStyledText('module, 7')
-            SingleStyledText('module, ')
-            MixedStyledText('7')
-              Reference('7')
-                   > (0,0,0,1,1) linked reference
-                SingleStyledText('7')
-        IndexEntry('src.data')
-             > (0,0,0,1,2) level 1 index entry
-               (0,0,0,0,1) body
-          SingleStyledText('src.data')
-        IndexEntry('module, 3')
-             > (0,0,0,1,2) level 2 index entry
-               (0,0,0,0,1) body
-          MixedStyledText('module, 3')
-            SingleStyledText('module, ')
-            MixedStyledText('3')
-              Reference('3')
-                   > (0,0,0,1,1) linked reference
-                SingleStyledText('3')
-        IndexEntry('src.utils')
-             > (0,0,0,1,2) level 1 index entry
-               (0,0,0,0,1) body
-          SingleStyledText('src.utils')
-        IndexEntry('module, 5')
-             > (0,0,0,1,2) level 2 index entry
-               (0,0,0,0,1) body
-          MixedStyledText('module, 5')
-            SingleStyledText('module, ')
-            MixedStyledText('5')
-              Reference('5')
-                   > (0,0,0,1,1) linked reference
-                SingleStyledText('5')
-        IndexEntry('src.visualization')
-             > (0,0,0,1,2) level 1 index entry
-               (0,0,0,0,1) body
-          SingleStyledText('src.visualization')
-        IndexEntry('module, 9')
-             > (0,0,0,1,2) level 2 index entry
-               (0,0,0,0,1) body
-          MixedStyledText('module, 9')
-            SingleStyledText('module, ')
+          MixedStyledText('aup.visualization, 9')
+            SingleStyledText('aup.visualization, ')
             MixedStyledText('9')
               Reference('9')
                    > (0,0,0,1,1) linked reference
@@ -3617,11 +3626,11 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('T')
-        IndexEntry('to_igraph() (in module src.utils...')
+        IndexEntry('to_igraph() (in module aup.utils...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('to_igraph() (in module src.utils...')
-            SingleStyledText('to_igraph() (in module src.utils...')
+          MixedStyledText('to_igraph() (in module aup.utils...')
+            SingleStyledText('to_igraph() (in module aup.utils...')
             MixedStyledText('6')
               Reference('6')
                    > (0,0,0,1,1) linked reference
@@ -3630,11 +3639,11 @@
              > (0,0,0,0,2) index section label
                (0,0,0,0,1) body
           SingleStyledText('V')
-        IndexEntry('voronoi_cpu() (in module src.ana...')
+        IndexEntry('voronoi_cpu() (in module aup.ana...')
              > (0,0,0,1,2) level 1 index entry
                (0,0,0,0,1) body
-          MixedStyledText('voronoi_cpu() (in module src.ana...')
-            SingleStyledText('voronoi_cpu() (in module src.ana...')
+          MixedStyledText('voronoi_cpu() (in module aup.ana...')
+            SingleStyledText('voronoi_cpu() (in module aup.ana...')
             MixedStyledText('8')
               Reference('8')
                    > (0,0,0,1,1) linked reference

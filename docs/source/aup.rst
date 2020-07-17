@@ -3,22 +3,22 @@ AUP package
 
 Users' reference for the AUP api.
 
-src.data module
+aup.data module
 ===============
-.. automodule:: src.data
+.. automodule:: aup.data
    :members:
 
-src.utils module
+aup.utils module
 ================
-.. automodule:: src.utils
+.. automodule:: aup.utils
    :members:
 
-src.analysis module
+aup.analysis module
 ===================
-.. automodule:: src.analysis
+.. automodule:: aup.analysis
    :members:
 
-src.visualization module
+aup.visualization module
 ========================
-.. automodule:: src.visualization
+.. automodule:: aup.visualization
    :members:
