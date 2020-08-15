@@ -1,3 +1,5 @@
 {
-	"python.formatting.provider": "autopep8"
+	"python.formatting.provider": "autopep8",
+	"restructuredtext.confPath": "${workspaceFolder}/docs/source",
+	"python.pythonPath": "/Users/natera/anaconda3/envs/ox/bin/python"
 }
