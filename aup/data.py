@@ -69,8 +69,10 @@ def load_population():
 
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with urban AGEBs
+		list -- list with the columns names
 	"""
-	return gpd.read_file('../data/raw/AGEB_urb_2010_SCINCE.geojson')
+	gdf = gpd.read_file('../data/raw/AGEB_urb_2010_SCINCE.geojson')
+	return gdf, gdf.columns.tolist()[3:-1]
 
 def df_to_geodf(df, x, y, crs):
 	"""Create a GeoDataFrame from a pandas DataFrame
