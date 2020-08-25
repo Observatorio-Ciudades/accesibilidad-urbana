@@ -3,7 +3,7 @@
 # Set of utility functions 
 # developed by: Luis Natera @natera
 # 			  nateraluis@gmail.com
-# updated: 08/05/2020
+# updated: 25/08/2020
 ################################################################################
 
 import igraph as ig
