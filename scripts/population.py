@@ -25,9 +25,9 @@ def main(city, gdf_pop, columns):
 	hex_temp = hex_temp.groupby(f'hex_id_{resolution}').sum()
 	hex_temp = hex_temp[columns]
 	hex_bins = pd.merge(hex_bins, hex_temp, right_index=True,left_on=f'hex_id_{resolution}', how='left').fillna(0)
-	hex_bins.to_file(f"../data/processed/{city}_hex_bins_TEST.geojson", driver='GeoJSON')
+	hex_bins.to_file(f"../data/processed/{city}_hex_bins.geojson", driver='GeoJSON')
 if __name__ == "__main__":
 	areas = aup.load_study_areas()  # Load the metropolitan areas
 	gdf_pop, columns = aup.load_population()
-	city = 'Guadalajara'
-	main(city,gdf_pop,columns)
+	for city in areas:
+		main(city,gdf_pop,columns)
