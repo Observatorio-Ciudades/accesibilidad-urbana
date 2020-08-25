@@ -1,0 +1,11 @@
+fiona._env - 2020-08-25 17:41:03,670 - ERROR - ../data/processed/Guadalajara_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 17:41:03,679 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 17:54:40,047 - ERROR - ../data/processed/Monterrey_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 17:54:40,048 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 18:20:32,557 - ERROR - ../data/processed/Mexico_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 18:20:32,558 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 18:25:33,607 - ERROR - ../data/processed/Puebla_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 18:25:33,608 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 18:29:46,493 - ERROR - ../data/processed/Toluca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 18:29:46,493 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 18:46:42,743 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
