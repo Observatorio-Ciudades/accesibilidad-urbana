@@ -1,14 +1,14 @@
 from config import *
-import aup
 import os
 import sys
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
 	sys.path.append(module_path)
+	import aup
 import osmnx as ox
 import pandas as pd 
-
 import geopandas as gpd
+#
 
 def main(city, gdf_pop, columns):
 	gdf_area = aup.load_polygon(city)
@@ -24,7 +24,7 @@ def main(city, gdf_pop, columns):
 	hex_temp = gpd.sjoin(nodes, hex_temp)
 	hex_temp = hex_temp.groupby(f'hex_id_{resolution}').sum()
 	hex_temp = hex_temp[columns]
-	hex_bins = pd.merge(hex_bins, hex_temp, right_index=True,left_on=f'hex_id_{res}', how='left').fillna(0)
+	hex_bins = pd.merge(hex_bins, hex_temp, right_index=True,left_on=f'hex_id_{resolution}', how='left').fillna(0)
 	hex_bins.to_file(f"../data/processed/{city}_hex_bins_TEST.geojson", driver='GeoJSON')
 if __name__ == "__main__":
 	areas = aup.load_study_areas()  # Load the metropolitan areas
