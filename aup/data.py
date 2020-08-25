@@ -4,7 +4,7 @@
 # name of the city as key.
 # developed by: Luis Natera @natera
 # 			  nateraluis@gmail.com
-# updated: 24/06/2020
+# updated: 25/08/2020
 ################################################################################
 import osmnx as ox
 from .utils import *
@@ -63,8 +63,17 @@ def download_graph(polygon, city, network_type='walk', save=True):
 			ox.save_graphml(G, filename='raw/network_{}_{}.graphml'.format(city,network_type))
 		return G
 
+def load_population():
+	"""
+	Load urban AGEBs population into a GeoDataFrame
+
+	Returns:
+		geopandas.GeoDataFrame -- GeoDataFrame with urban AGEBs
+	"""
+	return gpd.read_file('../data/raw/AGEB_urb_2010_SCINCE.geojson')
+
 def df_to_geodf(df, x, y, crs):
-	"""Create a geo data frame from a pandas data frame
+	"""Create a GeoDataFrame from a pandas DataFrame
 	
 	Arguments:
 		df {pandas.DataFrame} -- pandas data frame with lat, lon or x, y, columns
