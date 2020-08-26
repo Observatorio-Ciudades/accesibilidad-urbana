@@ -35,10 +35,9 @@ if __name__ == "__main__":
     areas = aup.load_study_areas()  # Load the metropolitan areas
     gdf_pop, columns = aup.load_population()
     for city in areas:
-        if city not in ['Guadalajara', 'Monterrey', 'Mexico', 'Puebla', 'Toluca', 'Tijuana', 'Leon']:
-            try:
-                main(city, gdf_pop, columns)
-            except:
-                pass
-        else:
+        try:
+            main(city, gdf_pop, columns)
+        except:
             pass
+    else:
+        pass
