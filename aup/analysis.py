@@ -3,7 +3,7 @@
 # Set of utility functions 
 # developed by: Luis Natera @natera
 # 			  nateraluis@gmail.com
-# updated: 08/05/2020
+# updated: 25/08/2020
 ################################################################################
 
 import igraph as ig
@@ -48,13 +48,13 @@ def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
 	Arguments:
-		gdf_f {geopandas.geoDataFrame} -- geoDataFrame with the Points of Interest the geometry type has to be shapely.Point
+		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
 		G {networkx.MultiDiGraph} -- Graph created with OSMnx
 		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
 		city {str} -- string with the name of the city
 
 	Returns:
-		geopandas.GeoDataFrame -- geoDataFrame with geometry and distance to the nearest POI
+		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
 	"""
 	g, weights, node_mapping = to_igraph(G) #convert to igraph to run the calculations
 	col_dist = f'dist_{amenity_name}'
@@ -79,16 +79,16 @@ def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
 
 def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	"""
-	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest pharmacy
+	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes {geopandas.geoDataFrame} -- geoDataFrame with the nodes to group
-		hex_bins {geopandas.geoDataFrame} -- geoDataFrame with the hexbins
+		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
+		hex_bins {geopandas.GeoDataFrame} -- GeoDataFrame with the hexbins
 		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
 		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
 
 	Returns:
-		geopandas.geoDataFrame -- geoDataFrame with the hex_id{resolution}, geometry and average distance to pharmacy for each hexbin
+		geopandas.GeoDataFrame -- GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
 	"""
 	dist_col = f'dist_{amenity_name}'
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
@@ -98,3 +98,23 @@ def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
 	hex_new.fillna(0, inplace=True)
 	return hex_new
+
+def population_to_nodes(nodes, gdf_population):
+	"""
+	Assign the proportion of population to each node inside an AGEB
+
+	Arguments:
+		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
+		gdf_population {geopandas.GeoDataFrame} -- GeoDataFrame with the population attributes of each AGEB
+
+	Returns:
+		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
+	"""
+	totals = gpd.sjoin(nodes, gdf_population).groupby('CVEGEO').count().rename(
+		columns={'x': 'nodes_in'})[['nodes_in']].reset_index()  # caluculate the totals
+	# get a temporal dataframe with the totals and columns
+	temp = pd.merge(gdf_population, totals, left_on='CVEGEO', right_on='CVEGEO')
+	for col in temp.columns.tolist()[3:-2]:  # get the average for the values
+		temp[col] = temp[col]/temp['nodes_in']
+	temp.drop(['nodes_in'], axis=1, inplace=True)  # drop the nodes_in column
+	return gpd.sjoin(nodes, temp)  # spatial join the nodes with the values
