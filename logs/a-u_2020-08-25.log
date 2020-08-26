@@ -9,3 +9,20 @@ fiona._env - 2020-08-25 18:25:33,608 - WARNING - driver GeoJSON does not support
 fiona._env - 2020-08-25 18:29:46,493 - ERROR - ../data/processed/Toluca_hex_bins.geojson: No such file or directory
 fiona._env - 2020-08-25 18:29:46,493 - WARNING - driver GeoJSON does not support creation option ENCODING
 fiona._env - 2020-08-25 18:46:42,743 - ERROR - ../data/raw/Leon_area.geojson: No such file or directory
+fiona._env - 2020-08-25 20:15:51,511 - ERROR - ../data/processed/Juarez_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 20:17:55,362 - ERROR - ../data/processed/Laguna_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 20:17:55,362 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:18:07,901 - ERROR - ../data/processed/Querétaro_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:18:07,902 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:21:42,122 - ERROR - ../data/processed/SLP_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:21:42,122 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:26:20,256 - ERROR - ../data/processed/Merida_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:26:20,256 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:29:06,994 - ERROR - ../data/processed/Aguascalientes_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:29:06,994 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:33:06,354 - ERROR - ../data/processed/Mexicali_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:33:06,354 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:57:00,312 - ERROR - ../data/processed/Cuernavaca_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:57:00,312 - WARNING - driver GeoJSON does not support creation option ENCODING
+fiona._env - 2020-08-25 21:59:06,517 - ERROR - ../data/processed/Saltillo_hex_bins.geojson: No such file or directory
+fiona._env - 2020-08-25 21:59:06,518 - WARNING - driver GeoJSON does not support creation option ENCODING
