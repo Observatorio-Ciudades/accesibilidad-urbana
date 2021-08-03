@@ -145,3 +145,179 @@ def load_denue(amenity_name):
 		gdf = gpd.read_file('../data/external/DENUE/denue_00_46112-46311_shp/conjunto_de_datos/denue_inegi_46112-46311_.shp')
 		gdf = gdf[(gdf['codigo_act']=="462111")|(gdf['codigo_act']=="462112")]
 		return gdf
+
+
+def create_schema(schema):
+    """create schema in the database if it does not exists already,
+    otherwise log if the schema already in the DB.
+
+    Args:
+        schema (str): String with the name of the schema to create.
+    """
+    engine = utils.db_engine()
+    # Create schema; if it already exists, skip this
+    try:
+        engine.execute(f"CREATE SCHEMA IF NOT EXISTS {schema.lower()}")
+    except Exception as e:
+        utils.log(e)
+        pass
+
+
+def df_to_db(df, name, table, schema, if_exists="fail"):
+    """Save a dataframe into the database as a table
+
+    Args:
+        df (DataFrame): pandas.DataFrame to upload
+        name (str): name of the dataframe to upload (used for logs)
+        table (str): name of the table to create/append to.
+
+    """
+
+    create_schema(schema)
+    table = table.lower()
+    schema = schema.lower()
+    buffer = StringIO()
+    df.to_csv(buffer, index=False, header=False, quoting=csv.QUOTE_NONNUMERIC, sep=",")
+    buffer.seek(0)
+    conn = utils.connect()
+    cursor = conn.cursor()
+    utils.log(f"{name} starting upload to: {table}")
+    try:
+        cursor.copy_expert(f"""COPY {schema}.{table} FROM STDIN WITH (FORMAT CSV)""", buffer)
+        conn.commit()
+        utils.log(f"{name} Copy to {schema}.{table} done.")
+        buffer = 0
+    except (Exception, psycopg2.DatabaseError) as error:
+        utils.log(f"{name} Error: {error}")
+        conn.rollback()
+        cursor.close()
+        return 1
+    cursor.close()
+    conn.close()
+
+
+def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
+    """Upload a geoPandas.GeoDataFrame to the database
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to be uploadead
+        name (str): Name of the table to be created
+        schema (str): Name of the folder in which to save the geoDataFrame
+        if_exists (str): Behaivor if the table already exists in the database
+        ('fail', 'replace', 'append') 'fail' by default.
+    """
+    create_schema(schema)
+    utils.log("Getting DB connection")
+    engine = utils.db_engine()
+    utils.log(f"Uploading table {name} to database")
+    gdf.to_postgis(
+        name=name.lower(), con=engine, if_exists=if_exists, index=False, schema=schema.lower(),
+    )
+    utils.log(f"Table {name} in DB")
+
+
+def gdf_to_df_geo(gdf):
+    """Convert a GeoDataFrame into a DataFrame with the geometry column as text
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to be converted
+
+    Returns:
+        pandas.DataFrame: DataFrame with the geometry as text
+    """
+    utils.log("Converting GeoDataFrame to DF with wkt")
+    gdf["geom"] = gdf["geometry"].apply(lambda x: WKTElement(x.wkt, srid=4326))
+    # drop the geometry column as it is now duplicative
+    gdf.drop("geometry", 1, inplace=True)
+    gdf.rename(columns={"geom": "geometry"}, inplace=True)
+    return gdf
+
+
+def gdf_to_db(gdf, name, schema, if_exists="fail"):
+    """Upload a geoPandas.GeoDataFrame to the database
+
+    Args:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame to be uploadead
+        name (str): Name of the table to be created
+        schema (str): Name of the folder in which to save the geoDataFrame
+        if_exists (str): String of what to do if the table already exists in the database
+        ('fail','append','replace')
+    """
+    create_schema(schema)
+    utils.log("Getting DB connection")
+    utils.log(f"Uploading table {name} to database")
+    df_geo = gdf_to_df_geo(gdf)
+    df_to_db(df_geo, name, name, schema, if_exists=if_exists)
+    utils.log(f"Table {schema}.{name} in DB")
+
+
+def convert_type(df, dc=None, string_column=None):
+    """Converts columns from DataFrame to numeric or string if specified
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing all columns
+        column (str): Column name, which will be converted
+        string_column (list): list of names for columns that will be set as string
+
+    Returns:
+        pandas.Series: Series converted to numeric value or kept as object
+    """
+    for column in df.columns:
+        df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
+    if string_column is not None:
+        for sc in string_column:
+            df[sc] = df[sc].astype("str")
+
+    return df
+
+
+def df_from_db(name, schema):
+    """Load a table from the database into a DataFrame
+
+    Args:
+        name (str): Name of the table to be loaded
+        schema (str): Name of the folder from where to load the geoDataFrame
+
+    Returns:
+        pandas.DataFrame: GeoDataFrame with the table from the database.
+    """
+    engine = utils.db_engine()
+    utils.log(f"Getting {name} from DB")
+    df = pd.read_sql(f"SELECT * FROM {schema.lower()}.{name.lower()}", engine)
+    utils.log(f"{name} retrived")
+    return df
+
+
+def df_from_query(query):
+    """Load a table from the database into a DataFrame
+
+    Args:
+        query (str): SQL query to get the data
+
+    Returns:
+        pandas.DataFrame: GeoDataFrame with the table from the database.
+    """
+    engine = utils.db_engine()
+    utils.log("Getting data from DB")
+    df = pd.read_sql(query, engine)
+    utils.log("Data retrived")
+    return df
+
+
+def gdf_from_db(name, schema):
+    """Load a table from the database into a GeoDataFrame
+
+    Args:
+        name (str): Name of the table to be loaded
+        schema (str): Name of the folder from where to load the geoDataFrame
+
+    Returns:
+        geopandas.GeoDataFrame: GeoDataFrame with the table from the database.
+    """
+    engine = utils.db_engine()
+    utils.log(f"Getting {name} from DB")
+    gdf = gpd.read_postgis(
+        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col="geometry"
+    )
+    utils.log(f"{name} retrived")
+    return gdf
