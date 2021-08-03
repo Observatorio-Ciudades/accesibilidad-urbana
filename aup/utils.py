@@ -18,6 +18,166 @@ import logging
 import datetime as dt
 from shapely.geometry import Point, Polygon
 from matplotlib.patches import RegularPolygon
+import datetime as dt
+import logging as lg
+import sys
+
+import psycopg2
+from sqlalchemy import create_engine
+
+from . import settings
+
+
+def ts(style="datetime", template=None):
+    """Get current timestamp as string.
+
+    Args:
+        style (str): format the timestamp with this built-in template.
+        Must be one of {'datetime', 'date', 'time'}
+        template (str): If not None, format the timestamp with this template instead of
+        one of the built-in styles.
+
+    Returns:
+        ts (str): The string timestamp
+    """
+    if template is None:
+        if style == "datetime":
+            template = "{:%Y-%m-%d %H:%M:%S}"
+        elif style == "date":
+            template = "{:%Y-%m-%d}"
+        elif style == "time":
+            template = "{:%H:%M:%S}"
+        else:
+            raise ValueError(f'unrecognized timestamp style "{style}"')
+
+    ts = template.format(dt.datetime.now())
+    return ts
+
+
+# Logger functions taken from OSMnx
+def log(message, level=None, name=None, filename=None):
+    """Write a message to the logger.
+    This logs to file and/or prints to the console (terminal), depending on
+    the current configuration of settings.log_file and settings.log_console.
+
+    Args:
+        message (str): The message to log
+        level (int): One of the logger.level constants
+        name (str): Name of the logger
+        filename (str): Name of the log file
+
+    Returns:
+        None
+    """
+    if level is None:
+        level = settings.log_level
+    if name is None:
+        name = settings.log_name
+    if filename is None:
+        filename = settings.log_filename
+
+    logger = _get_logger(level=level, name=name, filename=filename)
+    if level == lg.DEBUG:
+        logger.debug(message)
+    elif level == lg.INFO:
+        logger.info(message)
+    elif level == lg.WARNING:
+        logger.warning(message)
+    elif level == lg.ERROR:
+        logger.error(message)
+
+
+def _get_logger(level=None, name=None, filename=None):
+    """Create a logger or return the current one if already instantiated.
+
+    Args:
+        level (int): One of the logger.level constants
+        name (str): Name of the logger
+        filename (str): Name of the log file
+
+   Returns:
+        logger : logging.logger
+    """
+    if level is None:
+        level = settings.log_level
+    if name is None:
+        name = settings.log_name
+    if filename is None:
+        filename = settings.log_filename
+
+    logger = lg.getLogger(name)
+
+    # if a logger with this name is not already set up
+    if not getattr(logger, "handler_set", None):
+
+        # get today's date and construct a log filename
+        log_filename = os.path.join(settings.logs_folder, f'{filename}_{ts(style="date")}.log')
+
+        # if the logs folder does not already exist, create it
+        if not os.path.exists(settings.logs_folder):
+            os.makedirs(settings.logs_folder)
+
+        # create file handler and log formatter and set them up
+        handler = lg.FileHandler(log_filename, encoding="utf-8")
+        formatter = lg.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(level)
+        logger.handler_set = True
+
+    return logger
+
+
+def db_engine():
+    """Function to create an engine with Ada
+
+    Returns:
+        database engine: sqlalchemy engine
+    """
+    log("Creating SQL engine")
+    return create_engine(
+        "postgresql://{user}:{pw}@{url}/{db}".format(
+            user=str(settings.user), pw=str(settings.pw), url=str(settings.url), db=str(settings.db)
+        )
+    )
+
+
+def connect():
+    """Get data base connection
+
+    Returns:
+        psycopg2 connect: connection to data base
+    """
+    conn = None
+    try:
+        # connect to the PostgreSQL server
+        conn = psycopg2.connect(
+            database=str(settings.db),
+            user=str(settings.user),
+            password=str(settings.pw),
+            host=str(settings.url),
+        )
+    except (Exception, psycopg2.DatabaseError) as error:
+        log(error)
+        sys.exit(1)
+    return conn
+
+
+def get_cursor():
+    """Creates a SQL cursor
+
+    Returns:
+        psycopg2 cursor: Cursor to interact with the database
+    """
+    pg_conn = psycopg2.connect(
+        database=str(settings.db),
+        user=str(settings.user),
+        password=str(settings.pw),
+        host=str(settings.url),
+    )
+    cur = pg_conn.cursor()
+    return pg_conn, cur
+
 
 
 def find_nearest(G, gdf, amenity_name):
