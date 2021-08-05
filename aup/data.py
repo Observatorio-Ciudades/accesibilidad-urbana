@@ -7,9 +7,14 @@
 # updated: 25/08/2020
 ################################################################################
 import osmnx as ox
-from .utils import *
+from . import utils
 from shapely.geometry import Polygon
 import json
+
+import geopandas as gpd
+import pandas as pd
+import psycopg2
+from geoalchemy2 import WKTElement
 
 ox.config(data_folder='../data', cache_folder='../data/raw/cache',
           use_cache=True, log_console=True)
