@@ -116,6 +116,7 @@ def population_to_nodes(nodes, gdf_population, column_start=1, column_end=-1, cv
 	temp = pd.merge(gdf_population, totals, on=cve_column)
 	for col in temp.columns.tolist()[column_start:column_end]:  # get the average for the values
 		temp[col] = temp[col]/temp['nodes_in']
+	temp = temp.set_crs("EPSG:4326")
 	nodes = gpd.sjoin(nodes, temp)
 	nodes.drop(['nodes_in','index_right'], axis=1, inplace=True)  # drop the nodes_in column
 	return  nodes # spatial join the nodes with the values
