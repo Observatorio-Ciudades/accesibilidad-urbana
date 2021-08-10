@@ -10,13 +10,15 @@ if module_path not in sys.path:
     import aup
 
 
-def main(schema, folder, column_start, column_end, resolution=8, save=False):
+def main(schema, folder_sufix, year, column_start, column_end, resolution=8, save=False):
     # Read json with municipality codes by capital or metropolitan area
     df = pd.read_json("Metropolis_CVE.json")
     aup.log("Read metropolitan areas and capitals json")
+    
     # Download municipality polygons from database
-    gdf = aup.gdf_from_db("mpos_2020", "marco")
-    aup.log("Finished downloading mpos_2020 GeoDataFrame from database")
+    gdf = aup.gdf_from_db("mpos_"+year, "marco")
+    aup.log(f"Finished downloading mpos_{year} GeoDataFrame from database")
+    
     # Iterate over municipality DataFrame columns to access each municipality code
     for c in df.columns.unique():
         aup.log(f"\n Starting municipality filters for {c}")
@@ -33,7 +35,8 @@ def main(schema, folder, column_start, column_end, resolution=8, save=False):
             mun_gdf = mun_gdf.append(gdf.loc[gdf.CVEGEO == m])
             aup.log(f"Filtered {m} GeoDataFrame at: {c}")
             # Creates query used to download AGEB data
-            query = f"SELECT * FROM censoageb.censoageb_2020 WHERE \"cve_geo\" LIKE \'{m}%%\'"
+            censo_folder = 'censoageb_' + year
+            query = f"SELECT * FROM censoageb.{censo_folder} WHERE \"cve_geo\" LIKE \'{m}%%\'"
             ageb_gdf = ageb_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Donwloaded AGEB for {m}")
             #Creates query to download hex bins
@@ -73,8 +76,9 @@ def main(schema, folder, column_start, column_end, resolution=8, save=False):
                         left_on=f'hex_id_{resolution}', how='left').fillna(0) #merges census data to original hex bins
         aup.log(f"Added census data to a total of {len(hex_bins)} hex bins")
 
-        if save == True:
-            print('something')
+        if save:
+            aup.gdf_to_db(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db(nodes, "nodes_"+folder_sufix, schema=schema, if_exists="append")
 
 
 
@@ -83,6 +87,7 @@ if __name__ == "__main__":
     aup.log('Starting script')
     censo_column_start = 14 #column where numeric data starts in censo
     censo_column_end = -1 #column where numeric data ends in censo
+    year = '2020'
     schema = 'population'
-    folder = 'folder'
-    main(schema, folder, censo_column_start, censo_column_end)
+    folder_sufix = 'pop' #sufix for folder name
+    main(schema, folder_sufix, year, censo_column_start, censo_column_end)
