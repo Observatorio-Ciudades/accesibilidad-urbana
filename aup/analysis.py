@@ -99,7 +99,7 @@ def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	hex_new.fillna(0, inplace=True)
 	return hex_new
 
-def population_to_nodes(nodes, gdf_population):
+def population_to_nodes(nodes, gdf_population, column_start=1, column_end=-1, cve_column='CVEGEO'):
 	"""
 	Assign the proportion of population to each node inside an AGEB
 
@@ -110,11 +110,12 @@ def population_to_nodes(nodes, gdf_population):
 	Returns:
 		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
 	"""
-	totals = gpd.sjoin(nodes, gdf_population).groupby('CVEGEO').count().rename(
+	totals = gpd.sjoin(nodes, gdf_population).groupby(cve_column).count().rename(
 		columns={'x': 'nodes_in'})[['nodes_in']].reset_index()  # caluculate the totals
 	# get a temporal dataframe with the totals and columns
-	temp = pd.merge(gdf_population, totals, left_on='CVEGEO', right_on='CVEGEO')
-	for col in temp.columns.tolist()[3:-2]:  # get the average for the values
+	temp = pd.merge(gdf_population, totals, on=cve_column)
+	for col in temp.columns.tolist()[column_start:column_end]:  # get the average for the values
 		temp[col] = temp[col]/temp['nodes_in']
-	temp.drop(['nodes_in'], axis=1, inplace=True)  # drop the nodes_in column
-	return gpd.sjoin(nodes, temp)  # spatial join the nodes with the values
+	nodes = gpd.sjoin(nodes, temp)
+	nodes.drop(['nodes_in','index_right'], axis=1, inplace=True)  # drop the nodes_in column
+	return  nodes # spatial join the nodes with the values

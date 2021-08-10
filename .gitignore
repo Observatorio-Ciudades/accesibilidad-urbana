@@ -9,3 +9,13 @@ tests/__pycache__/*
 *.pytest_cache/
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints
+
+#data
+data/*
+
+#pyc
+*/aup/__pycache__/*
+*.pyc
+
+#logs
+*.log
