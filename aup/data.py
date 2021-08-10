@@ -293,7 +293,7 @@ def df_from_db(name, schema):
     return df
 
 
-def df_from_query(query):
+def df_from_query(query, index_col=None):
     """Load a table from the database into a DataFrame
 
     Args:
@@ -304,7 +304,23 @@ def df_from_query(query):
     """
     engine = utils.db_engine()
     utils.log("Getting data from DB")
-    df = pd.read_sql(query, engine)
+    df = pd.read_sql(query, engine, index_col=index_col)
+    utils.log("Data retrived")
+    return df
+
+
+def gdf_from_query(query, geometry_col='geom', index_col=None):
+    """Load a table from the database into a GeoDataFrame
+
+    Args:
+        query (str): SQL query to get the data
+
+    Returns:
+        geopandas.GeoDataFrame: GeoDataFrame with the table from the database.
+    """
+    engine = utils.db_engine()
+    utils.log("Getting data from DB")
+    df = gpd.GeoDataFrame.from_postgis(query, engine, geom_col=geometry_col, index_col=index_col)
     utils.log("Data retrived")
     return df
 
