@@ -16,26 +16,28 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
     aup.log("Read metropolitan areas and capitals json")
     
     # Download municipality polygons from database
-    gdf = aup.gdf_from_db("mpos_"+year, "marco")
-    aup.log(f"Finished downloading mpos_{year} GeoDataFrame from database")
+    #gdf = aup.gdf_from_db("mpos_"+year, "marco")
+    #aup.log(f"Finished downloading mpos_{year} GeoDataFrame from database")
+    #Folder names from database
+    mpos_folder = 'mpos_'+year
+    censo_folder = 'censoageb_' + year
     
     # Iterate over municipality DataFrame columns to access each municipality code
     for c in df.columns.unique():
         aup.log(f"\n Starting municipality filters for {c}")
         # Creates empty GeoDataFrame to store specified municipality polygons
         mun_gdf = gpd.GeoDataFrame()
-        ageb_gdf = pd.DataFrame()
-        hex_bins = pd.DataFrame()
+        ageb_gdf = gpd.GeoDataFrame()
+        hex_bins = gpd.GeoDataFrame()
         # Iterates over municipality codes for each metropolitan area or capital
         for i in range(len(df.loc["mpos", c])):
             # Extracts specific municipality code
             m = df.loc["mpos", c][i]
-            aup.log(f"Extracted CVGEO: {m} for city {c} from Metropolis DataFrame")
-            # Filteres municipality GeoDataFrame according to code and appends to mun_gdf
-            mun_gdf = mun_gdf.append(gdf.loc[gdf.CVEGEO == m])
-            aup.log(f"Filtered {m} GeoDataFrame at: {c}")
+            # Downloads municipality polygon according to code
+            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
+            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
+            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
             # Creates query used to download AGEB data
-            censo_folder = 'censoageb_' + year
             query = f"SELECT * FROM censoageb.{censo_folder} WHERE \"cve_geo\" LIKE \'{m}%%\'"
             ageb_gdf = ageb_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Donwloaded AGEB for {m}")
@@ -43,6 +45,11 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
             query = f"SELECT * FROM hexgrid.hex_grid WHERE \"CVEGEO\" LIKE \'{m}%%\'"
             hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Donwloaded hex bins for {m}")
+
+        #Define projections
+        mun_gdf = mun_gdf.set_crs("EPSG:4326")
+        ageb_gdf = ageb_gdf.set_crs("EPSG:4326")
+        hex_bins = hex_bins.set_crs("EPSG:4326")
 
         # Reads mun_gdf GeoDataFrame as polygon
         poly = mun_gdf.geometry
