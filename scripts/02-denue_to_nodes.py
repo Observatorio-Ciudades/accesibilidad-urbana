@@ -34,47 +34,46 @@ def main(schema, year, save=False):
         #Define projections
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
         
-        poly = mun_gdf.geometry
-        # Extracts coordinates from polygon as DataFrame
-        coord_val = poly.bounds
-        # Gets coordinates for bounding box
-        n = coord_val.maxy.max()
-        s = coord_val.miny.min()
-        e = coord_val.maxx.max()
-        w = coord_val.minx.min()
+        #poly = mun_gdf.geometry
+        ## Extracts coordinates from polygon as DataFrame
+        #coord_val = poly.bounds
+        ## Gets coordinates for bounding box
+        #n = coord_val.maxy.max()
+        #s = coord_val.miny.min()
+        #e = coord_val.maxx.max()
+        #w = coord_val.minx.min()
     # Downloads OSMnx graph from bounding box
-        G = ox.graph_from_bbox(n, s, e, w, network_type="all")
+        #G = ox.graph_from_bbox(n, s, e, w, network_type="all")
     
         #Creates polygon for query
         poly_wkt = mun_gdf.dissolve().geometry.to_wkt()[0]
         # Creates query to download nodes from the metropolitan area or capital
         aup.log("Created wkt based on dissolved polygon")
-        ###################
-        #query = f"SELECT * FROM osmnx_new.nodes WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
-        #nodes = aup.gdf_from_query(query, geometry_col='geometry')
-        #aup.log(f"Downloaded {len(nodes)} nodes from database for {c}")
-        ## Creates query to download edges from the metropolitan area or capital
-        #query = f"SELECT * FROM osmnx_new.edges WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
-        #edges = aup.gdf_from_query(query, geometry_col='geometry')
-        #aup.log(f"Downloaded {len(edges)} edges from database for {c}")
-        #####################
-
+        query = f"SELECT * FROM osmnx_new.nodes WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
+        nodes = aup.gdf_from_query(query, geometry_col='geometry')
+        aup.log(f"Downloaded {len(nodes)} nodes from database for {c}")
+        # Creates query to download edges from the metropolitan area or capital
+        query = f"SELECT * FROM osmnx_new.edges WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
+        edges = aup.gdf_from_query(query, geometry_col='geometry')
+        aup.log(f"Downloaded {len(edges)} edges from database for {c}")
         # Creates query to download DENUE from the metropolitan area or capital
         query = f"SELECT * FROM denue.{denue_folder} WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
         denue = aup.gdf_from_query(query, geometry_col='geometry')
         aup.log(f"Downloaded {len(denue)} denue from database for {c}")
         #Defines projection for downloaded data
         denue = denue.set_crs("EPSG:4326")
-        #########
-        #nodes = nodes.set_crs("EPSG:4326")
-        #edges = edges.set_crs("EPSG:4326")
-        #######
+        nodes = nodes.set_crs("EPSG:4326")
+        edges = edges.set_crs("EPSG:4326")
         #Creates NetworkX graph from nodes and edges
-        #G = ox.graph_from_gdfs(nodes, edges, graph_attrs=None)
+        ## gives index u, v and key
+        edges.set_index(['u','v','key'], inplace=True)
+        G = ox.graph_from_gdfs(nodes, edges, graph_attrs=None)
 
         aup.log(f"Created NetworkX for {c}")
 
-        nearest = aup.find_nearest(G, denue, "nearest_node")
+        points = denue[['id', 'codigo_act', 'geometry']]
+
+        nearest = aup.find_nearest(G, points, return_distance= True)
         nearest = nearest.set_crs("EPSG:4326")
 
         if save:
@@ -86,5 +85,5 @@ def main(schema, year, save=False):
 if __name__ == "__main__":
     aup.log('Starting script')
     year = '2020'
-    schema = 'population'
+    schema = 'denue_nodes'
     main(schema, year, save = True)
