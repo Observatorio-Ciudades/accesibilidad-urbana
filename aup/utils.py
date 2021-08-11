@@ -179,8 +179,7 @@ def get_cursor():
     return pg_conn, cur
 
 
-
-def find_nearest(G, gdf, amenity_name):
+def find_nearest_old(G, gdf, amenity_name):
 	"""
 	Find the nearest graph nodes to the points in a GeoDataFrame
 
@@ -196,6 +195,25 @@ def find_nearest(G, gdf, amenity_name):
 	gdf['y'] = gdf['geometry'].apply(lambda p: p.y)
 	gdf[f'nearest_{amenity_name}'] = ox.get_nearest_nodes(G,list(gdf['x']),list(gdf['y']))
 	return gdf
+
+def find_nearest(G, gdf, return_distance=False):
+    """
+	Find the nearest graph nodes to the points in a GeoDataFrame
+
+	Arguments:
+		G {networkx.Graph} -- Graph created with OSMnx that contains geographic information (Lat,Lon, etc.)
+		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with the points to locate
+		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
+
+	Returns:
+		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
+	"""
+    osmnx_tuple = ox.nearest_nodes(G,list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
+    gdf['osmid'] = osmnx_tuple[0]
+    if return_distance:
+        gdf['distance_node'] = osmnx_tuple[1]
+    
+    return gdf
 
 def to_igraph(G):
 	"""
