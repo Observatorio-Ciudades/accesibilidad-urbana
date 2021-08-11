@@ -209,10 +209,12 @@ def find_nearest(G, gdf, return_distance=False):
 		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
 	"""
     osmnx_tuple = ox.nearest_nodes(G,list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
-    gdf['osmid'] = osmnx_tuple[0]
-    if return_distance:
-        gdf['distance_node'] = osmnx_tuple[1]
     
+    if return_distance:
+        gdf['osmid'] = osmnx_tuple[0]
+        gdf['distance_node'] = osmnx_tuple[1]
+    else:
+        gdf['osmid'] = osmnx_tuple
     return gdf
 
 def to_igraph(G):
@@ -230,11 +232,11 @@ def to_igraph(G):
 	node_mapping = dict(zip(G.nodes(),range(G.number_of_nodes())))
 	g = ig.Graph(len(G), [(node_mapping[i[0]],node_mapping[i[1]]) for i in G.edges()])
 	weights=np.array([float(e[2]['length']) for e in G.edges(data=True)])
-	node_id_array=np.array(list(G.nodes())) #the inverse of the node_mapping (the index is the key)
-	assert g.vcount() == G.number_of_nodes()
+	#node_id_array=np.array(list(G.nodes())) #the inverse of the node_mapping (the index is the key)
+	#assert g.vcount() == G.number_of_nodes()
 	return g, weights, node_mapping
 
-def get_seeds(gdf, node_mapping, amenity_name):
+def get_seeds_old(gdf, node_mapping, amenity_name):
 	"""
 	Generate the seed to be used to calculate shortest paths for the Voronoi's
 
@@ -247,6 +249,20 @@ def get_seeds(gdf, node_mapping, amenity_name):
 	"""
 	# Get the seed to calculate shortest paths
 	return np.array(list(set([node_mapping[i] for i in gdf[f'nearest_{amenity_name}']])))
+
+def get_seeds(gdf, node_mapping, column_name):
+	"""
+	Generate the seed to be used to calculate shortest paths for the Voronoi's
+
+	Arguments:
+		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with 'nearest' column
+		node_mapping {dict} -- dictionary containing the node mapping from networkx.Graph to igraph.Graph
+
+	Returns:
+		np.array -- numpy.array with the set of seeds
+	"""
+	# Get the seed to calculate shortest paths
+	return np.array(list(set([node_mapping[i] for i in gdf[column_name]])))
 
 def haversine(coord1, coord2):
 	"""
