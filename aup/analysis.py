@@ -77,7 +77,7 @@ def calculate_distance_nearest_poi_old(gdf_f, G, amenity_name, city):
 	print(list(nodes.columns))
 	return nodes
 
-def calculate_distance_nearest_poi(gdf_f, nodes, G, amenity_name, column_name):
+def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -90,13 +90,16 @@ def calculate_distance_nearest_poi(gdf_f, nodes, G, amenity_name, column_name):
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
 	"""
-	g, weights, node_mapping = to_igraph(G) #convert to igraph to run the calculations
+	g, weights, node_mapping = to_igraph(nodes,edges) #convert to igraph to run the calculations
 	col_dist = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
 	distances = get_distances(g,seeds,weights,voronoi_assignment)
 
 	nodes[col_dist] = distances
+
+	nodes.replace([np.inf, -np.inf], np.nan, inplace=True)
+	nodes.dropna(inplace=True)
 
 	return nodes
 
