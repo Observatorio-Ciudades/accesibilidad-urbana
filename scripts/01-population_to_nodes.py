@@ -48,24 +48,6 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         ageb_gdf = ageb_gdf.set_crs("EPSG:4326")
         hex_bins = hex_bins.set_crs("EPSG:4326")
 
-        ##############################################################
-        # Reads mun_gdf GeoDataFrame as polygon
-        #poly = mun_gdf.geometry
-        # Extracts coordinates from polygon as DataFrame
-        #coord_val = poly.bounds
-        # Gets coordinates for bounding box
-        #n = coord_val.maxy.max()
-        #s = coord_val.miny.min()
-        #e = coord_val.maxx.max()
-        #w = coord_val.minx.min()
-        #aup.log(
-        #    f"Extracted min and max coordinates from the municipality\
-        #    polygon N:{round(n,5)} S:{round(s,5)} E:{round(e,5)} W:{round(w,5)}"
-        #)
-
-        #query = f"SELECT * FROM osmnx_new.nodes WHERE (\"x\" between \'{w}\' and \'{e}\') and (\"y\" between \'{s}\' and \'{n}\')"
-        ##########################################
-
         # Creates query to download nodes from the metropolitan area or capital
         poly_wkt = mun_gdf.dissolve().geometry.to_wkt()[0]
         aup.log("Created wkt based on dissolved polygon")
@@ -98,6 +80,6 @@ if __name__ == "__main__":
     censo_column_start = 14 #column where numeric data starts in censo
     censo_column_end = -1 #column where numeric data ends in censo
     year = '2020'
-    schema = 'population'
+    schema = 'processed'
     folder_sufix = 'pop' #sufix for folder name
     main(schema, folder_sufix, year, censo_column_start, censo_column_end)
