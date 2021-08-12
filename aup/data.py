@@ -10,6 +10,7 @@ import osmnx as ox
 from . import utils
 from shapely.geometry import Polygon
 import json
+import os
 
 import geopandas as gpd
 import pandas as pd
@@ -342,3 +343,30 @@ def gdf_from_db(name, schema):
     )
     utils.log(f"{name} retrived")
     return gdf
+
+def graph_from_hippo(gdf, schema):
+    """[summary]
+
+    Args:
+        gdf ([type]): [description]
+        schema ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+
+    poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
+    edges_query =  f"SELECT * FROM {schema}.edges WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
+    edges = gdf_from_query(edges_query, geometry_col='geometry')
+    nodes_id = list(edges.v.unique())
+    u = list(edges.u.unique())
+    nodes_id.extend(u)
+    myset = set(nodes_id)
+    nodes_id = list(myset)
+    nodes_query = f'SELECT * FROM {schema}.nodes WHERE osmid IN {str(tuple(nodes_id))}'
+    nodes = gdf_from_query(nodes_query, geometry_col='geometry', index_col="osmid")
+    edges = edges.set_index(["u", "v", "key"])
+
+    G = ox.graph_from_gdfs(nodes, edges)
+
+    return G, nodes, edges

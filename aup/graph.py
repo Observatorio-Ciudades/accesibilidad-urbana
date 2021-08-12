@@ -20,7 +20,7 @@ def is_projected(crs):
     """
     return CRS.from_user_input(crs).is_projected
 
-def nearest_nodes(nodes, X, Y, return_dist=False):
+def nearest_nodes(G, nodes, X, Y, return_dist=False):
     """
     Find the nearest node to a point or to each of several points.
     If `X` and `Y` are single coordinate values, this will return the nearest

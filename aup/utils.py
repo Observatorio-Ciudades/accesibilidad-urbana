@@ -26,6 +26,7 @@ import psycopg2
 from sqlalchemy import create_engine
 
 from . import settings
+from . import graph
 
 
 def ts(style="datetime", template=None):
@@ -196,7 +197,7 @@ def find_nearest_old(G, gdf, amenity_name):
 	gdf[f'nearest_{amenity_name}'] = ox.get_nearest_nodes(G,list(gdf['x']),list(gdf['y']))
 	return gdf
 
-def find_nearest(G, gdf, return_distance=False):
+def find_nearest(G, nodes, gdf, return_distance=False):
     """
 	Find the nearest graph nodes to the points in a GeoDataFrame
 
@@ -208,7 +209,7 @@ def find_nearest(G, gdf, return_distance=False):
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
 	"""
-    osmnx_tuple = ox.nearest_nodes(G,list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
+    osmnx_tuple = graph.nearest_nodes(G, nodes, list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
     
     if return_distance:
         gdf['osmid'] = osmnx_tuple[0]
@@ -217,7 +218,7 @@ def find_nearest(G, gdf, return_distance=False):
         gdf['osmid'] = osmnx_tuple
     return gdf
 
-def to_igraph(G):
+def to_igraph_old(G):
 	"""
 	Convert a graph from networkx to igraph
 
@@ -235,6 +236,30 @@ def to_igraph(G):
 	#node_id_array=np.array(list(G.nodes())) #the inverse of the node_mapping (the index is the key)
 	#assert g.vcount() == G.number_of_nodes()
 	return g, weights, node_mapping
+
+def to_igraph(nodes,edges):
+    """[summary]
+
+    Args:
+        nodes ([type]): [description]
+        edges ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+
+    nodes.reset_index(inplace=True)
+    edges.reset_index(inplace=True)
+
+    edges.set_index(['u','v'], inplace=True)
+    nodes.set_index(['osmid'], inplace=True)
+
+    node_mapping = dict(zip(nodes.index.values,range(len(nodes))))
+    g = ig.Graph(len(nodes), [(node_mapping[i[0]],node_mapping[i[1]]) for i in edges.index.values])
+    weights=np.array([float(e) for e in edges['length']])
+    
+    return g, weights, node_mapping
+
 
 def get_seeds_old(gdf, node_mapping, amenity_name):
 	"""
