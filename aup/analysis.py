@@ -90,6 +90,9 @@ def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_nam
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
 	"""
+	nodes = nodes.copy()
+	edges = edges.copy()
+	gdf_f = gdf_f.loc[gdf_f.distance_node<=500]
 	g, weights, node_mapping = to_igraph(nodes,edges) #convert to igraph to run the calculations
 	col_dist = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
