@@ -11,6 +11,8 @@ from . import utils
 from shapely.geometry import Polygon
 import json
 import os
+import csv
+from io import StringIO
 
 import geopandas as gpd
 import pandas as pd
@@ -153,6 +155,29 @@ def load_denue(amenity_name):
 		return gdf
 
 
+def convert_type(df, dc=None, string_column=None):
+    """Converts columns from DataFrame to numeric or string if specified
+    Args:
+        df (pandas.DataFrame): DataFrame containing all columns
+        column (str): Column name, which will be converted
+        string_column (list): list of names for columns that will be set as string
+    Returns:
+        pandas.Series: Series converted to numeric value or kept as object
+    """
+    
+    if string_column is not None:
+        for column in df.columns:
+            if column not in string_column:
+                df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
+        for sc in string_column:
+            df[sc] = df[sc].astype("str")
+    else:
+        for column in df.columns:
+            df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
+
+    return df
+
+
 def create_schema(schema):
     """create schema in the database if it does not exists already,
     otherwise log if the schema already in the DB.
@@ -255,26 +280,6 @@ def gdf_to_db(gdf, name, schema, if_exists="fail"):
     df_geo = gdf_to_df_geo(gdf)
     df_to_db(df_geo, name, name, schema, if_exists=if_exists)
     utils.log(f"Table {schema}.{name} in DB")
-
-
-def convert_type(df, dc=None, string_column=None):
-    """Converts columns from DataFrame to numeric or string if specified
-
-    Args:
-        df (pandas.DataFrame): DataFrame containing all columns
-        column (str): Column name, which will be converted
-        string_column (list): list of names for columns that will be set as string
-
-    Returns:
-        pandas.Series: Series converted to numeric value or kept as object
-    """
-    for column in df.columns:
-        df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
-    if string_column is not None:
-        for sc in string_column:
-            df[sc] = df[sc].astype("str")
-
-    return df
 
 
 def df_from_db(name, schema):
@@ -387,6 +392,9 @@ def graph_from_hippo(gdf, schema):
     edges = edges_tmp.drop(columns=['id_tmp'])
 
     edges = edges.set_index(["u", "v", "key"])
+
+    nodes = nodes.set_crs("EPSG:4326")
+    edges = edges.set_crs("EPSG:4326")
 
     G = ox.graph_from_gdfs(nodes, edges)
 
