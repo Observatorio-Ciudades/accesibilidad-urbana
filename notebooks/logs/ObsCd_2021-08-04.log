@@ -1,0 +1,9 @@
+2021-08-04 00:24:21,190 INFO ObsCd Creating SQL engine
+2021-08-04 00:24:21,198 INFO ObsCd Getting mpos_2020 from DB
+2021-08-04 00:24:45,414 INFO ObsCd mpos_2020 retrived
+2021-08-04 16:37:28,984 INFO ObsCd Creating SQL engine
+2021-08-04 16:37:28,993 INFO ObsCd Getting mpos_2020 from DB
+2021-08-04 16:37:41,316 INFO ObsCd mpos_2020 retrived
+2021-08-04 16:45:48,515 INFO ObsCd Creating SQL engine
+2021-08-04 16:45:48,517 INFO ObsCd Getting mpos_2020 from DB
+2021-08-04 16:46:02,127 INFO ObsCd mpos_2020 retrived
