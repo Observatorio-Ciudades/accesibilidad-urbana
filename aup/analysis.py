@@ -43,7 +43,7 @@ def get_distances(g,seeds,weights,voronoi_assignment):
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
 	return distances
 	
-def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
+def calculate_distance_nearest_poi_old(gdf_f, G, amenity_name, city):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -77,6 +77,35 @@ def calculate_distance_nearest_poi(gdf_f, G, amenity_name, city):
 	print(list(nodes.columns))
 	return nodes
 
+def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name):
+	"""
+	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
+
+	Arguments:
+		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
+		G {networkx.MultiDiGraph} -- Graph created with OSMnx
+		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
+		city {str} -- string with the name of the city
+
+	Returns:
+		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
+	"""
+	nodes = nodes.copy()
+	edges = edges.copy()
+	gdf_f = gdf_f.loc[gdf_f.distance_node<=500]
+	g, weights, node_mapping = to_igraph(nodes,edges) #convert to igraph to run the calculations
+	col_dist = f'dist_{amenity_name}'
+	seeds = get_seeds(gdf_f, node_mapping, column_name)
+	voronoi_assignment = voronoi_cpu(g, weights, seeds)
+	distances = get_distances(g,seeds,weights,voronoi_assignment)
+
+	nodes[col_dist] = distances
+
+	nodes.replace([np.inf, -np.inf], np.nan, inplace=True)
+	nodes.dropna(inplace=True)
+
+	return nodes
+
 def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
@@ -99,7 +128,7 @@ def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	hex_new.fillna(0, inplace=True)
 	return hex_new
 
-def population_to_nodes(nodes, gdf_population):
+def population_to_nodes(nodes, gdf_population, column_start=1, column_end=-1, cve_column='CVEGEO'):
 	"""
 	Assign the proportion of population to each node inside an AGEB
 
@@ -110,11 +139,13 @@ def population_to_nodes(nodes, gdf_population):
 	Returns:
 		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
 	"""
-	totals = gpd.sjoin(nodes, gdf_population).groupby('CVEGEO').count().rename(
+	totals = gpd.sjoin(nodes, gdf_population).groupby(cve_column).count().rename(
 		columns={'x': 'nodes_in'})[['nodes_in']].reset_index()  # caluculate the totals
 	# get a temporal dataframe with the totals and columns
-	temp = pd.merge(gdf_population, totals, left_on='CVEGEO', right_on='CVEGEO')
-	for col in temp.columns.tolist()[3:-2]:  # get the average for the values
+	temp = pd.merge(gdf_population, totals, on=cve_column)
+	for col in temp.columns.tolist()[column_start:column_end]:  # get the average for the values
 		temp[col] = temp[col]/temp['nodes_in']
-	temp.drop(['nodes_in'], axis=1, inplace=True)  # drop the nodes_in column
-	return gpd.sjoin(nodes, temp)  # spatial join the nodes with the values
+	temp = temp.set_crs("EPSG:4326")
+	nodes = gpd.sjoin(nodes, temp)
+	nodes.drop(['nodes_in','index_right'], axis=1, inplace=True)  # drop the nodes_in column
+	return  nodes # spatial join the nodes with the values
