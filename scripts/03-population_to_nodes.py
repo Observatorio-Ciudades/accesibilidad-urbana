@@ -48,29 +48,43 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         ageb_gdf = ageb_gdf.set_crs("EPSG:4326")
         hex_bins = hex_bins.set_crs("EPSG:4326")
 
-        # Creates query to download nodes from the metropolitan area or capital
-        poly_wkt = mun_gdf.dissolve().geometry.to_wkt()[0]
+        #Creates wkt for query
+        gdf_tmp = mun_gdf.copy()
+        gdf_tmp = gdf_tmp.to_crs("EPSG:6372")
+        gdf_tmp = gdf_tmp.buffer(1).reset_index().rename(columns={0:'geometry'})
+        gdf_tmp = gdf_tmp.to_crs("EPSG:4326")
+        poly_wkt = gdf_tmp.dissolve().geometry.to_wkt()[0]
         aup.log("Created wkt based on dissolved polygon")
-        query = f"SELECT * FROM osmnx_new.nodes WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
+
+        query = f"SELECT * FROM processed.nodes_dist_2020 WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
         nodes = aup.gdf_from_query(query, geometry_col='geometry')
         aup.log(f"Downloaded {len(nodes)} nodes from database for {c}")
+        nodes = nodes.to_crs("EPSG:4326")
         # Adds population data to nodes
-        nodes = aup.population_to_nodes(nodes, ageb_gdf, column_start=column_start, 
+        nodes_pop = aup.population_to_nodes(nodes, ageb_gdf, column_start=column_start, 
         column_end=column_end-1, cve_column='cve_geo')
 
-        aup.log(f"Added a total of {nodes.pobtot.sum()} persons to nodes")
+        aup.log(f"Added a total of {nodes_pop.pobtot.sum()} persons to nodes")
 
         #Adds census data from nodes to hex bins
-        hex_temp = gpd.sjoin(nodes, hex_bins) #joins nodes en hex bins
+        hex_temp = gpd.sjoin(nodes_pop, hex_bins) #joins nodes en hex bins
+
+        #convert data types
+        string_columns = ['cve_geo','cve_ent','cve_mun','cve_loc','cve_ageb',
+        'entidad','nom_ent','mun','nom_mun','loc','nom_loc','ageb',
+        'mza','cve_geo_ageb','hex_id_8','CVEGEO']
+        hex_temp = aup.convert_type(hex_temp, string_column=string_columns)
+
         hex_temp = hex_temp.groupby(f'hex_id_{resolution}').sum() #group hex bins
+
         hex_temp = hex_temp[ageb_gdf.iloc[:,column_start:column_end].columns.to_list()] #keeps only census columns
         hex_bins = pd.merge(hex_bins, hex_temp, right_index=True,
                         left_on=f'hex_id_{resolution}', how='left').fillna(0) #merges census data to original hex bins
         aup.log(f"Added census data to a total of {len(hex_bins)} hex bins")
 
         if save:
-            aup.gdf_to_db(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
-            aup.gdf_to_db(nodes, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(nodes_pop, "nodes_"+folder_sufix, schema=schema, if_exists="append")
 
 
 
@@ -82,4 +96,4 @@ if __name__ == "__main__":
     year = '2020'
     schema = 'processed'
     folder_sufix = 'pop' #sufix for folder name
-    main(schema, folder_sufix, year, censo_column_start, censo_column_end)
+    main(schema, folder_sufix, year, censo_column_start, censo_column_end, save=True)

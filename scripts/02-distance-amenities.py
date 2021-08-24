@@ -43,7 +43,7 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         hex_bins = hex_bins.set_crs("EPSG:4326")
 
         # Creates query to download nodes from the metropolitan area or capital
-        _, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx_new')
+        _, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx')
         aup.log(f"Downloaded {len(nodes)} nodes and {len(edges)} from database for {c}")
 
         #Creates wkt for query
@@ -79,23 +79,21 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             else:
                 nodes_amenities = nodes_amenities.merge(
                     nodes_distance[['osmid','dist_'+a]], on='osmid')
-            aup.log('Added nodes distance to nodes_amenities')
+            aup.log(f'Added nodes distance for {a} to nodes_amenities')
             i += 1
 
         if save:
-            aup.gdf_to_db(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
-            aup.gdf_to_db(nodes, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(nodes_amenities, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
 
 
 
 if __name__ == "__main__":
     aup.log('--'*10)
     aup.log('Starting script')
-    #censo_column_start = 14 #column where numeric data starts in censo
-    #censo_column_end = -1 #column where numeric data ends in censo
     year = '2020'
     schema = 'processed'
-    folder_sufix = 'dist' #sufix for folder name
+    folder_sufix = 'dist_'+year #sufix for folder name
     amenities = {'farmacia':[464111,464112],'hospitales':[622111,622112], 
     'supermercados':[462111,462112]}
-    main(schema, folder_sufix, year, amenities)
+    main(schema, folder_sufix, year, amenities, save=True)
