@@ -3,6 +3,7 @@ import sys
 
 import pandas as pd
 import geopandas as gpd
+import math
 
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
@@ -10,3 +11,117 @@ if module_path not in sys.path:
     import aup
 
 
+def main(schema, folder_sufix, year, save=False):
+    # Read json with municipality codes by capital or metropolitan area
+    df = pd.read_json("Metropolis_CVE.json")
+    aup.log("Read metropolitan areas and capitals json")
+    
+    #Folder names from database
+    mpos_folder = 'mpos_'+year
+    hex_folder = 'hex_bins_dist_'+year
+    
+    # Iterate over municipality DataFrame columns to access each municipality code
+    for c in df.columns.unique():
+        aup.log(f"\n Starting municipality filters for {c}")
+        # Creates empty GeoDataFrame to store specified municipality polygons
+        mun_gdf = gpd.GeoDataFrame()
+        hex_bins = gpd.GeoDataFrame()
+        # Iterates over municipality codes for each metropolitan area or capital
+        for i in range(len(df.loc["mpos", c])):
+            # Extracts specific municipality code
+            m = df.loc["mpos", c][i]
+            # Downloads municipality polygon according to code
+            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
+            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
+            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
+            #Creates query to download hex bins
+            query = f"SELECT * FROM processed.{hex_folder} WHERE \"CVEGEO\" LIKE \'{m}%%\'"
+            hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
+            aup.log(f"Donwloaded hex bins for {m}")
+            
+        #Define projections
+        mun_gdf = mun_gdf.set_crs("EPSG:4326")
+        hex_bins = hex_bins.set_crs("EPSG:4326")
+
+        #Creates wkt for query
+        gdf_tmp = mun_gdf.copy()
+        gdf_tmp = gdf_tmp.to_crs("EPSG:6372")
+        gdf_tmp = gdf_tmp.buffer(1).reset_index().rename(columns={0:'geometry'})
+        gdf_tmp = gdf_tmp.to_crs("EPSG:4326")
+        poly_wkt = gdf_tmp.dissolve().geometry.to_wkt()[0]
+        aup.log("Created wkt based on dissolved polygon")
+
+        #Download nodes
+        nodes_folder = 'nodes_dist_'+year
+        query = f"SELECT * FROM processed.{nodes_folder} WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
+        nodes = aup.gdf_from_query(query, geometry_col='geometry')
+        aup.log(f"Downloaded {len(nodes)} nodes from database for {c}")
+        nodes = nodes.to_crs("EPSG:4326")
+        # Filter nodes and hex_bins
+        nodes_filter = nodes.loc[(nodes['dist_supermercados'] > 0) &
+                        (nodes['dist_farmacia'] > 0) &
+                        (nodes['dist_hospitales'] > 0)].copy()
+
+        aup.log(f"Filtered node data")
+
+        hex_filter = hex_bins.loc[(hex_bins['dist_supermercados'] > 0) &
+                        (hex_bins['dist_farmacia'] > 0) &
+                        (hex_bins['dist_hospitales'] > 0)].copy()
+
+        aup.log(f"Filtered hex_bin data")
+
+        #Datatreatment for extreme values
+        nodes_filter['dist_supermercados'] = nodes_filter['dist_supermercados'].apply(lambda x: x if x <= 10000 else 10000)
+        nodes_filter['dist_farmacia'] = nodes_filter['dist_farmacia'].apply(lambda x: x if x <= 10000 else 10000)
+        aup.log("Deleted extreme values for nodes")
+
+        hex_filter['dist_supermercados'] = hex_filter['dist_supermercados'].apply(lambda x: x if x <= 10000 else 10000)
+        hex_filter['dist_farmacia'] = hex_filter['dist_farmacia'].apply(lambda x: x if x <= 10000 else 10000)
+        aup.log("Deleted extreme values for hex_bins")
+
+        #calculate index
+        nodes_filter['idx_hospitales'] =  nodes_filter.apply (
+            lambda row: 1 / (1 + math.exp( 0.00109861 * (row.loc['dist_hospitales'] - 3000 ))), axis=1)
+        nodes_filter['idx_supermercado'] = nodes_filter.apply (
+            lambda row: 1 / (1 + math.exp( 0.00627778 * (row.loc['dist_supermercados'] - 650 ))), axis=1)
+        nodes_filter['idx_farmacias'] = nodes_filter.apply (
+            lambda row: 1 / (1 + math.exp( 0.00627778 * (row.loc['dist_farmacia'] - 650 ))), axis=1)
+        nodes_filter['idx_accessibility'] = nodes_filter.apply (
+            lambda row: (0.333*row.loc['idx_supermercado']) + (0.334*row.loc['idx_farmacias']) + 
+            (0.333*row.loc['idx_hospitales']), axis=1)
+
+        aup.log(f"Nodes: Calculated index for hospitals {nodes_filter.idx_hospitales.mean()} \
+            Calculated index for supermarket {nodes_filter.idx_supermercado.mean()} \
+                Calculated index for pharmacies {nodes_filter.idx_farmacias.mean()} and \
+                    Calculated index for accessibility {nodes_filter.idx_accessibility.mean()}")
+
+        hex_filter['idx_hospitales'] =  hex_filter.apply (
+            lambda row: 1 / (1 + math.exp( 0.00109861 * (row.loc['dist_hospitales'] - 3000 ))), axis=1)
+        hex_filter['idx_supermercado'] = hex_filter.apply (
+            lambda row: 1 / (1 + math.exp( 0.00627778 * (row.loc['dist_supermercados'] - 650 ))), axis=1)
+        hex_filter['idx_farmacias'] = hex_filter.apply (
+            lambda row: 1 / (1 + math.exp( 0.00627778 * (row.loc['dist_farmacia'] - 650 ))), axis=1)
+        hex_filter['idx_accessibility'] = hex_filter.apply (
+            lambda row: (0.333*row.loc['idx_supermercado']) + (0.334*row.loc['idx_farmacias']) + 
+            (0.333*row.loc['idx_hospitales']), axis=1)
+
+        aup.log(f"hex_bins: Calculated index for hospitals {hex_filter.idx_hospitales.mean()} \
+            Calculated index for supermarket {hex_filter.idx_supermercado.mean()} \
+                Calculated index for pharmacies {hex_filter.idx_farmacias.mean()} and \
+                    Calculated index for accessibility {hex_filter.idx_accessibility.mean()}")
+
+
+        if save:
+            aup.gdf_to_db_slow(hex_filter, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(nodes_filter, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+
+
+
+if __name__ == "__main__":
+    aup.log('\n --'*10)
+    aup.log('Starting index script')
+
+    year = '2020'
+    schema = 'processed'
+    folder_sufix = 'index_'+year #sufix for folder name
+    main(schema, folder_sufix, year, save=False)
