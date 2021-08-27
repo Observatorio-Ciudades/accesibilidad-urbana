@@ -90,10 +90,10 @@ def main(schema, folder_sufix, year, save=False):
             lambda row: (0.333*row.loc['idx_supermercado']) + (0.334*row.loc['idx_farmacias']) + 
             (0.333*row.loc['idx_hospitales']), axis=1)
 
-        aup.log(f"Nodes: Calculated index for hospitals {nodes_filter.idx_hospitales.mean()} \
-            Calculated index for supermarket {nodes_filter.idx_supermercado.mean()} \
-                Calculated index for pharmacies {nodes_filter.idx_farmacias.mean()} and \
-                    Calculated index for accessibility {nodes_filter.idx_accessibility.mean()}")
+        aup.log(f"Nodes: Calculated index for hospitals {round(nodes_filter.idx_hospitales.mean(),2)} " +
+           f"\nCalculated index for supermarket {round(nodes_filter.idx_supermercado.mean(),2)} "+
+                f"\nCalculated index for pharmacies {round(nodes_filter.idx_farmacias.mean(),2)} and "+
+                    f"\nCalculated index for accessibility {round(nodes_filter.idx_accessibility.mean(),2)}")
 
         hex_filter['idx_hospitales'] =  hex_filter.apply (
             lambda row: 1 / (1 + math.exp( 0.00109861 * (row.loc['dist_hospitales'] - 3000 ))), axis=1)
@@ -124,4 +124,4 @@ if __name__ == "__main__":
     year = '2020'
     schema = 'processed'
     folder_sufix = 'index_'+year #sufix for folder name
-    main(schema, folder_sufix, year, save=False)
+    main(schema, folder_sufix, year, save=True)
