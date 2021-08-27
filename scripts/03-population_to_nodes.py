@@ -56,6 +56,7 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         poly_wkt = gdf_tmp.dissolve().geometry.to_wkt()[0]
         aup.log("Created wkt based on dissolved polygon")
 
+        #Download nodes with distance to denue data
         query = f"SELECT * FROM processed.nodes_dist_2020 WHERE ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')"
         nodes = aup.gdf_from_query(query, geometry_col='geometry')
         aup.log(f"Downloaded {len(nodes)} nodes from database for {c}")
@@ -73,6 +74,7 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         string_columns = ['cve_geo','cve_ent','cve_mun','cve_loc','cve_ageb',
         'entidad','nom_ent','mun','nom_mun','loc','nom_loc','ageb',
         'mza','cve_geo_ageb','hex_id_8','CVEGEO']
+
         hex_temp = aup.convert_type(hex_temp, string_column=string_columns)
 
         hex_temp = hex_temp.groupby(f'hex_id_{resolution}').sum() #group hex bins
@@ -83,8 +85,13 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         aup.log(f"Added census data to a total of {len(hex_bins)} hex bins")
 
         if save:
-            aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(nodes_pop, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+            #aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            c_nodes = len(nodes_pop) / 10000
+            aup.log(f"There are a total of {round(c_nodes,2)} nodes divisions")
+            for cont in range(int(c_nodes)+1):
+                nodes_pop_upload = nodes_pop.iloc[int(10000*cont):int(10000*(cont+1))].copy()
+                aup.gdf_to_db_slow(nodes_pop_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+                aup.log(f"Uploaded {cont} out of {round(c_nodes,2)}")
 
 
 
