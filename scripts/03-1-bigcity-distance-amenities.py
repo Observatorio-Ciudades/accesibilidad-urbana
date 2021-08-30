@@ -104,11 +104,11 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             nodes_amenities = nodes_amenities.set_crs("EPSG:4326")
 
         if save:
-            aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
             c_nodes = len(nodes_amenities)/10000
             for p in range(int(c_nodes)+1):
                 nodes_upload = nodes_amenities.iloc[int(10000*p):int(10000*(p+1))].copy()
-                aup.gdf_to_db_slow(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+                aup.gdf_to_db(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
                 aup.log("uploaded nodes into DB ")
             aup.log("Finished uploading nodes ")
             
