@@ -64,27 +64,38 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
                 denue_amenity = denue_amenity.append(aup.gdf_from_query(query, geometry_col='geometry'))
                 aup.log(f"Downloaded {len(denue_amenity)} {a} from database for {c}")
 
-            nodes_distance = aup.calculate_distance_nearest_poi(denue_amenity, nodes, edges, a, 'osmid')
-            aup.log(f"Calculated distance for a total of {len(nodes_distance)} nodes")
+            if len(denue_amenity) > 0:
+                nodes_distance = aup.calculate_distance_nearest_poi(denue_amenity, nodes, edges, a, 'osmid')
+                aup.log(f"Calculated distance for a total of {len(nodes_distance)} nodes")
 
-            #Data to hex_bins
-            nodes_distance.reset_index(inplace=True)
-            hex_dist = aup.group_by_hex_mean(nodes_distance, hex_bins, resolution, a)
-            hex_bins = hex_bins.merge(hex_dist[['hex_id_'+str(resolution),'dist_'+a]], 
-            on='hex_id_'+str(resolution))
-            aup.log(f"Added distance data to {a} to {len(hex_bins)} hex bins")
+                #Data to hex_bins
+                nodes_distance.reset_index(inplace=True)
+                nodes_distance = nodes_distance.set_crs("EPSG:4326")
+                hex_bins = hex_bins.set_crs("EPSG:4326")
+                hex_dist = aup.group_by_hex_mean(nodes_distance, hex_bins, resolution, a)
+                hex_bins = hex_bins.merge(hex_dist[['hex_id_'+str(resolution),'dist_'+a]], 
+                on='hex_id_'+str(resolution))
+                aup.log(f"Added distance data to {a} to {len(hex_bins)} hex bins")
 
-            if i == 0:
-                nodes_amenities = nodes_distance[['osmid','x','y','geometry','dist_'+a]]
+                if i == 0:
+                    nodes_amenities = nodes_distance[['osmid','x','y','geometry','dist_'+a]]
+                else:
+                    nodes_amenities = nodes_amenities.merge(
+                        nodes_distance[['osmid','dist_'+a]], on='osmid')
+                aup.log(f'Added nodes distance to nodes_amenities')
+                i += 1
+                hex_bins = hex_bins.set_crs("EPSG:4326")
+                nodes_amenities = nodes_amenities.set_crs("EPSG:4326")
             else:
-                nodes_amenities = nodes_amenities.merge(
-                    nodes_distance[['osmid','dist_'+a]], on='osmid')
-            aup.log(f'Added nodes distance for {a} to nodes_amenities')
-            i += 1
+                nodes_amenities['dist_'+a] = 0
+                hex_bins['dist_'+a] = 0
+                i += 1
+                hex_bins = hex_bins.set_crs("EPSG:4326")
+                nodes_amenities = nodes_amenities.set_crs("EPSG:4326")
 
         if save:
-            aup.gdf_to_db_slow(nodes_amenities, "nodes_"+folder_sufix, schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db(nodes_amenities, "nodes_"+folder_sufix, schema=schema, if_exists="append")
 
 
 
@@ -93,7 +104,12 @@ if __name__ == "__main__":
     aup.log('Starting script')
     year = '2020'
     schema = 'processed'
-    folder_sufix = 'dist_'+year #sufix for folder name
-    amenities = {'farmacia':[464111,464112],'hospitales':[622111,622112], 
-    'supermercados':[462111,462112]}
-    main(schema, folder_sufix, year, amenities, save=True)
+    folder_sufix = 'school_dist_2020' #sufix for folder name
+    amenities = {'preescolar':[611111,611112],'primaria':[611121,611122], 
+    'secundaria':[611131,611132], 'preparatoria':[611161, 611162],
+    'superior':[611311,311312], 'tecnicas':[611141,611142,611151,611152,611211,611212],
+    'mixto':[611171,611172],
+    'museos':[712111, 712112], 'mensajeria':[492110,492210,491110]}
+    save = True
+    main(schema, folder_sufix, year, amenities, save = save)
+    
