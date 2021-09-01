@@ -1,7 +1,9 @@
+import io
 import os
 import sys
 
 import aup
+import boto3
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -39,8 +41,8 @@ def load_data(df, c, year):
 
 
 def make_plot(hex_bins, edges, c, hex_grid):
-    ax_title_size = 25
-    fig_title_size = 30
+    ax_title_size = 30
+    fig_title_size = 40
     secondary_label_size = 15
     fig, axes = plt.subplots(2, 2, figsize=(20, 20))
     measures = [
@@ -50,13 +52,17 @@ def make_plot(hex_bins, edges, c, hex_grid):
         "idx_accessibility",
     ]
     for ax, measure in zip(axes.flat, measures):
-        hex_grid.plot(color="lightgrey", ax=ax, zorder=1)
+        hex_grid.plot(color="#e6e5e3", ax=ax, zorder=1)
         if measure == "idx_accessibility":
             cmap = "inferno"
             legend_kwds = {"shrink": 0.7, "label": "Índice"}
+            vmax = 1
+            vmin = 0
         else:
             cmap = "inferno_r"
             legend_kwds = {"shrink": 0.7, "label": "Distancia (m)"}
+            vmax = 3000
+            vmin = 0
         hex_bins.plot(
             column=measure,
             cmap=cmap,
@@ -64,6 +70,8 @@ def make_plot(hex_bins, edges, c, hex_grid):
             zorder=2,
             legend=True,
             legend_kwds=legend_kwds,
+            vmin=vmin,
+            vmax=vmax,
         )
         edges[
             edges["highway"].isin(
@@ -77,13 +85,29 @@ def make_plot(hex_bins, edges, c, hex_grid):
         )
         ax.set_title(f"{title}", fontsize=ax_title_size)
         ax.axis("off")
-    fig.suptitle(c, fontsize=fig_title_size, y=0.98)
+    fig.suptitle(c, fontsize=fig_title_size)
     fig.tight_layout()
+    session = boto3.Session(profile_name="observatorio")
+    dev_s3_client = session.client("s3")
+    img_data = io.BytesIO()
+    # plt.savefig(
+    #     f"../output/figures/{year}/{year}_{c.replace(' ','-')}.png",
+    #     bbox_inches="tight",
+    #     dpi=300,
+    # )
     plt.savefig(
-        f"../output/figures/{year}/{year}_{c.replace(' ','-')}.png",
+        img_data,
         bbox_inches="tight",
         dpi=300,
     )
+    img_data.seek(0)
+    dev_s3_client.upload_fileobj(
+        img_data,
+        "ciudades-plots",
+        f"{year}_{c.replace(' ','-')}.png",
+        ExtraArgs={"ContentType": "image/png", "ACL": "public-read"},
+    )
+    plt.close()
 
 
 def main(df, c, year):
@@ -98,6 +122,7 @@ if __name__ == "__main__":
     # years = [2020, 2010]
     years = [2020]
     df = pd.read_json("../scripts/Metropolis_CVE.json")
+    df = df.loc[:, "Orizaba":]
     for year in years:
         for c in df.columns.unique():
             main(df, c, year)
