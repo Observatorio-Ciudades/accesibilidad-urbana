@@ -79,7 +79,7 @@ def main(schema, folder_sufix, year, save=False):
         hex_filter['dist_farmacia'] = hex_filter['dist_farmacia'].apply(lambda x: x if x <= 10000 else 10000)
         aup.log("Deleted extreme values for hex_bins")
 
-        #calculate index
+        #calculate index for nodes
         nodes_filter['idx_hospitales'] =  nodes_filter.apply (
             lambda row: 1 / (1 + math.exp( 0.00109861 * (row.loc['dist_hospitales'] - 3000 ))), axis=1)
         nodes_filter['idx_supermercado'] = nodes_filter.apply (
@@ -90,35 +90,60 @@ def main(schema, folder_sufix, year, save=False):
             lambda row: (0.333*row.loc['idx_supermercado']) + (0.334*row.loc['idx_farmacias']) + 
             (0.333*row.loc['idx_hospitales']), axis=1)
 
-        aup.log(f"Nodes: Calculated index for hospitals {round(nodes_filter.idx_hospitales.mean(),2)} " +
+        aup.log(f"\nNodes: Calculated index for hospitals {round(nodes_filter.idx_hospitales.mean(),2)} " +
            f"\nCalculated index for supermarket {round(nodes_filter.idx_supermercado.mean(),2)} "+
                 f"\nCalculated index for pharmacies {round(nodes_filter.idx_farmacias.mean(),2)} and "+
                     f"\nCalculated index for accessibility {round(nodes_filter.idx_accessibility.mean(),2)}")
 
-        hex_filter['idx_hospitales'] =  hex_filter.apply (
-            lambda row: 1 / (1 + math.exp( 0.00109861 * (row.loc['dist_hospitales'] - 3000 ))), axis=1)
-        hex_filter['idx_supermercado'] = hex_filter.apply (
-            lambda row: 1 / (1 + math.exp( 0.00627778 * (row.loc['dist_supermercados'] - 650 ))), axis=1)
-        hex_filter['idx_farmacias'] = hex_filter.apply (
-            lambda row: 1 / (1 + math.exp( 0.00627778 * (row.loc['dist_farmacia'] - 650 ))), axis=1)
-        hex_filter['idx_accessibility'] = hex_filter.apply (
-            lambda row: (0.333*row.loc['idx_supermercado']) + (0.334*row.loc['idx_farmacias']) + 
-            (0.333*row.loc['idx_hospitales']), axis=1)
+        #calculate index for hex_bins
+        nodes_hex = gpd.sjoin(nodes_filter, hex_bins, how='left')
+        #grouping nodes by hex_bins
+        nodes_hex_wgt_mean = nodes_hex.groupby('hex_id_8').agg(
+                        {'idx_accessibility':'mean',
+                         'idx_hospitales':'mean',
+                         'idx_supermercado':'mean',
+                         'idx_farmacias':'mean',
+                        'osmid':'count'}).rename(columns={'osmid':'node_count'})
 
-        aup.log(f"hex_bins: Calculated index for hospitals {hex_filter.idx_hospitales.mean()} \
-            Calculated index for supermarket {hex_filter.idx_supermercado.mean()} \
-                Calculated index for pharmacies {hex_filter.idx_farmacias.mean()} and \
-                    Calculated index for accessibility {hex_filter.idx_accessibility.mean()}")
+        #node counter for weighted index
+        node_sum = nodes_hex_wgt_mean['node_count'].sum()
+        #calculating weigths by hex_bin
+        nodes_hex_wgt_mean['wAcc'] = nodes_hex_wgt_mean.idx_accessibility * nodes_hex_wgt_mean['node_count']
+        nodes_hex_wgt_mean['wHsp'] = nodes_hex_wgt_mean.idx_hospitales * nodes_hex_wgt_mean['node_count']
+        nodes_hex_wgt_mean['wSpm'] = nodes_hex_wgt_mean.idx_supermercado * nodes_hex_wgt_mean['node_count']
+        nodes_hex_wgt_mean['wFrm'] = nodes_hex_wgt_mean.idx_farmacias * nodes_hex_wgt_mean['node_count']
+        #calculating input for weigthed average
+        nodes_hex_wgt_mean['idx_accessibility_wavg'] = nodes_hex_wgt_mean.wAcc / node_sum
+        nodes_hex_wgt_mean['idx_hospitales_wavg'] = nodes_hex_wgt_mean.wHsp / node_sum
+        nodes_hex_wgt_mean['idx_supermercado_wavg'] = nodes_hex_wgt_mean.wSpm / node_sum
+        nodes_hex_wgt_mean['idx_farmacias_wavg'] = nodes_hex_wgt_mean.wFrm / node_sum
+
+        #merging with hex_bins
+        hex_ind = pd.merge(nodes_hex_wgt_mean, hex_bins, 
+        left_on=nodes_hex_wgt_mean.index, right_on='hex_id_8', how='left')
+        hex_ind_gdf = gpd.GeoDataFrame(hex_ind) #to GeoDataFrame
+
+        aup.log(f"\nhex_bins: Calculated index for hospitals {round(hex_ind_gdf.idx_hospitales.mean(),2)}," +
+        f"{round(hex_ind_gdf.idx_hospitales_wavg.sum(),2)}"+
+           f"\nCalculated index for supermarket {round(hex_ind_gdf.idx_supermercado.mean(),2)},"+
+           f"{round(hex_ind_gdf.idx_supermercado_wavg.sum(),2)}"+
+                f"\nCalculated index for pharmacies {round(hex_ind_gdf.idx_farmacias.mean(),2)},"+
+                f"{round(hex_ind_gdf.idx_farmacias_wavg.sum(),2)}"+
+                    f"\nCalculated index for accessibility {round(hex_ind_gdf.idx_accessibility.mean(),2)},"+
+                    f"{round(hex_ind_gdf.idx_accessibility_wavg.sum(),2)}")
+
+        aup.log(f"Columns for gdf are: {hex_ind_gdf.columns}")
 
 
         if save:
-            aup.gdf_to_db_slow(hex_filter, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(nodes_filter, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(hex_ind_gdf, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            #aup.gdf_to_db_slow(nodes_filter, "nodes_"+folder_sufix, schema=schema, if_exists="append")
 
 
 
 if __name__ == "__main__":
-    aup.log('\n --'*10)
+    aup.log("\n")
+    aup.log(' --'*20)
     aup.log('Starting index script')
 
     year = '2020'
