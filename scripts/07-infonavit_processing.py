@@ -11,15 +11,13 @@ if module_path not in sys.path:
 
 
 def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
-
-
     # Read json with municipality codes by capital or metropolitan area
     df = pd.read_json("/home/jovyan/work/scripts/areas.json")
     aup.log("Read metropolitan areas and capitals json")
 
     #Folder names from database
     mpos_folder = 'mpos_'+year
-    c = 'Aguascalientes'
+
     # Iterate over municipality DataFrame columns to access each municipality code
     for c in df.columns.unique():
         aup.log(f"\n Starting municipality filters for {c}")
@@ -155,15 +153,6 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         hex_linear = hex_linear.set_crs("EPSG:4326")
         hex_pop = hex_pop.set_crs("EPSG:4326")
 
-        # find the longest distance to any of the 3 amenities
-        hex_filt_street = hex_street.drop(['dist_mixto'], axis = 1)
-        dist_street = hex_filt_street.drop(['geometry', 'hex_id_8', 'CVEGEO'], axis = 1)
-        hex_street['dist_max'] = dist_street.max(axis = 1)
-
-        hex_filt_linear = hex_linear.drop(['dist_mixto'], axis = 1)
-        dist_linear = hex_filt_linear.drop(['geometry', 'hex_id_8', 'CVEGEO'], axis = 1)
-        hex_linear['dist_max'] = dist_linear.max(axis = 1)
-
         # keep relevant columns in gdf_pop: ID and total population
         hex_pop = hex_pop[['hex_id_8', 'pobtot']]
 
@@ -171,10 +160,108 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         pop_street = hex_street.merge(hex_pop, on= 'hex_id_8')
         pop_linear = hex_linear.merge(hex_pop, on= 'hex_id_8')
 
+        #### Assign mixed grade schools as a wildcard: As long as there is an elementary 
+        # or middle school ithin range, a mixed grade school 
+        # within range can substitute one of the missing ones
 
-        if save:  
-            aup.gdf_to_db_slow(pop_street, "hex_bins_street_"+folder_sufix, schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(pop_linear, "hex_bins_linear_"+folder_sufix, schema=schema, if_exists="append")
+        # Make mixed level schools a "Wild card" for elementary and middle schools for street distance´
+
+        dist_prim_mix = pop_street[['dist_mixto', 'dist_primaria']]
+        pop_street['dist_prim_mix'] = dist_prim_mix.min(axis=1)
+
+        dist_secun_mix = pop_street[['dist_mixto', 'dist_secundaria']]
+        pop_street['dist_secun_mix'] = dist_secun_mix.min(axis=1)
+
+
+        # find the longest distance to any of the 3 amenities in streets
+        hex_max = pop_street[['dist_salud', 'hex_id_8']]
+        hex_max = hex_max.rename(columns={'dist_salud':'dist_max'})
+        dist_street = pop_street[['dist_salud', 'dist_prim_mix', 'dist_secun_mix', 'dist_primaria', 'dist_secundaria']]
+
+        for r in range(int(len(pop_street))):
+            secun = dist_street.loc[[r], ['dist_secundaria']]
+            secun = secun.values
+            prim = dist_street.loc[[r], ['dist_primaria']]
+            prim = prim.values
+            if ((secun<=2500) or(prim<=2500) and(secun !=0) and (prim!= 0)):
+                comp = dist_street[['dist_salud', 'dist_prim_mix', 'dist_secun_mix']]
+                maxim = comp.max(axis =1)
+                insertion = maxim.iloc[r]
+                hex_max.at[r, 'dist_max'] = insertion
+            else:
+                comp = dist_street[['dist_salud', 'dist_primaria', 'dist_secundaria']]
+                maxim = comp.max(axis =1)
+                insertion = maxim.iloc[r]
+                hex_max.at[r, 'dist_max'] = insertion
+        dist_max = hex_max['dist_max']
+        pop_street = pop_street.merge(dist_max, left_index = True, right_index = True)
+
+        # Make mixed level schools a "Wild card" for elementary and middle schools for LINEAR distance´
+
+        dist_prim_mix = pop_linear[['dist_mixto', 'dist_primaria']]
+        pop_linear['dist_prim_mix'] = dist_prim_mix.min(axis=1)
+
+        dist_secun_mix = pop_linear[['dist_mixto', 'dist_secundaria']]
+        pop_linear['dist_secun_mix'] = dist_secun_mix.min(axis=1)
+
+
+        # find the longest distance to any of the 3 amenities in LINEAR
+        hex_max = pop_linear[['dist_salud', 'hex_id_8']]
+        hex_max = hex_max.rename(columns={'dist_salud':'dist_max'})
+        dist_linear = pop_linear[['dist_salud', 'dist_prim_mix', 'dist_secun_mix', 'dist_primaria', 'dist_secundaria']]
+
+        for r in range(int(len(pop_linear))):
+            secun = dist_linear.loc[[r], ['dist_secundaria']]
+            secun = secun.values
+            prim = dist_linear.loc[[r], ['dist_primaria']]
+            prim = prim.values
+            if ((secun<=2500) or(prim<=2500) and(secun !=0) and (prim!= 0)):
+                comp = dist_linear[['dist_salud', 'dist_prim_mix', 'dist_secun_mix']]
+                maxim = comp.max(axis =1)
+                insertion = maxim.iloc[r]
+                hex_max.at[r, 'dist_max'] = insertion
+            else:
+                comp = dist_linear[['dist_salud', 'dist_primaria', 'dist_secundaria']]
+                maxim = comp.max(axis =1)
+                insertion = maxim.iloc[r]
+                hex_max.at[r, 'dist_max'] = insertion
+        dist_max = hex_max['dist_max']
+        pop_linear = pop_linear.merge(dist_max, left_index = True, right_index = True)
+
+        summary_linear = pop_linear[['geometry', 'hex_id_8', 'CVEGEO', 'pobtot', 'dist_max']]
+        summary_street = pop_street[['geometry', 'hex_id_8', 'CVEGEO', 'pobtot', 'dist_max']]
+
+        compare_street_linear = pop_linear[['geometry', 'hex_id_8', 'CVEGEO', 'pobtot']]
+        compare_street_linear['dist_lin'] = summary_linear['dist_max']
+        compare_street_linear['dist_street'] = summary_street['dist_max']
+        compare_street_linear['bool_street'] = 0
+        compare_street_linear['bool_lin'] = 0
+        for s in range(int(len(compare_street_linear))):
+            linear = compare_street_linear.loc[[s], ['dist_lin']]
+            linear = linear.values
+            street = compare_street_linear.loc[[s], ['dist_street']]
+            street = street.values
+            if 0<linear<=2500:
+                compare_street_linear.at[s, 'bool_lin'] = 3
+            if 0<street<=2500:
+                compare_street_linear.at[s, 'bool_street'] = 1
+            if linear == 0:
+                compare_street_linear.at[s, 'bool_lin'] = -100
+            if street == 0:
+                compare_street_linear.at[s, 'bool_street'] = -100
+            if linear>2500:
+                compare_street_linear.at[s, 'bool_lin'] = 0
+            if street>2500:
+                compare_street_linear.at[s, 'bool_street'] = 0
+        compare_street_linear['bool_tot'] = compare_street_linear['bool_lin'] + compare_street_linear['bool_street']
+        
+        if save:
+            aup.gdf_to_db_slow(pop_street, "hex_street", schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(pop_linear, "hex_linear", schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(summary_street, "summary_street_", schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(summary_linear, "summary_linear_", schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(compare_street_linear, "compare_hexes", schema=schema, if_exists="append")
+
             c_nodes = len(nodes_amenities_street)/10000
             for p in range(int(c_nodes)+1):
                 nodes_upload = nodes_amenities_street.iloc[int(10000*p):int(10000*(p+1))].copy()
