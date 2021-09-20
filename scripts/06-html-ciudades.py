@@ -32,6 +32,8 @@ def load_data(df, c):
 
 def make_html(config, hex_bins, column, c):
     hex_bins[column] = hex_bins[column].astype(float)
+    if column == 'idx_accessibility':
+        hex_bins[column] = hex_bins[column].round(2)
     config["config"]["visState"]["layers"][0]["visualChannels"]["colorField"][
         "name"
     ] = column
