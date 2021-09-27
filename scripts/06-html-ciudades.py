@@ -35,10 +35,17 @@ def make_html(config, hex_bins, column, c):
     config["config"]["visState"]["layers"][0]["visualChannels"]["colorField"][
         "name"
     ] = column
+    aup.log(column)
+    aup.log(hex_bins[column].mean())
     config["config"]["visState"]["interactionConfig"]["tooltip"]["fieldsToShow"][
         "data"
     ][0]["name"] = column
     hex_bins["d"] = 0
+    aup.log(
+        config["config"]["visState"]["interactionConfig"]["tooltip"]["fieldsToShow"][
+            "data"
+        ][0]["name"]
+    )
     longitude = hex_bins.dissolve(by="d").geometry.centroid.x
     latitude = hex_bins.dissolve(by="d").geometry.centroid.y
     config["config"]["mapState"]["latitude"] = latitude[0]
@@ -61,9 +68,9 @@ def main(c, df, config):
     hex_bins = load_data(df, c)
     aup.log(f"{c} data loaded.")
     for column in [
-        "dist_hospitales",
-        "dist_farmacia",
-        "dist_supermercados",
+        # "dist_hospitales",
+        # "dist_farmacia",
+        # "dist_supermercados",
         "idx_accessibility",
     ]:
         make_html(config, hex_bins, column, c)
