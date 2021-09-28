@@ -32,7 +32,7 @@ def load_data(df, c):
 
 def make_html(config, hex_bins, column, c):
     hex_bins[column] = hex_bins[column].astype(float)
-    if column == 'idx_accessibility':
+    if column == "idx_accessibility":
         hex_bins[column] = hex_bins[column].round(2)
     config["config"]["visState"]["layers"][0]["visualChannels"]["colorField"][
         "name"
@@ -63,9 +63,9 @@ def main(c, df, config):
     hex_bins = load_data(df, c)
     aup.log(f"{c} data loaded.")
     for column in [
-        "dist_hospitales",
-        "dist_farmacia",
-        "dist_supermercados",
+        # "dist_hospitales",
+        # "dist_farmacia",
+        # "dist_supermercados",
         "idx_accessibility",
     ]:
         make_html(config, hex_bins, column, c)
