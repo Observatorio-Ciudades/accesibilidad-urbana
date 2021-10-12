@@ -2,6 +2,7 @@ docs/site/
 data/
 # OSX Junk
 .DS_Store
+:
 
 # test cache
 .cache/*
@@ -19,3 +20,4 @@ data/*
 
 #logs
 *.log
+aup.egg-info/
