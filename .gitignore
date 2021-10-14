@@ -21,3 +21,4 @@ data/*
 #logs
 *.log
 aup.egg-info/
+*/temp.html
