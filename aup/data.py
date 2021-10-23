@@ -405,8 +405,8 @@ def graph_from_hippo(gdf, schema):
     gdf = gdf.to_crs("EPSG:6372")
     gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
     gdf = gdf.to_crs("EPSG:4326")
-    #poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
-    poly_wkt = gdf.dissolve(by="index")["geometry"][0].to_wkt()
+    poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
+    #poly_wkt = gdf.dissolve(by="index")["geometry"][0].to_wkt()
     edges_query = f"SELECT * FROM {schema}.edges WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
     edges = gdf_from_query(edges_query, geometry_col="geometry")
 
