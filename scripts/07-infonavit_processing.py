@@ -82,7 +82,8 @@ def distance(schema, folder_sufix, year, amenities, resolution=8, save=False):
         #Creates gdf to store data to grid centroid
         centroid_amenities = gpd.GeoDataFrame()
         centroid_amenities = centroid_amenities.append(centroid)
-        
+        grid_amenities = gpd.GeoDataFrame()
+        grid_amenities = grid_amenities.append(grid)
         for a in amenities:
             #Creates temporary centroid and nodes gdf
             centroid_tmp = gpd.GeoDataFrame()
@@ -104,6 +105,7 @@ def distance(schema, folder_sufix, year, amenities, resolution=8, save=False):
             centroid_join = gpd.GeoDataFrame()
             centroid_join['dist_'+a]= centroid_dist['distance_node']
             centroid_amenities = centroid_amenities.merge(centroid_join, left_index=True, right_index=True)
+            grid_amenities = grid_amenities.merge(centroid_join, left_index=True, right_index=True)
             #Starts calculating distance by street to nodes acording to obscd method
             #Due to memory constraints it is calculated in groups of 100 POIs
             #Method based on 02-distance_amenities
@@ -145,6 +147,8 @@ def distance(schema, folder_sufix, year, amenities, resolution=8, save=False):
 
         if save:
             aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(centroid_amenities, "centroid_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(grid_amenities, "grid_"+folder_sufix, schema=schema, if_exists="append")
             c_nodes = len(nodes_amenities)/10000
             for p in range(int(c_nodes)+1):
                 nodes_upload = nodes_amenities.iloc[int(10000*p):int(10000*(p+1))].copy()
