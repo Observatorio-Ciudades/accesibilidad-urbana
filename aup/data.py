@@ -421,7 +421,7 @@ def graph_from_hippo(gdf, schema):
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
 
-    tmp = edges.reset_index().merge(
+    '''tmp = edges.reset_index().merge(
         nodes.reset_index().rename(columns={"osmid": "osmid_v"})["osmid_v"],
         left_on=["v"],
         right_on=["osmid_v"],
@@ -436,9 +436,11 @@ def graph_from_hippo(gdf, schema):
 
     tmp["id_tmp"] = tmp.osmid_v + tmp.osmid_u
 
-    edges_tmp = tmp[["u", "v", "key", "osmid", "length", "id_tmp", "geometry"]].dropna()
+    edges_tmp = tmp[["u", "v", "key", "osmid", "name",
+    "highway", "maxspeed",
+    "length", "id_tmp", "geometry"]].dropna()
 
-    edges = edges_tmp.drop(columns=["id_tmp"])
+    edges = edges_tmp.drop(columns=["id_tmp"])'''
 
     edges = edges.set_index(["u", "v", "key"])
 
