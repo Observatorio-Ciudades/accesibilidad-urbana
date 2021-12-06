@@ -112,6 +112,9 @@ def main(schema, folder_sufix, year, grl_path, save=False):
         mean_slope = round(edges_elev_mde.grade_abs.mean(),2)
         aup.log(f"Assigned a mean elevation of {mean_elev} to nodes "+
         f"\nand mean slope of {mean_slope} to edges")
+        # reset index for upload
+        nodes_elev_mde.reset_index(inplace=True)
+        edges_elev_mde.reset_index(inplace=True)
 
         #upload
         if save:
