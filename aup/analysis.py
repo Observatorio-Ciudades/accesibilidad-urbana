@@ -149,3 +149,20 @@ def population_to_nodes(nodes, gdf_population, column_start=1, column_end=-1, cv
 	nodes = gpd.sjoin(nodes, temp)
 	nodes.drop(['nodes_in','index_right'], axis=1, inplace=True)  # drop the nodes_in column
 	return  nodes # spatial join the nodes with the values
+
+def walk_speed(edges_elevation):
+
+	"""
+	Calculates the Walking speed Using Tobler's Hiking Function and the slope in edges
+
+	Arguments:
+		edges_elevation {geopandas.GeoDataFrame} -- GeoDataFrame with the street edges with slope data
+		
+
+	Returns:
+		geopandas.GeoDataFrame -- edges_speed GeoDataFrame with the edges with an added column for speed
+	"""
+	edges_speed = edges_elevation.copy()
+	edges_speed['walkspeed'] = edges_speed.apply(lambda row : (6*np.exp(-3.5*(row['grade']+0.05))), axis=1)
+	
+	return edges_speed
