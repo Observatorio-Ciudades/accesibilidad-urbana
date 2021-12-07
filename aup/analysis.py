@@ -163,6 +163,6 @@ def walk_speed(edges_elevation):
 		geopandas.GeoDataFrame -- edges_speed GeoDataFrame with the edges with an added column for speed
 	"""
 	edges_speed = edges_elevation.copy()
-	edges_speed['walkspeed'] = edges_speed.apply(lambda row : (6*np.exp(-3.5*(row['grade']+0.05))), axis=1)
+	edges_speed['walkspeed'] = edges_speed.apply(lambda row : (6*np.exp(-3.5*(row['grade_abs']+0.05))), axis=1)
 	
 	return edges_speed
