@@ -64,7 +64,7 @@ wght='length', max_distance=(0,'distance_node')):
 	nodes = nodes.copy()
 	edges = edges.copy()
 	if max_distance[0] > 0:
-		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance]
+		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance[0]]
 	g, weights, node_mapping = to_igraph(nodes,edges,wght=wght) #convert to igraph to run the calculations
 	col_dist = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
