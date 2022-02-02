@@ -42,58 +42,30 @@ def get_distances(g,seeds,weights,voronoi_assignment):
 	shortest_paths = np.array(g.shortest_paths_dijkstra(seeds,weights=weights))
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
 	return distances
-	
-def calculate_distance_nearest_poi_old(gdf_f, G, amenity_name, city):
+
+
+def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name, 
+wght='length', max_distance=(0,'distance_node')):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
 	Arguments:
 		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
-		G {networkx.MultiDiGraph} -- Graph created with OSMnx
+		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with nodes for network analysis
+		edges {geopandas.GeoDataFrame} -- GeoDataFrame with edges for network analysis
 		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
-		city {str} -- string with the name of the city
-
-	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
-	"""
-	g, weights, node_mapping = to_igraph(G) #convert to igraph to run the calculations
-	col_dist = f'dist_{amenity_name}'
-	seeds = get_seeds(gdf_f, node_mapping, amenity_name)
-	voronoi_assignment = voronoi_cpu(g, weights, seeds)
-	distances = get_distances(g,seeds,weights,voronoi_assignment)
-	df = pd.DataFrame(node_mapping ,index=[0]).T
-	df[col_dist] = distances
-	try:
-		nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
-		#nodes = pd.merge(nodes,df,left_on='osmid',right_index=True)
-		nodes[col_dist] = distances
-	except:
-		nodes = ox.graph_to_gdfs(G, edges=False)
-		#nodes = pd.merge(nodes,df,left_index=True,right_index=True)
-		nodes[col_dist] = distances
-	print(df.head(2))
-	print(nodes.head(2))
-	#nodes.drop([i for i in nodes.columns if str(i) not in ['geometry','dist_farmacias','dist_supermercados','osmid','dist_hospitales']],axis=1,inplace=True)
-	print(list(nodes.columns))
-	return nodes
-
-def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name):
-	"""
-	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
-
-	Arguments:
-		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
-		G {networkx.MultiDiGraph} -- Graph created with OSMnx
-		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
-		city {str} -- string with the name of the city
+		column_name {str} -- column name where the nearest distance index is stored
+		wght {str} -- weights column in edges. Defaults to length
+		max_distance {tuple} -- tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
 
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
 	"""
 	nodes = nodes.copy()
 	edges = edges.copy()
-	gdf_f = gdf_f.loc[gdf_f.distance_node<=500]
-	g, weights, node_mapping = to_igraph(nodes,edges) #convert to igraph to run the calculations
+	if max_distance[0] > 0:
+		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance[0]]
+	g, weights, node_mapping = to_igraph(nodes,edges,wght=wght) #convert to igraph to run the calculations
 	col_dist = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)

@@ -92,18 +92,6 @@ def download_graph(polygon, city, network_type="walk", save=True):
         return G
 
 
-def load_population():
-    """
-    Load urban AGEBs population into a GeoDataFrame
-
-    Returns:
-            geopandas.GeoDataFrame -- GeoDataFrame with urban AGEBs
-            list -- list with the columns names
-    """
-    gdf = gpd.read_file("../data/raw/AGEB_urb_2010_SCINCE.geojson")
-    return gdf, gdf.columns.tolist()[3:-1]
-
-
 def df_to_geodf(df, x, y, crs):
     """Create a GeoDataFrame from a pandas DataFrame
 
@@ -132,61 +120,6 @@ def load_study_areas():
     with open("areas.json", "r") as f:
         distros_dict = json.load(f)
     return distros_dict
-
-
-def load_polygon(city):
-    """
-    Load the polygon of a city from the raw data
-
-    Arguments:
-            city {str} -- string with the name of the city/metropolitan area to load
-
-    Returns:
-            geopandas.GeoDataFrame -- geoDataFrame with the area
-    """
-    return gpd.read_file(f"../data/raw/{city}_area.geojson")
-
-
-def load_mpos():
-    """
-    Load Mexico's municipal boundaries
-
-    Returns:
-            geopandas.geoDataFrame -- geoDataFrame with all the Mexican municipal boundaries
-    """
-    return gpd.read_file(
-        "../data/external/LimitesPoliticos/MunicipiosMexico_INEGI19_GCS_v1.shp"
-    )
-
-
-def load_denue(amenity_name):
-    """
-    Load the DENUE into a geoDataFrame
-
-    Arguments:
-            amenity_name {str} -- string with the name of the amenity to load the availables are: ('farmacias','supermercados','hospitales')
-
-    Returns:
-            geopandas.geoDataFrame -- geoDataFrame with the DENUE
-    """
-    if amenity_name == "farmacias":
-        gdf = gpd.read_file(
-            "../data/external/DENUE/denue_00_46321-46531_shp/conjunto_de_datos/denue_inegi_46321-46531_.shp"
-        )
-        gdf = gdf[(gdf["codigo_act"] == "464111") | (gdf["codigo_act"] == "464112")]
-        return gdf
-    if amenity_name == "hospitales":
-        gdf = gpd.read_file(
-            "../data/external/DENUE/denue_00_62_shp/conjunto_de_datos/denue_inegi_62_.shp"
-        )
-        gdf = gdf[(gdf["codigo_act"] == "622111") | (gdf["codigo_act"] == "622112")]
-        return gdf
-    elif amenity_name == "supermercados":
-        gdf = gpd.read_file(
-            "../data/external/DENUE/denue_00_46112-46311_shp/conjunto_de_datos/denue_inegi_46112-46311_.shp"
-        )
-        gdf = gdf[(gdf["codigo_act"] == "462111") | (gdf["codigo_act"] == "462112")]
-        return gdf
 
 
 def convert_type(df, dc=None, string_column=None):
@@ -393,21 +326,24 @@ def gdf_from_db(name, schema):
 
 
 def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
-    """[summary]
+    """Download OSMnx edges and nodes from DataBase according to GeoDataFrame boundary
 
     Args:
-        gdf ([type]): [description]
-        schema ([type]): [description]
+        gdf (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for download
+        schema (str): schema from DataBase where edges and nodes are stored
+        edges_folder (str): folder name whithin schema where edges stored. Defaults to edges
+        nodes_folder (str): folder name whithin schema where nodes stored. Defaults to nodes
 
     Returns:
-        [type]: [description]
+        networkx.MultiDiGraph -- Graph with edges and nodes from DataBase
+		gpd.GeoDataFrame  -- GeoDataFrame for nodes within boundaries
+		gpd.GeoDataFrame  -- GeoDataFrame for edges within boundaries
     """
 
     gdf = gdf.to_crs("EPSG:6372")
     gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
     gdf = gdf.to_crs("EPSG:4326")
     poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
-    #poly_wkt = gdf.dissolve(by="index")["geometry"][0].to_wkt()
     edges_query = f"SELECT * FROM {schema}.{edges_folder} WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
     edges = gdf_from_query(edges_query, geometry_col="geometry")
 
