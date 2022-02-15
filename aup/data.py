@@ -402,4 +402,6 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
 
     G = ox.graph_from_gdfs(nodes, edges)
 
+    nodes.set_index('osmid',inplace=True)
+
     return G, nodes, edges
