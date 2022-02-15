@@ -26,7 +26,7 @@ def voronoi_cpu(g, weights, seeds):
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
-def get_distances(g,seeds,weights,voronoi_assignment):
+def get_distances(g, seeds, weights, voronoi_assignment):
 	"""
 	Distance for the shortest path for each node to the closest seed
 
@@ -66,19 +66,20 @@ wght='length', max_distance=(0,'distance_node')):
 	if max_distance[0] > 0:
 		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance[0]]
 	g, weights, node_mapping = to_igraph(nodes,edges,wght=wght) #convert to igraph to run the calculations
-	col_dist = f'dist_{amenity_name}'
+	col_weight = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
 	distances = get_distances(g,seeds,weights,voronoi_assignment)
 
-	nodes[col_dist] = distances
+	nodes[col_weight] = distances
 
 	nodes.replace([np.inf, -np.inf], np.nan, inplace=True)
-	nodes.dropna(inplace=True)
+	idx = pd.notnull(nodes[col_weight])
+	nodes = nodes[idx].copy()
 
 	return nodes
 
-def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
+def group_by_hex_mean(nodes, hex_bins, resolution, col_name):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
@@ -91,7 +92,8 @@ def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
 	"""
-	dist_col = f'dist_{amenity_name}'
+	dist_col = col_name
+	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')

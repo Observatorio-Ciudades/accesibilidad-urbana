@@ -43,8 +43,11 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
 
         # Creates query to download OSMNX nodes and edges from the DB
         # by metropolitan area or capital using the municipality geometry
-        _, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx')
+        _, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx', edges_folder='edges_speed')
+        nodes_analysis = nodes.reset_index().copy()
+        edges['time_min'].fillna(edges['time_min'].mean(),inplace=True)
         aup.log(f"Downloaded {len(nodes)} nodes and {len(edges)} from database for {c}")
+        aup.log(f"")
 
         #Creates wkt for query
         # It will be used to download the POI
@@ -67,10 +70,10 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             for cod in amenities[a]:
                 query = f"SELECT * FROM denue_nodes.denue_node_2020 WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = {cod})"
                 denue_amenity = denue_amenity.append(aup.gdf_from_query(query, geometry_col='geometry'))
-                aup.log(f"Downloaded accumulated total of {len(denue_amenity)} {a} from database for {c}")
+            aup.log(f"Downloaded accumulated total of {len(denue_amenity)} {a} from database for {c}")
             # Temporary gdfs are created based on nodes in order to add relevant data
-            df_temp = nodes
-            nodes_distance = nodes
+            df_temp = nodes.copy()
+            nodes_distance = nodes.copy()
             #Due to memory constraints, the total number of POIs will be divided in groups of 100
             #These will run with the calculate nearest distance poi function by group and will be stored
             # to check later
@@ -78,10 +81,11 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             for k in range(int(c_denue)+1):
                 aup.log(f"Starting range k = {k} of {int(c_denue)}")
                 denue_process = denue_amenity.iloc[int(100*k):int(100*(1+k))].copy()
-                nodes_distance_prep = aup.calculate_distance_nearest_poi(denue_process, nodes, edges, a, 'osmid')
+                nodes_distance_prep = aup.calculate_distance_nearest_poi(denue_process, nodes_analysis, 
+                edges, a, 'osmid', wght='time_min')
                 #A middle gdf is created whose columns will be the name of the amenity and the group number it belongs to
                 df_int = pd.DataFrame()
-                df_int['dist_'+str(k)+a] = nodes_distance_prep['dist_'+a]
+                df_int['time_'+str(k)+a] = nodes_distance_prep['dist_'+a]
                 #The middle gdf is merged into the previously created temporary gdf to store the data
                 df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
             aup.log(f"finished")
@@ -89,7 +93,7 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             df_temp.drop(['x', 'y', 'street_count','geometry'], inplace = True, axis=1)
             #We apply the min function to find the minimum value. This value is sent to a new df_min
             df_min = pd.DataFrame()
-            df_min['dist_'+a] = df_temp.min(axis=1)
+            df_min['time_'+a] = df_temp.min(axis=1)
             #We merge df_min which contains the shortest distance to the POI with nodes_distance which will store
             #all final data
             nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
@@ -101,8 +105,9 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             nodes_distance.reset_index(inplace=True)
             nodes_distance = nodes_distance.set_crs("EPSG:4326")
             hex_bins = hex_bins.set_crs("EPSG:4326")
-            hex_dist = aup.group_by_hex_mean(nodes_distance, hex_bins, resolution, a)
-            hex_bins = hex_bins.merge(hex_dist[['hex_id_'+str(resolution),'dist_'+a]], 
+            col_name = f'time_{a}'
+            hex_dist = aup.group_by_hex_mean(nodes_distance, hex_bins, resolution, col_name)
+            hex_bins = hex_bins.merge(hex_dist[['hex_id_'+str(resolution),col_name]], 
             on='hex_id_'+str(resolution))
             aup.log(f"Added distance data to {a} to {len(hex_bins)} hex bins")
 
@@ -111,10 +116,10 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             #This way we obtain the final gdf of interest that will contain the minimum disstance
             #to each type of amenity
             if i == 0:
-                nodes_amenities = nodes_distance[['osmid','x','y','geometry','dist_'+a]]
+                nodes_amenities = nodes_distance[['osmid','x','y','geometry','time_'+a]]
             else:
                 nodes_amenities = nodes_amenities.merge(
-                    nodes_distance[['osmid','dist_'+a]], on='osmid')
+                    nodes_distance[['osmid','time_'+a]], on='osmid')
             aup.log('Added nodes distance to nodes_amenities')
             i += 1
             #We define the projections and upload
@@ -139,7 +144,7 @@ if __name__ == "__main__":
     aup.log('Starting script')
     year = '2020'
     schema = 'processed'
-    folder_sufix = 'dist_2020' #sufix for folder name
+    folder_sufix = 'time_2020' #sufix for folder name
     amenities = {'farmacia':[464111,464112],'hospitales':[622111,622112], 
     'supermercados':[462111,462112]}
-    main(schema, folder_sufix, year, amenities, save = True)
+    main(schema, folder_sufix, year, amenities, save = False)
