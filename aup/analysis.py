@@ -102,27 +102,33 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name):
 	hex_new.fillna(0, inplace=True)
 	return hex_new
 
-def population_to_nodes(nodes, gdf_population, column_start=1, column_end=-1, cve_column='CVEGEO'):
-	"""
-	Assign the proportion of population to each node inside an AGEB
-
-	Arguments:
-		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
-		gdf_population {geopandas.GeoDataFrame} -- GeoDataFrame with the population attributes of each AGEB
-
-	Returns:
-		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
-	"""
-	totals = gpd.sjoin(nodes, gdf_population).groupby(cve_column).count().rename(
-		columns={'x': 'nodes_in'})[['nodes_in']].reset_index()  # caluculate the totals
-	# get a temporal dataframe with the totals and columns
-	temp = pd.merge(gdf_population, totals, on=cve_column)
-	for col in temp.columns.tolist()[column_start:column_end]:  # get the average for the values
-		temp[col] = temp[col]/temp['nodes_in']
-	temp = temp.set_crs("EPSG:4326")
-	nodes = gpd.sjoin(nodes, temp)
-	nodes.drop(['nodes_in','index_right'], axis=1, inplace=True)  # drop the nodes_in column
-	return  nodes # spatial join the nodes with the values
+def population_to_nodes(
+    nodes,
+    gdf_population,
+    column_start=1,
+    column_end=-1,
+    cve_column="CVEGEO",
+    avg_column=None,
+):
+    if avg_column is None:
+        avg_colum = []
+    totals = (
+        gpd.sjoin(nodes, gdf_population)
+        .groupby(cve_column)
+        .count()
+        .rename(columns={"x": "nodes_in"})[["nodes_in"]]
+        .reset_index()
+    )  # caluculate the totals
+    # get a temporal dataframe with the totals and columns
+    temp = pd.merge(gdf_population, totals, on=cve_column)
+    # get the average for the values
+    for col in temp.columns.tolist()[column_start:column_end]:
+        if col not in avg_column:
+            temp[col] = temp[col] / temp["nodes_in"]
+    temp = temp.set_crs("EPSG:4326")
+    nodes = gpd.sjoin(nodes, temp)
+    nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)  # drop the nodes_in column
+    return nodes  # spatial join the nodes with the values
 
 def walk_speed(edges_elevation):
 
