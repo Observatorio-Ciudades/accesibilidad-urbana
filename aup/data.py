@@ -399,7 +399,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
     nodes_tmp = pd.DataFrame.from_dict(nodes_dict)
     nodes_tmp = gpd.GeoDataFrame(nodes_tmp, crs="EPSG:4326", geometry='geometry')
     nodes = nodes_tmp.copy()
+    nodes.set_index('osmid',inplace=True)
 
     G = ox.graph_from_gdfs(nodes, edges)
+
 
     return G, nodes, edges

@@ -89,12 +89,12 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
 
             if save:
                 aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
-                #c_nodes = len(nodes_pop) / 10000
-                #aup.log(f"There are a total of {round(c_nodes,2)} nodes divisions")
-                #for cont in range(int(c_nodes)+1):
-                #    nodes_pop_upload = nodes_pop.iloc[int(10000*cont):int(10000*(cont+1))].copy()
-                #    aup.gdf_to_db_slow(nodes_pop_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
-                #    aup.log(f"Uploaded {cont} out of {round(c_nodes,2)}")
+                c_nodes = len(nodes_pop) / 10000
+                aup.log(f"There are a total of {round(c_nodes,2)} nodes divisions")
+                for cont in range(int(c_nodes)+1):
+                    nodes_pop_upload = nodes_pop.iloc[int(10000*cont):int(10000*(cont+1))].copy()
+                    aup.gdf_to_db_slow(nodes_pop_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+                    aup.log(f"Uploaded {cont} out of {round(c_nodes,2)}")
 
 
 

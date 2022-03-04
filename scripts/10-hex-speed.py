@@ -40,12 +40,14 @@ def main(schema, folder_sufix, save=False):
         hex_gdf = hex_gdf.set_crs("EPSG:4326")
 
         _,_,edges = aup.graph_from_hippo(mun_gdf, 'osmnx', 
-                                     edges_folder='edges_elevation', nodes_folder='nodes_elevation')
+                                    edges_folder='edges_elevation', nodes_folder='nodes_elevation')
 
         #calculate walking speed for edges
         edges = aup.walk_speed(edges)
+        #calculate time for edges
+        edges['time_min'] = edges['length']/(1000*edges['walkspeed']/60)
 
-        #intersects edges with hex bins
+        '''#intersects edges with hex bins
         res_intersection = edges.overlay(hex_gdf, how='intersection')
 
         #calculates new length of cuted edges
@@ -72,20 +74,22 @@ def main(schema, folder_sufix, save=False):
         #append walking speed to GeoDataFrame
         gdf_mrg = hex_gdf.merge(df_walkspeed, on='hex_id_8')
 
-        gdf_mrg = gdf_mrg[['hex_id_8','CVEGEO','walkspeed','geometry']]
+        gdf_mrg = gdf_mrg[['hex_id_8','CVEGEO','walkspeed','geometry']]'''
 
-        aup.log(f"Average speed for {c} is {gdf_mrg.walkspeed.mean()}")
+        aup.log(f"Average speed for {c} is {edges.walkspeed.mean()}")
 
         if save:
 
-            aup.gdf_to_db_slow(gdf_mrg, "hex_"+folder_sufix, 
+            edges.reset_index(inplace=True)
+
+            aup.gdf_to_db_slow(edges, "edges_"+folder_sufix, 
                     schema=schema, if_exists="append")
 
 
 
 if __name__ == "__main__":
 
-    schema = 'speed'
+    schema = 'osmnx'
     folder_sufix = 'speed'
 
     main(schema, folder_sufix, save=True)
