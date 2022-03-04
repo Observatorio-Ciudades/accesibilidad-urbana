@@ -40,7 +40,7 @@ def main(schema, folder_sufix, save=False):
         hex_gdf = hex_gdf.set_crs("EPSG:4326")
 
         _,_,edges = aup.graph_from_hippo(mun_gdf, 'osmnx', 
-                                     edges_folder='edges_elevation', nodes_folder='nodes_elevation')
+                                    edges_folder='edges_elevation', nodes_folder='nodes_elevation')
 
         #calculate walking speed for edges
         edges = aup.walk_speed(edges)

@@ -47,57 +47,8 @@ def main(schema, folder_sufix, year, grl_path, save=False):
 
             # Creates query to download OSMNX nodes and edges from the DB
             # by metropolitan area or capital using the municipality geometry
-            _, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx')
+            G, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx')
             aup.log(f"Downloaded {len(nodes)} nodes and {len(edges)} edges from database for {c}")
-
-            #Completes nodes GeoDataFrame using edges data
-            nodes_tmp = nodes.reset_index().copy()
-
-            edges_tmp = edges.reset_index().copy()
-
-            #finds difference between node osmid in edges and nodes
-            #at start of line
-            from_osmid = list(set(edges_tmp['u'].to_list()).difference(
-                set(nodes_tmp.osmid.to_list())))
-
-            nodes_dict = nodes_tmp.to_dict()
-
-            #gathers geometry for missing nodes and adds it to dictionary
-            for i in from_osmid:
-                row = edges_tmp.loc[(edges_tmp.u==i)].iloc[0]
-                coords = [(coords) for coords in list(row['geometry'].coords)]
-                first_coord, last_coord = [ coords[i] for i in (0, -1) ]
-                
-                nodes_dict['osmid'][len(nodes_dict['osmid'])] = i
-                nodes_dict['x'][len(nodes_dict['x'])] = first_coord[0]
-                nodes_dict['y'][len(nodes_dict['y'])] = first_coord[1]
-                nodes_dict['street_count'][len(nodes_dict['street_count'])] = np.nan
-                nodes_dict['geometry'][len(nodes_dict['geometry'])] = Point(first_coord)
-                    
-            #finds difference between node osmid in edges and nodes
-            #at end of line
-            to_osmid = list(set(edges_tmp['v'].to_list()).difference(
-                set(list(nodes_dict['osmid'].values()))))
-
-            #gathers geometry for missing nodes and adds it to dictionary
-            for i in to_osmid:
-                row = edges_tmp.loc[(edges_tmp.u==i)].iloc[0]
-                coords = [(coords) for coords in list(row['geometry'].coords)]
-                first_coord, last_coord = [ coords[i] for i in (0, -1) ]
-                
-                nodes_dict['osmid'][len(nodes_dict['osmid'])] = i
-                nodes_dict['x'][len(nodes_dict['x'])] = last_coord[0]
-                nodes_dict['y'][len(nodes_dict['y'])] = last_coord[1]
-                nodes_dict['street_count'][len(nodes_dict['street_count'])] = 0
-                nodes_dict['geometry'][len(nodes_dict['geometry'])] = Point(last_coord)
-                
-            #create GeoDataFrame with missing nodes
-            nodes_tmp = pd.DataFrame.from_dict(nodes_dict)
-            nodes_tmp = gpd.GeoDataFrame(nodes_tmp, crs="EPSG:4326", geometry='geometry')
-            G = ox.graph_from_gdfs(nodes_tmp.set_index('osmid'), edges_tmp.set_index(['u','v','key']))
-
-            missing_nodes = len(from_osmid) + len(to_osmid)
-            aup.log(f"Filled {missing_nodes} missing nodes")
 
             mde_path = [] # list to append mde path strings
             #Gathers state codes for MDE
@@ -143,8 +94,8 @@ def main(schema, folder_sufix, year, grl_path, save=False):
 
 
 if __name__ == "__main__":
-    aup.log('\n--'*20)
-    aup.log('Starting script')
+    aup.log('--'*20)
+    aup.log('\n Starting script')
     schema = 'osmnx'
     folder_sufix = 'elevation' #sufix for folder name
     year = '2020'
