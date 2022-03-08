@@ -140,13 +140,13 @@ def walk_speed(edges_elevation):
 	#Using this the max speed 4.2 at -0,05 slope
 	return edges_speed
 
-def gdf_in_hex(grid, gdf, resolution, contain):
+def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
 
 	"""
 	Finds the hexagons that have or do not have a point within
 
 	Arguments:
-		grid {geopandas.GeoDataFrame} -- GeoDataFrame with the full hex grid of the city
+		grid {geopandas.GeoDataFrame} -- GeoDataFrame with the full H3 hex grid of the city
 		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
 		gdf {geopandas.GeoDataFrame} -- GeoDataFrame of figures to be overlaid with hexes
 		contain {str} -- True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
@@ -165,10 +165,10 @@ def gdf_in_hex(grid, gdf, resolution, contain):
 	#Merge with indicator. Right only means that the hexagon does NOT have any node
 	hex_merge = pip_idx.merge(hex_geom, left_index=True, right_index=True, how='outer', indicator=True)
 	## False means it will find hexes without points
-	if contain == 'False':
+	if contain == False:
 		hex_node = hex_merge[hex_merge['_merge']=='right_only']
 	## False means it will find hexes with points
-	if contain == 'True':
+	if contain == True:
 		hex_node = hex_merge[hex_merge['_merge']=='both']
 	#(simplify)
 	point_hex = gpd.GeoDataFrame(hex_node, geometry = 'geometry')
@@ -209,9 +209,9 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 		for idx,row in missing.iterrows():
 			###Cell 1
 			near = pd.DataFrame(h3.k_ring(idx,1))
-			near['hex_id_10'] = h3.k_ring(idx,1)
+			near[f'hex_id_{resolution}'] = h3.k_ring(idx,1)
 			near['a'] = np.nan
-			near= near.set_index('hex_id_10')
+			near= near.set_index(f'hex_id_{resolution}')
 			###Cell 2
 			neighbors = near.merge(urb_hex, left_index=True, right_index=True, how='left')
 			#Cell 3
