@@ -205,3 +205,88 @@ def create_network(nodes, edges):
 
 	return nodes, edges
 
+	
+def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
+
+	"""
+	Finds the hexagons that have or do not have a point within
+
+	Arguments:
+		grid {geopandas.GeoDataFrame} -- GeoDataFrame with the full H3 hex grid of the city
+		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
+		gdf {geopandas.GeoDataFrame} -- GeoDataFrame of figures to be overlaid with hexes
+		contain {str} -- True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
+
+		
+	Returns:
+		geopandas.GeoDataFrame -- gdf_in_hex -- hexes that contain or do not contain a gdf within
+	"""
+	#PIP (Point in Polygon). Overlays gdf with hexes to find hexes that have the gdf in them and those that do not
+	pip = gpd.overlay(grid, gdf, how='intersection', keep_geom_type=False)
+	pip = pip.set_index(f'hex_id_{resolution}')
+	grid = grid.set_index(f'hex_id_{resolution}')
+	#simplify and keep only relevant columns
+	pip_idx = pip.drop(['geometry'], axis=1)
+	hex_geom = grid[['geometry']]
+	#Merge with indicator. Right only means that the hexagon does NOT have any node
+	hex_merge = pip_idx.merge(hex_geom, left_index=True, right_index=True, how='outer', indicator=True)
+	## False means it will find hexes without points
+	if contain == False:
+		hex_node = hex_merge[hex_merge['_merge']=='right_only']
+	## False means it will find hexes with points
+	if contain == True:
+		hex_node = hex_merge[hex_merge['_merge']=='both']
+	#(simplify)
+	point_hex = gpd.GeoDataFrame(hex_node, geometry = 'geometry')
+	point_hex = point_hex[['geometry']]
+	point_hex.reset_index(inplace = True)
+	grid.reset_index(inplace = True)
+	point_hex = point_hex.drop_duplicates(subset=[f'hex_id_{resolution}'])
+
+	return point_hex
+
+
+def fill_hex(missing_hex, data_hex, resolution, data_column):
+
+	"""
+	Fills hexagons with no data with the average data of neighbors (note: hex id must be a column not index)
+
+	Arguments:
+		missing_hex {geopandas.GeoDataFrame} -- GeoDataFrame with the hexes that does not have the information due to lack of nodes
+		data_hex {geopandas.GeoDataFrame} -- GeoDataFrame of hexes that do contain the information
+		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
+		data_column {str} -- Name of the column with the data to be filled with (ex. distance)
+
+		
+	Returns:
+		geopandas.GeoDataFrame -- full_hex -- hexgrid filled with relevant data
+	"""
+	missing_hex[[f'{data_column}']] = np.nan
+	urb_hex = gpd.GeoDataFrame()
+	urb_hex = data_hex.append(missing_hex)
+	urb_hex = urb_hex.set_index(f'hex_id_{resolution}')
+	## Start looping
+	count = 0
+	iter = 1
+	urb_hex[f'{data_column}'+ str(count)] = urb_hex[f'{data_column}'].copy()
+	while urb_hex[f'{data_column}'+str(count)].isna().sum() > 0:
+		missing = urb_hex[urb_hex[f'{data_column}'+str(count)].isna()]
+		urb_hex[f'{data_column}'+ str(iter)] = urb_hex[f'{data_column}'+str(count)].copy()
+		for idx,row in missing.iterrows():
+			###Cell 1
+			near = pd.DataFrame(h3.k_ring(idx,1))
+			near[f'hex_id_{resolution}'] = h3.k_ring(idx,1)
+			near['a'] = np.nan
+			near= near.set_index(f'hex_id_{resolution}')
+			###Cell 2
+			neighbors = near.merge(urb_hex, left_index=True, right_index=True, how='left')
+			#Cell 3
+			average = neighbors[f'{data_column}'+str(count)].mean()
+			urb_hex.at[idx, f'{data_column}'+str(iter)] = average
+		count = count + 1
+		iter = iter + 1
+	full_hex = urb_hex[['geometry']]
+	full_hex[f'{data_column}'] = urb_hex[f'{data_column}'+ str(count)].copy()
+
+	return full_hex
+
