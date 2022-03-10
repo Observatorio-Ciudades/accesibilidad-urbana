@@ -148,6 +148,64 @@ def walk_speed(edges_elevation):
 	#Using this the max speed 4.2 at -0,05 slope
 	return edges_speed
 
+
+def create_network(nodes, edges):
+
+	"""
+	Create a network based on nodes and edges without unique ids and to - from attributes.
+
+	Arguments:
+		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with nodes for network in EPSG:4326
+		edges {geopandas.GeoDataFrame} -- GeoDataFrame with edges for network in EPSG:4326
+
+	Returns:
+		geopandas.GeoDataFrame  -- nodes GeoDataFrame with unique ids based on coordinates named osmid in EPSG:4326
+		geopandas.GeoDataFrame  -- edges GeoDataFrame with to - from attributes based on nodes ids named u and v respectively in EPSG:4326
+	"""
+
+	#Copy edges and nodes to avoid editing original GeoDataFrames
+	nodes = nodes.copy()
+	edges = edges.copy()
+
+	#Create unique ids for nodes and edges
+	##Change coordinate system to meters for unique ids
+	nodes = nodes.to_crs("EPSG:6372")
+	edges = edges.to_crs("EPSG:6372")
+
+	##Unique id for nodes based on coordinates
+	nodes['osmid'] = ((nodes.geometry.x).astype(int)).astype(str)+((nodes.geometry.y).astype(int)).astype(str)
+
+	##Set columns in edges for to [u] from[v] columns
+	edges['u'] = np.nan
+	edges['v'] = np.nan
+	edges.u.astype(str)
+	edges.v.astype(str)
+
+	##Extract start and end coordinates for [u,v] columns
+	for index, row in edges.iterrows():
+		
+		edges.at[index,'u'] = str(int(list(row.geometry.coords)[0][0]))+str(int(list(row.geometry.coords)[0][1]))
+		edges.at[index,'v'] = str(int(list(row.geometry.coords)[-1][0]))+str(int(list(row.geometry.coords)[-1][1]))
+
+	#Add key column for compatibility with osmnx
+	edges['key'] = 0
+
+	#Change [u,v] columns to integer
+	edges['u'] = edges.u.astype(int)
+	edges['v'] = edges.v.astype(int)
+	#Calculate edges lentgh
+	edges['length'] = edges.to_crs("EPSG:6372").length
+	
+	#Change osmid to integer
+	nodes['osmid'] = nodes.osmid.astype(int)
+
+	#Transform coordinates
+	nodes = nodes.to_crs("EPSG:4326")
+	edges = edges.to_crs("EPSG:4326")
+
+	return nodes, edges
+
+	
 def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
 
 	"""
