@@ -122,28 +122,25 @@ def load_study_areas():
     return distros_dict
 
 
-def convert_type(df, dc=None, string_column=None):
-    """Converts columns from DataFrame to numeric or string if specified
+def convert_type(df, data_dict):
+    """Converts columns from DataFrame to specified data type
     Args:
         df (pandas.DataFrame): DataFrame containing all columns
-        column (str): Column name, which will be converted
-        string_column (list): list of names for columns that will be set as string
+        data_dict (dictionary): Dictionary with the desiered data type as a
+                                key {string, integer, float} and a list of columns.
+                                For example: {'string':[column1,column2],'integer':[column3,column4]}
     Returns:
-        pandas.Series: Series converted to numeric value or kept as object
+        pandas.DataFrame: DataFrame with converted data types for columns
     """
-
-    if string_column is not None:
-        for column in df.columns:
-            if column not in string_column:
-                df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
-        for sc in string_column:
-            df[sc] = df[sc].astype("str")
-    else:
-        for column in df.columns:
-            df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
+    for d in data_dict:
+        if d == "string":
+            for c in data_dict[d]:
+                df[c] = df[c].astype("str")
+        else:
+            for c in data_dict[d]:
+                df[c] = pd.to_numeric(df[c], downcast=d, errors="ignore")
 
     return df
-
 
 def create_schema(schema):
     """create schema in the database if it does not exists already,
