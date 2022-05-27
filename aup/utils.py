@@ -193,6 +193,9 @@ def find_nearest(G, nodes, gdf, return_distance=False):
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
 	"""
+
+    gdf = gdf.copy()
+
     osmnx_tuple = graph.nearest_nodes(G, nodes, list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
     
     if return_distance:
