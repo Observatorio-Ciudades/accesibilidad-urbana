@@ -383,7 +383,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
     to_osmid = list(set(edges_tmp['v'].to_list()).difference(set(list(nodes_dict['osmid'].values()))))
 
     for i in to_osmid:
-        row = edges_tmp.loc[(edges_tmp.u==i)].iloc[0]
+        row = edges_tmp.loc[(edges_tmp.v==i)].iloc[0]
         coords = [(coords) for coords in list(row['geometry'].coords)]
         first_coord, last_coord = [ coords[i] for i in (0, -1) ]
         
