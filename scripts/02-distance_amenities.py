@@ -59,6 +59,7 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         aup.log("Created wkt based on dissolved polygon")
 
         nodes_amenities = gpd.GeoDataFrame()
+        hex_format = pd.DataFrame()
         i = 0
         
         #Starts iterating by type of amenity defined i.e: pharmacies, supermarkets, 
