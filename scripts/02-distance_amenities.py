@@ -79,8 +79,8 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             ##Added this if in case there are no amenities of the type in the city. Prevents it from 
             #Crashing if len = 0
             if len(denue_amenity) == 0:
-                df_min = 0
-                aup.log(f"0 f{cod} found in {c}")
+                nodes_distance['time_'+a] = 0
+                aup.log(f"0 {cod} found in {c}")
             else:
                 #Due to memory constraints, the total number of POIs will be divided in groups of 100
                 #These will run with the calculate nearest distance poi function by group and will be stored
@@ -102,11 +102,9 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
                 #We apply the min function to find the minimum value. This value is sent to a new df_min
                 df_min = pd.DataFrame()
                 df_min['time_'+a] = df_temp.min(axis=1)
-
-
-            #We merge df_min which contains the shortest distance to the POI with nodes_distance which will store
-            #all final data
-            nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
+                #We merge df_min which contains the shortest distance to the POI with nodes_distance which will store
+                #all final data
+                nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
 
             aup.log(f"Calculated distance for a TOTAL of {len(nodes_distance)} nodes")
 
