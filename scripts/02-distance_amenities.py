@@ -12,7 +12,7 @@ if module_path not in sys.path:
 
 def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
     # Read json with municipality codes by capital or metropolitan area
-    df = pd.read_json("/home/jovyan/work/scripts/areas.json")
+    df = pd.read_json("/home/jovyan/work/scripts/Metropolis_CVE.json")
     aup.log("Read metropolitan areas and capitals json")
     
     #Folder names from database
@@ -71,6 +71,7 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
                 query = f"SELECT * FROM denue_nodes.denue_node_2020 WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = {cod})"
                 denue_amenity = denue_amenity.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Downloaded accumulated total of {len(denue_amenity)} {a} from database for {c}")
+            df_temp = nodes.copy()
             nodes_distance = nodes.copy()
 
 
@@ -151,12 +152,12 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         if save:
             aup.gdf_to_db_slow(hex_format, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
             #Due to memory constraints the nodes are uploaded in groups of 10,000
-            c_nodes = len(nodes_amenities)/10000
-            for p in range(int(c_nodes)+1):
-                nodes_upload = nodes_amenities.iloc[int(10000*p):int(10000*(p+1))].copy()
-                aup.gdf_to_db_slow(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
-                aup.log("uploaded nodes into DB ")
-            aup.log("Finished uploading nodes ")
+            #c_nodes = len(nodes_amenities)/10000
+            #for p in range(int(c_nodes)+1):
+            #    nodes_upload = nodes_amenities.iloc[int(10000*p):int(10000*(p+1))].copy()
+            #    aup.gdf_to_db_slow(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+            #    aup.log("uploaded nodes into DB ")
+            #aup.log("Finished uploading nodes ")
             
 
 
@@ -166,7 +167,7 @@ if __name__ == "__main__":
     aup.log('Starting script')
     year = '2020'
     schema = 'time_amenities_clean'
-    folder_sufix = 'time_2020_clues' #sufix for folder name
+    folder_sufix = 'time_2020' #sufix for folder name
     amenities = {'denue_supermercado': [462111,462112],'denue_farmacia': [464111,464112], 
             'denue_hospital': [622111,622112], 'denue_kinder':[611111, 611112], 'denue_primaria':[611121, 611122],
             'denue_secundaria':[611131, 611132], 'denue_escuela_mixta': [611171, 611172], 
