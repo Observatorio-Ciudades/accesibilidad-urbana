@@ -173,5 +173,5 @@ if __name__ == "__main__":
             'denue_hospital': [622111,622112], 'denue_kinder':[611111, 611112], 'denue_primaria':[611121, 611122],
             'denue_secundaria':[611131, 611132], 'denue_escuela_mixta': [611171, 611172], 
             'denue_carniceria': [461121], 'denue_polleria': [461122], 'denue_pescaderia': [461123], 
-            'denue_verduleria': [41130] }
+            'denue_verduleria': [461130] }
     main(schema, folder_sufix, year, amenities, save = True)
