@@ -21,3 +21,8 @@ data/*
 #logs
 *.log
 aup.egg-info/
+
+#docker
+*.js
+*.gitattributes
+*.devcontainer
