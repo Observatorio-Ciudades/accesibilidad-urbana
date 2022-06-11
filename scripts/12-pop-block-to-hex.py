@@ -112,7 +112,7 @@ def main(state_id, year, schema, save=False):
                     schema=schema, if_exists='append')
 
     if save:
-            aup.gdf_to_db_slow(centroid_block_pop, f'censo_mza_centroid_{year}',
+        aup.gdf_to_db_slow(centroid_block_pop, f'censo_mza_centroid_{year}',
                     schema=schema, if_exists='append')
 
 
