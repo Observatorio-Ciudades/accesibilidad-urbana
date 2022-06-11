@@ -4,7 +4,8 @@ import sys
 import pandas as pd
 import geopandas as gpd
 
-import matplotlib.pyplot as plt
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
@@ -15,7 +16,7 @@ def main(state_id, year, schema, save=False):
 
     #download block census data from database
     folder_name = 'censo_mza'
-    table_name = 'censo_mza_{year}'
+    table_name = f'censo_mza_{year}'
     query = f"SELECT * FROM {folder_name}.{table_name} WHERE \"CVEGEO\" LIKE \'{state_id}%%\'"
     block_pop = aup.gdf_from_query(query, geometry_col='geometry')
 
@@ -33,7 +34,7 @@ def main(state_id, year, schema, save=False):
     centroid_block_pop.rename(columns={'geometry_x':'geometry'}, inplace=True)
     centroid_block_pop = gpd.GeoDataFrame(centroid_block_pop, geometry='geometry')
 
-    aup.log(f"Centroids with {len(centroid_block_pop.pobtot.sum())}" + 
+    aup.log(f"Centroids with {centroid_block_pop.pobtot.sum()} " +
     f"population vs block {block_pop.pobtot.sum()}")
 
     #download municipalities polygon
@@ -44,6 +45,20 @@ def main(state_id, year, schema, save=False):
 
     aup.log("Downloaded municipalities boundaries")
 
+    #delete filler columns
+    dlt_col = {2020:['cve_ent','cve_mun','cve_loc','cve_ageb',
+        'cve_mza','ambito','tipomza','entidad',
+        'nom_ent','mun','nom_mun','loc','ageb','mza'],
+        2010:['codigo','geografico',
+                'fechaact','geometria','institucio',
+                'oid','entidad','nom_ent','mun','nom_mun',
+                'loc','nom_loc','ageb','mza']}
+    
+    centroid_block_pop.drop(columns=dlt_col[year], inplace=True)
+
+    centroid_block_pop = centroid_block_pop.to_crs("EPSG:4326")
+    centroid_block_pop = centroid_block_pop.reset_index()
+
     #generate hexagon gdf
 
     res_list = [8,9]
@@ -53,23 +68,9 @@ def main(state_id, year, schema, save=False):
         hex_gdf = aup.create_hexgrid(mun_gdf, res)
         hex_gdf = hex_gdf.set_crs("EPSG:4326")
 
-        aup.log("Created hex_grid")
+        aup.log(f"Created hex_grid with {res} resolution")
 
         #group census data
-
-        #delete filler columns
-        dlt_col = {2020:['cve_ent','cve_mun','cve_loc','cve_ageb',
-            'cve_mza','ambito','tipomza','entidad',
-            'nom_ent','mun','nom_mun','loc','ageb','mza'],
-            2010:['index_right','codigo','geografico',
-                    'fechaact','geometria','institucio',
-                    'oid','entidad','nom_ent','mun','nom_mun',
-                    'loc','nom_loc','ageb','mza']}
-        
-        centroid_block_pop.drop(columns=dlt_col[year], inplace=True)
-
-        centroid_block_pop = centroid_block_pop.to_crs("EPSG:4326")
-        centroid_block_pop = centroid_block_pop.reset_index()
 
         #column variables for grouping analysis
         string_columns = ['cvegeo']
@@ -92,20 +93,21 @@ def main(state_id, year, schema, save=False):
 
         #group centroids by hexagon
         hex_socio_df = aup.socio_points_to_polygon(
-            hex_gdf, centroid_block_pop,'hex_id_{res}',
+            hex_gdf, centroid_block_pop,f'hex_id_{res}',
             string_columns, wgt_dict=wgt_dict, avg_column=avg_column)
 
-        aup.log("Agregated socio data to hex with a total" + 
-        f"of {hex_socio_df.pobtot.sum()} population")
+        aup.log("Agregated socio data to hex with a total " +
+        f"of {hex_socio_df.pobtot.sum()} population " + 
+        f"for resolution {res}")
 
         #hexagons to GeoDataFrame
-        hex_gdf_socio = hex_gdf.merge(hex_socio_df, on='hex_id_{res}')
+        hex_gdf_socio = hex_gdf.merge(hex_socio_df, on=f'hex_id_{res}')
 
         hectares = hex_gdf_socio.to_crs("EPSG:6372").area / 10000
 
         hex_gdf_socio['dens_pob_ha'] = hex_gdf_socio['pobtot'] / hectares
 
-        aup.log(f"Calculated an average density of {hex_socio_df.dens_pob_ha.mean()}")
+        aup.log(f"Calculated an average density of {hex_gdf_socio.dens_pob_ha.mean()}")
 
         if save:
             aup.gdf_to_db_slow(hex_gdf_socio, f'hex_censo_mza_{year}_res{res}',
@@ -119,10 +121,14 @@ def main(state_id, year, schema, save=False):
 if __name__ == "__main__":
 
     SCHEMA = 'censo'
-    years = [2010,2020]
+    years = [2010, 2020]
 
     for year in years:
 
-        for state_id in range(1,33):
+        for i in range(1,33):
+
+            state_id = f"{i:02d}"
+
+            aup.log(f"Starting script for {state_id} and {year}")
 
             main(state_id, year, SCHEMA, save=False)
