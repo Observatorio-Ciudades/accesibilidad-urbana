@@ -139,8 +139,12 @@ def main(year, schema, save=False):
                         schema=schema, if_exists='append')
 
         if save:
-            aup.gdf_to_db_slow(centroid_block_pop, f'censo_mza_centroid_{year}',
-                        schema=schema, if_exists='append')
+            aup.gdf_to_db_slow(hex_gdf_socio, f'hex_censo_mza_{year}_res{res}',
+                    schema=schema, if_exists='append')
+
+    if save:
+        aup.gdf_to_db_slow(centroid_block_pop, f'censo_mza_centroid_{year}',
+                    schema=schema, if_exists='append')
 
 
 if __name__ == "__main__":

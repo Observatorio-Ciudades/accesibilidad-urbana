@@ -270,7 +270,7 @@ def haversine(coord1, coord2):
 	km = meters / 1000.0  # output distance in kilometers    
 	return meters
 
-def create_hexgrid(polygon, hex_res, geometry_col='geometry', buffer=0.000):
+def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
     """
 	Takes in a geopandas geodataframe, the desired resolution, the specified geometry column and some map parameters to create a hexagon grid (and potentially plot the hexgrid
 
@@ -283,78 +283,33 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry', buffer=0.000):
 
 	Returns:
 		geopandas.geoDataFrame -- geoDataFrame with the hexbins according to resolution and EPSG:4326
-	
+	"""
 	
     #multiploygon to polygon
     polygons = polygon[geometry_col].explode(index_parts=True)
-
-    polygons = polygons.reset_index()
     
     all_polys = gpd.GeoDataFrame()
-    #dictionary_list = []
     
     for p in range(len(polygons)):
-        
-        dict_poly = polygons[geometry_col].iloc[p].__geo_interface__
-        hexs = h3.polyfill(dict_poly, hex_res, geo_json_conformant = True)
-        polygonise = lambda hex_id: Polygon(
-                                    h3.h3_to_geo_boundary(
-                                        hex_id, geo_json=True)
-                                        )
+    
+        #create hex grid from GeoDataFrame
+        for i in range(len(polygons[p])):
+            dict_poly = polygons[p][i].__geo_interface__
+            hexs = h3.polyfill(dict_poly, hex_res, geo_json_conformant = True)
+            polygonise = lambda hex_id: Polygon(
+                                        h3.h3_to_geo_boundary(
+                                            hex_id, geo_json=True)
+                                            )
 
-        poly_tmp = gpd.GeoSeries(list(map(polygonise, hexs)), \
-                                                index=hexs, \
-                                                crs="EPSG:4326" \
+            poly_tmp = gpd.GeoSeries(list(map(polygonise, hexs)), \
+                                                  index=hexs, \
+                                                  crs="EPSG:4326" \
                                                  )
+            gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
 
-        gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
-
-        all_polys = all_polys.append(gdf_tmp, ignore_index=True)
+            all_polys = all_polys.append(gdf_tmp, ignore_index=True)
 
     all_polys = all_polys.drop_duplicates()
     all_polys.set_crs("EPSG:4326")
-    """
-
-    #centroid = list(polygon.centroid.values[0].coords)[0]
-
-    # Explode multipolygon into individual polygons
-    exploded = polygon.explode().reset_index()
-
-    # Master lists for geodataframe
-    hexagon_polygon_list = []
-    hexagon_geohash_list = []
-
-    # For each exploded polygon
-    for poly in exploded[geometry_col].values:
-
-        # Reverse coords for original polygon
-        reversed_coords = [[i[1], i[0]] for i in list(poly.exterior.coords)]
-
-        # Reverse coords for buffered polygon
-        buffer_poly = poly.buffer(buffer)
-        reversed_buffer_coords = [[i[1], i[0]] for i in list(buffer_poly.exterior.coords)]
-
-        # Format input to the way H3 expects it
-        aoi_input = {'type': 'Polygon', 'coordinates': [reversed_buffer_coords]}
-
-        # Generate list geohashes filling the AOI
-        geohashes = list(h3.polyfill(aoi_input, hex_res))
-        for geohash in geohashes:
-            polygons = h3.h3_set_to_multi_polygon([geohash], geo_json=True)
-            outlines = [loop for polygon in polygons for loop in polygon]
-            polyline_geojson = [outline + [outline[0]] for outline in outlines][0]
-            hexagon_polygon_list.append(shapely.geometry.Polygon(polyline_geojson))
-            hexagon_geohash_list.append(geohash)
-
-    # Create a geodataframe containing the hexagon geometries and hashes
-    hexgrid_gdf = gpd.GeoDataFrame()
-    hexgrid_gdf['geometry'] = hexagon_polygon_list
-    id_col_name = 'hex_id_' + str(hex_res)
-    hexgrid_gdf[id_col_name] = hexagon_geohash_list
-    hexgrid_gdf.crs = {'init' :'epsg:4326'}
-
-    # Drop duplicate geometries
-    geoms_wkb = hexgrid_gdf["geometry"].apply(lambda geom: geom.wkb)
-    hexgrid_gdf = hexgrid_gdf.loc[geoms_wkb.drop_duplicates().index]
     
-    return hexgrid_gdf
+    return all_polys
