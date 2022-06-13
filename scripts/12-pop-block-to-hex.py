@@ -3,6 +3,7 @@ import sys
 
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -42,8 +43,13 @@ def main(year, schema, save=False):
             block_pop = block_pop.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Donwloaded block and municipality polygons for {mun}")
 
-        block_pop = block_pop.to_crs("EPSG:6372")
+        mun_gdf = mun_gdf.to_crs("EPSG:4326")
+        block_pop = block_pop.to_crs("EPSG:4326")
         block_pop.columns = block_pop.columns.str.lower()
+        block_pop = block_pop.replace('N/D',np.nan)
+
+
+        block_pop = block_pop.to_crs("EPSG:6372")
 
         #extract point from polygon
         block_pop = block_pop.set_index('cvegeo')
@@ -59,17 +65,24 @@ def main(year, schema, save=False):
 
         #delete filler columns
         dlt_col = {2020:['cve_ent','cve_mun','cve_loc','cve_ageb',
-            'cve_mza','ambito','tipomza','entidad',
-            'nom_ent','mun','nom_mun','loc','ageb','mza'],
-            2010:['codigo','geografico',
-                    'fechaact','geometria','institucio',
-                    'oid','entidad','nom_ent','mun','nom_mun',
-                    'loc','nom_loc','ageb','mza']}
+           'cve_mza','ambito','tipomza','entidad','nom_loc',
+           'nom_ent','mun','nom_mun','loc','ageb','mza'],
+          2010:['codigo','geografico',
+                'fechaact','geometria','institucio',
+                'oid','entidad','nom_ent','mun','nom_mun',
+                'loc','nom_loc','ageb','mza']}
         
         centroid_block_pop.drop(columns=dlt_col[year], inplace=True)
 
         centroid_block_pop = centroid_block_pop.to_crs("EPSG:4326")
         centroid_block_pop = centroid_block_pop.reset_index()
+
+        #creates buffer for municipality to include outer blocks
+        mun_buffer = mun_gdf.copy()
+        mun_buffer = mun_buffer.dissolve()
+        mun_buffer = mun_buffer.to_crs("EPSG:6372").buffer(2500)
+        mun_buffer = gpd.GeoDataFrame(geometry=mun_buffer)
+        mun_buffer = mun_buffer.to_crs("EPSG:4326")
 
         #generate hexagon gdf
 
@@ -77,7 +90,7 @@ def main(year, schema, save=False):
 
         for res in res_list:
 
-            hex_gdf = aup.create_hexgrid(mun_gdf, res)
+            hex_gdf = aup.create_hexgrid(mun_buffer, res)
             hex_gdf = hex_gdf.set_crs("EPSG:4326")
 
             aup.log(f"Created hex_grid with {res} resolution")
@@ -135,5 +148,8 @@ if __name__ == "__main__":
     SCHEMA = 'censo'
     years = [2010, 2020]
 
+    aup.log('--'*20)
+    aup.log('\n Starting script')
+
     for year in years:
-        main(year, SCHEMA, save=False)
+        main(year, SCHEMA, save=True)
