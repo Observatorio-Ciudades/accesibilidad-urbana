@@ -148,14 +148,14 @@ def socio_polygon_to_points(
     return nodes  # spatial join the nodes with the values
 
 def socio_points_to_polygon(
-	gdf_polygon,
-	gdf_socio,
-	cve_column,
-	string_columns,
-	wgt_dict=None,
-	avg_column=None):
-
-	"""Group sociodemographic point data in polygons
+    gdf_polygon,
+    gdf_socio,
+    cve_column,
+    string_columns,
+    wgt_dict=None,
+    avg_column=None,
+):
+    """Group sociodemographic point data in polygons
     Args:
         gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
@@ -167,37 +167,33 @@ def socio_points_to_polygon(
         avg_column (list, optional): List with column names with average data. Defaults to None.
     Returns:
         pandas.DataFrame: DataFrame with group sociodemographic data and polygon id
-	"""
+    """
 
-	dictionary_list = []
-	# Adds census data from points to polygon
-	gdf_tmp = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
+    data = pd.DataFrame()
+    # Adds census data from points to polygon
+    gdf_tmp = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
 
-	# convert data types
-	all_columns = list(gdf_socio.columns)
-	numeric_columns = [x for x in all_columns if x not in string_columns]
-	type_dict = {"string": string_columns, "float": numeric_columns}
-	gdf_tmp = convert_type(gdf_tmp, type_dict)
+    # convert data types
+    all_columns = list(gdf_socio.columns)
+    numeric_columns = [x for x in all_columns if x not in string_columns]
+    type_dict = {"string": string_columns, "float": numeric_columns}
+    gdf_tmp = convert_type(gdf_tmp, type_dict)
 
-	#group sociodemographic points to polygon
-	for idx in gdf_tmp[cve_column].unique():
+    #group sociodemographic points to polygon
+    for idx in gdf_tmp[cve_column].unique():
 
-		socio_filter = gdf_tmp.loc[gdf_tmp[cve_column]==idx].copy()
+        socio_filter = gdf_tmp.loc[gdf_tmp[cve_column]==idx].copy()
 
-		dict_tmp = group_sociodemographic_data(socio_filter, numeric_columns,
-		avg_column=avg_column, avg_dict=wgt_dict)
-		
-		dict_tmp[cve_column] = idx
-		
-		dictionary_list.append(dict_tmp)
-	
-	data = pd.DataFrame.from_dict(dictionary_list)
+        df_tmp = group_sociodemographic_data(socio_filter, numeric_columns,
+        avg_column=avg_column, avg_dict=wgt_dict)
+        df_tmp[cve_column] = idx
 
-	return data
+        data = data.append(df_tmp)
+
+    return data
 
 def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None):
-	
-	"""
+    """
     Aggregate sociodemographic variables from DataFrame.
     Args:
         df_socio {pd.DataFrame}: DataFrame containing sociodemographic variables to be aggregated by sum or mean.
@@ -209,34 +205,35 @@ def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dic
     Returns:
         pd.DataFrame: DataFrame with sum and mean values for sociodemographic data
     """
-	# column names with sociodemographic data
-	if 'geometry' in numeric_cols:
-		numeric_cols.remove('geometry')
-	socio_cols = numeric_cols
 
-	# Dictionary to store aggregated variables
-	group_dict = {}
+    # column names with sociodemographic data
+    if 'geometry' in numeric_cols:
+        numeric_cols.remove('geometry')
+    socio_cols = numeric_cols
 
-	if avg_column is None:
-		# creates empty lists to avoid crash for None
-		avg_column = []
-		avg_dict = []
-	# iterate over columns: mean or sum
-	for col in socio_cols:
-		if col in avg_column:
-			# creates weighted averages
-			pop_weight = df_socio[avg_dict[col]].sum()
-			if pop_weight == 0:
-				group_dict[col] = 0
-			else:
-				tmp_df = df_socio[[avg_dict[col], col]].groupby(col).sum().reset_index()
-				tmp_df["weight"] = tmp_df[col] * tmp_df[avg_dict[col]]
-				tmp_df["wavg"] = tmp_df["weight"] / pop_weight
-				group_dict[col] = tmp_df["wavg"].sum()
-		else:
-			group_dict[col] = df_socio[col].sum()
+    # DataFrame to store aggregated variables
+    df = pd.DataFrame(columns=socio_cols)
 
-	return group_dict
+    if avg_column is None:
+        # creates empty lists to avoid crash for None
+        avg_column = []
+        avg_dict = []
+    # iterate over columns: mean or sum
+    for col in socio_cols:
+        if col in avg_column:
+            # creates weighted averages
+            pop_weight = df_socio[avg_dict[col]].sum()
+            if pop_weight == 0:
+                df.loc[0, col] = 0
+            else:
+                tmp_df = df_socio[[avg_dict[col], col]].groupby(col).sum().reset_index()
+                tmp_df["weight"] = tmp_df[col] * tmp_df[avg_dict[col]]
+                tmp_df["wavg"] = tmp_df["weight"] / pop_weight
+                df.loc[0, col] = tmp_df["wavg"].sum()
+        else:
+            df.loc[0, col] = df_socio[col].sum()
+
+    return df
 
 def walk_speed(edges_elevation):
 
