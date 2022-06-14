@@ -290,27 +290,29 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
 	
     #multiploygon to polygon
     polygons = polygon[geometry_col].explode(index_parts=True)
+
+    polygons = polygons.reset_index(drop=True)
     
     all_polys = gpd.GeoDataFrame()
     
     for p in range(len(polygons)):
     
         #create hex grid from GeoDataFrame
-        for i in range(len(polygons[p])):
-            dict_poly = polygons[p][i].__geo_interface__
-            hexs = h3.polyfill(dict_poly, hex_res, geo_json_conformant = True)
-            polygonise = lambda hex_id: Polygon(
-                                        h3.h3_to_geo_boundary(
-                                            hex_id, geo_json=True)
-                                            )
+        #for i in range(len(polygons[p])):
+        dict_poly = polygons[p].__geo_interface__
+        hexs = h3.polyfill(dict_poly, hex_res, geo_json_conformant = True)
+        polygonise = lambda hex_id: Polygon(
+                                    h3.h3_to_geo_boundary(
+                                        hex_id, geo_json=True)
+                                        )
 
-            poly_tmp = gpd.GeoSeries(list(map(polygonise, hexs)), \
-                                                  index=hexs, \
-                                                  crs="EPSG:4326" \
-                                                 )
-            gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
+        poly_tmp = gpd.GeoSeries(list(map(polygonise, hexs)), \
+                                                index=hexs, \
+                                                crs="EPSG:4326" \
+                                                )
+        gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
 
-            all_polys = all_polys.append(gdf_tmp, ignore_index=True)
+        all_polys = all_polys.append(gdf_tmp, ignore_index=True)
 
     all_polys = all_polys.drop_duplicates()
     all_polys.set_crs("EPSG:4326")
