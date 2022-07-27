@@ -16,25 +16,25 @@ if module_path not in sys.path:
 
 
 def main(schema, folder_sufix, save=False):
-
+    ##### This script creates a network from INEGIs 2011 streets and nodes data
     for i in range(1,33):
 
         c = format(i, '02d')
 
         aup.log(f"Starting download for e{c}")
 
-        # Downloads municipality polygon according to code
+        # Downloads edges and nodes from DB
         query = f"SELECT * FROM vialidades11.edges11 WHERE \"UNIDAD\" LIKE \'e{c}\'"
         edges = aup.gdf_from_query(query, geometry_col='geometry')
         query = f"SELECT * FROM vialidades11.nodes11 WHERE \"UNIDAD\" LIKE \'e{c}\'"
         nodes = aup.gdf_from_query(query, geometry_col='geometry')
 
         aup.log(f"Downloaded {len(nodes)} nodes and {len(edges)} edges from database for e{c}")
-
+        ###Creates network
         nodes, edges = aup.create_network(nodes, edges)
 
         aup.log("Finished creating network")
-
+        ###Upload
         if save:
             aup.gdf_to_db_slow(edges, "edges"+folder_sufix, 
                     schema=schema, if_exists="append")
