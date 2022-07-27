@@ -26,13 +26,13 @@ def main(schema, folder_sufix, save=False):
         
         mun_gdf = gpd.GeoDataFrame()
         hex_gdf = gpd.GeoDataFrame()
-
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
         for i in range(len(df.loc["mpos", c])):
             # Extracts specific municipality code
             m = df.loc["mpos", c][i]
             # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
             query = f"SELECT * FROM processed.{hex_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
             hex_gdf = hex_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
