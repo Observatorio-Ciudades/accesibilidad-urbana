@@ -21,9 +21,9 @@ def main(year, schema, save=False):
     #Folder names from database
     block_schema = 'censo_mza'
     block_folder = f'censo_mza_{year}'
-    mpos_schema = 'marco'
-    mpos_folder = f'mpos_{year}'
-
+    # Iterates over city names for each metropolitan area or capital
+    query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+    mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
     for c in df.columns.unique():
         aup.log(f"\n Starting municipality filters for {c} and year {year}")
 
@@ -35,9 +35,6 @@ def main(year, schema, save=False):
         for i in range(len(df.loc["mpos", c])):
             # Extracts specific municipality code
             mun = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM {mpos_schema}.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{mun}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
             #Creates query to download block data
             query = f"SELECT * FROM {block_schema}.{block_folder} WHERE \"CVEGEO\" LIKE \'{mun}%%\'"
             block_pop = block_pop.append(aup.gdf_from_query(query, geometry_col='geometry'))

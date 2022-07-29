@@ -9,7 +9,8 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
-
+#########This script integrates denue to nodes and distance amenities to do in a single run the distance/time check.
+######### In this case to public transport stops
 def main(year, schema, save=False):
 
     year = 2020
@@ -20,25 +21,19 @@ def main(year, schema, save=False):
     aup.log("Read metropolitan areas and capitals json")
 
     #Folder names from database
-    mpos_folder = 'mpos_'+ year
     resolution = 8
 
     # Iterate over municipality DataFrame columns to access each municipality code
     for c in df.columns.unique():
         aup.log(f"\n Starting municipality filters for {c}")
-        # Creates empty GeoDataFrame to store specified municipality polygons
+        # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
-        # Iterates over municipality codes for each metropolitan area or capital
-        for i in range(len(df.loc["mpos", c])):
-            # Extracts specific municipality code
-            m = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")    
-            query = f"SELECT * FROM hexgrid.hexgrid_mx WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-            hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Donwloaded hex bins for {m}")
+        hex_bins = gpd.GeoDataFrame()
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        query = f"SELECT * FROM metropolis.hexgrid_{resolution}_city WHERE \"metropolis\" LIKE \'{c}\'"
+        hex_bins = aup.gdf_from_query(query, geometry_col='geometry')
 
         #Define projections
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
@@ -70,7 +65,7 @@ def main(year, schema, save=False):
         aup.log(f"")
 
         ###############NOMBRAR TIPO DE PARADA#################
-        a = str('paradas_transporte')´
+        a = str('paradas_transporte')
         #############################################
         c_denue = len(nearest)/250
         for k in range(int(c_denue)+1):
