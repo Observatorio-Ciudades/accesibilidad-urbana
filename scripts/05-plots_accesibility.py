@@ -10,24 +10,26 @@ import pandas as pd
 
 
 def load_data(df, c, year):
-    mpos_folder = f"mpos_{year}"
     mun_gdf = gpd.GeoDataFrame()
     hex_bins = gpd.GeoDataFrame()
     hex_grid = gpd.GeoDataFrame()
+    aup.log(f"\n Starting municipality filters for {c}")
+    # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
+    mun_gdf = gpd.GeoDataFrame()
+    hex_bins = gpd.GeoDataFrame()
+    # Iterates over city names for each metropolitan area or capital
+    query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+    mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+    query = f"SELECT * FROM metropolis.hexgrid_8_city WHERE \"metropolis\" LIKE \'{c}\'"
+    hex_grid = aup.gdf_from_query(query, geometry_col='geometry')
+    ###Iterates over municipality code
     for i in range(len(df.loc["mpos", c])):
         # Extracts specific municipality code
         m = df.loc["mpos", c][i]
-        # Downloads municipality polygon according to code
-        query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE '{m}'"
-        mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col="geometry"))
-        aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
         # Creates query to download hex bins
         query = f"SELECT * FROM processed.hex_bins_index_{year} WHERE \"CVEGEO\" LIKE '{m}%%'"
         hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col="geometry"))
         aup.log(f"Donwloaded hex bins for {m}")
-        query = f"SELECT * FROM hexgrid.hexgrid_mx WHERE \"CVEGEO\" LIKE '{m}%%'"
-        hex_grid = hex_grid.append(aup.gdf_from_query(query, geometry_col="geometry"))
-        aup.log(f"Donwloaded hex grid for {m}")
     gdf = mun_gdf.copy()
     gdf = gdf.to_crs("EPSG:6372")
     gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
