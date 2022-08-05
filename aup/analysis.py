@@ -80,7 +80,7 @@ wght='length', max_distance=(0,'distance_node')):
 
 	return nodes
 
-def group_by_hex_mean(nodes, hex_bins, resolution, col_name):
+def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
@@ -98,7 +98,10 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name):
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
-	hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	if osmid:
+		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	else:
+		hex_new = hex_new.drop(['index_right'],axis=1)
 	hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
 	hex_new.fillna(0, inplace=True)
 	return hex_new
