@@ -17,7 +17,6 @@ def main(schema, folder_sufix, year, save=False):
     aup.log("Read metropolitan areas and capitals json")
     
     #Folder names from database
-    mpos_folder = 'mpos_'+year
     hex_folder = 'hex_bins_dist_'+year
     
     # Iterate over municipality DataFrame columns to access each municipality code
@@ -27,13 +26,12 @@ def main(schema, folder_sufix, year, save=False):
         mun_gdf = gpd.GeoDataFrame()
         hex_bins = gpd.GeoDataFrame()
         # Iterates over municipality codes for each metropolitan area or capital
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
         for i in range(len(df.loc["mpos", c])):
             # Extracts specific municipality code
             m = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
             #Creates query to download hex bins
             query = f"SELECT * FROM processed.{hex_folder} WHERE \"CVEGEO\" LIKE \'{m}%%\'"
             hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))

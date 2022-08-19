@@ -8,6 +8,7 @@
 
 import igraph as ig
 import numpy as np
+import networkx as nx
 from .utils import *
 from .data import *
 
@@ -402,3 +403,20 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 
 	return full_hex
 
+def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
+    """Calculate the isochrone fom the center_node in graph G.
+    Args:
+        G (networkx.Graph): networkx Graph with travel time (time) attribute.
+        center_node (int): id of the node to use
+        trip_time (int): maximum travel time allowed
+        subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
+    Returns:
+        sub_G: (optional) subgraph of the covered area.
+        geometry: geometry with the covered area
+    """
+    sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
+    geometry = gpd.GeoSeries([Point((data["x"], data["y"])) for node, data in sub_G.nodes(data=True)]).unary_union.convex_hull
+    if subgraph:
+        return sub_G, geometry
+    else:
+        return geometry
