@@ -8,6 +8,7 @@
 
 import igraph as ig
 import numpy as np
+import networkx as nx
 from .utils import *
 from .data import *
 
@@ -80,7 +81,7 @@ wght='length', max_distance=(0,'distance_node')):
 
 	return nodes
 
-def group_by_hex_mean(nodes, hex_bins, resolution, col_name):
+def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
@@ -98,7 +99,10 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name):
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
-	hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	if osmid:
+		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	else:
+		hex_new = hex_new.drop(['index_right'],axis=1)
 	hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
 	hex_new.fillna(0, inplace=True)
 	return hex_new
@@ -399,3 +403,20 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 
 	return full_hex
 
+def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
+    """Calculate the isochrone fom the center_node in graph G.
+    Args:
+        G (networkx.Graph): networkx Graph with travel time (time) attribute.
+        center_node (int): id of the node to use
+        trip_time (int): maximum travel time allowed
+        subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
+    Returns:
+        sub_G: (optional) subgraph of the covered area.
+        geometry: geometry with the covered area
+    """
+    sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
+    geometry = gpd.GeoSeries([Point((data["x"], data["y"])) for node, data in sub_G.nodes(data=True)]).unary_union.convex_hull
+    if subgraph:
+        return sub_G, geometry
+    else:
+        return geometry

@@ -26,23 +26,19 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         mun_gdf = gpd.GeoDataFrame()
         ageb_gdf = gpd.GeoDataFrame()
         hex_bins = gpd.GeoDataFrame()
-
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        query = f"SELECT * FROM metropolis.hexgrid_{resolution}_city WHERE \"metropolis\" LIKE \'{c}\'"
+        hex_bins = aup.gdf_from_query(query, geometry_col='geometry')
         # Iterates over municipality codes for each metropolitan area or capital
         for i in range(len(df.loc["mpos", c])):
             # Extracts specific municipality code
             m = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
             # Creates query used to download AGEB data
             query = f"SELECT * FROM censoageb.{censo_folder} WHERE \"cve_geo\" LIKE \'{m}%%\'"
             ageb_gdf = ageb_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Donwloaded AGEB for {m}")
-            #Creates query to download hex bins
-            query = f"SELECT * FROM hexgrid.hexgrid_mx WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-            hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Donwloaded hex bins for {m}")
             
         #Define projections
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
@@ -60,6 +56,7 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
         nodes = nodes.to_crs("EPSG:4326")
 
         ### VIALIDADES 2011######
+        ####DROP unncessary columns from nodes column (only present in 2010)
         if year == '2010':
             nodes.drop(['ID', 'TIPOVIA', 'TIPO', 
             'NUMERO', 'DERE_TRAN', 'ADMINISTRA', 'NUME_CARR', 'CONDICION', 
@@ -77,8 +74,9 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
 
         aup.log(f"Added a total of {nodes_pop.pobtot.sum()} persons to nodes")
 
-        #Adds census data from nodes to hex bin
 
+
+        ##### We define string columns unique to either 2020 or 2010
         #### CENSO 2020 ######
         if year == '2020':
             string_columns = ['cve_geo','cve_ent','cve_mun','cve_loc','cve_ageb',
@@ -91,11 +89,12 @@ def main(schema, folder_sufix, year, column_start, column_end, resolution=8, sav
             'cve_loc', 'cve_ageb', 'cve_cd',
             'hex_id_8','x', 'y', 'codigo', 'cve_geo', 'geog', 
             'fecha_act', 'geom', 'institut', 'OID']
-
+        ###Define numeric values that are weighted by population
         wgt_dict = {'prom_hnv':'pobtot', 'graproes':'pobtot',
         'graproes_f':'pobfem', 'graproes_m':'pobmas',
         'prom_ocup':'pobtot', 'pro_ocup_c':'pobtot'}
-
+        
+        #Adds census data from nodes to hex bin
         hex_pop = aup.socio_points_to_polygon(hex_bins, nodes_pop, 
         'hex_id_8', string_columns, wgt_dict=wgt_dict, avg_column=avg_column)
 

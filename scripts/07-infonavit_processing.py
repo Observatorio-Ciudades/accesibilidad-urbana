@@ -23,24 +23,17 @@ def distance(schema, folder_sufix, year, amenities, resolution=8, save=False):
 
     # Iterate over municipality DataFrame columns to access each municipality code
     for c in df.columns.unique():
+
         aup.log(f"\n Starting municipality filters for {c}")
-        # Creates empty GeoDataFrame to store specified municipality polygons, infonavit_grid and hexbins
+        # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
         hex_bins = gpd.GeoDataFrame()
-        # Iterates over municipality codes for each metropolitan area or capital
-        for i in range(len(df.loc["mpos", c])):
-            # Extracts specific municipality code
-            m = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
-            #Creates query to download hex bins
-            query = f"SELECT * FROM hexgrid.hexgrid_mx WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-            hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Donwloaded hex bins for {m}")
-
-            
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        query = f"SELECT * FROM metropolis.hexgrid_{resolution}_city WHERE \"metropolis\" LIKE \'{c}\'"
+        hex_bins = aup.gdf_from_query(query, geometry_col='geometry')
+         
         #Define projections
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
         hex_bins = hex_bins.set_crs("EPSG:4326")

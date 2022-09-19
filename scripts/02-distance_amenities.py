@@ -16,26 +16,19 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
     aup.log("Read metropolitan areas and capitals json")
     
     #Folder names from database
-    mpos_folder = 'mpos_'+year
+    denue_folder = 'denue_node_'+year
     
-    # Iterate over municipality DataFrame columns to access each municipality code
+    # Iterate over cities and download municipalities gdf
     for c in df.columns.unique():
         aup.log(f"\n Starting municipality filters for {c}")
         # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
         hex_bins = gpd.GeoDataFrame()
-        # Iterates over municipality codes for each metropolitan area or capital
-        for i in range(len(df.loc["mpos", c])):
-            # Extracts specific municipality code
-            m = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
-            #Creates query to download hex bins according to code
-            query = f"SELECT * FROM hexgrid.hexgrid_mx WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-            hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Donwloaded hex bins for {m}")
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        query = f"SELECT * FROM metropolis.hexgrid_{resolution}_city WHERE \"metropolis\" LIKE \'{c}\'"
+        hex_bins = aup.gdf_from_query(query, geometry_col='geometry')
             
         #Define projections for municipalities and hexgrids
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
@@ -59,7 +52,6 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         aup.log("Created wkt based on dissolved polygon")
 
         nodes_amenities = gpd.GeoDataFrame()
-        hex_format = pd.DataFrame()
         i = 0
         
         #Starts iterating by type of amenity defined i.e: pharmacies, supermarkets, 
@@ -69,7 +61,7 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             denue_amenity = gpd.GeoDataFrame()
             #Based on the SCIAN code, the POIs will be downloaded from the DB
             for cod in amenities[a]:
-                query = f"SELECT * FROM denue_nodes.denue_node_2020 WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = {cod})"
+                query = f"SELECT * FROM denue_nodes.{denue_folder} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = {cod})"
                 denue_amenity = denue_amenity.append(aup.gdf_from_query(query, geometry_col='geometry'))
             aup.log(f"Downloaded accumulated total of {len(denue_amenity)} {a} from database for {c}")
             df_temp = nodes.copy()
@@ -81,14 +73,39 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             if len(denue_amenity) == 0:
                 nodes_distance['time_'+a] = 0
                 aup.log(f"0 {cod} found in {c}")
-            else:
-                #Due to memory constraints, the total number of POIs will be divided in groups of 100
+                ##### This hecks if the number of points is an exact multiple of 250, if it is it will run with segments of 200, in order to avoid a crash.
+            elif len(denue_amenity) % 250:
+                #Due to memory constraints, the total number of POIs will be divided in groups of 250
                 #These will run with the calculate nearest distance poi function by group and will be stored
                 # to check later
-                c_denue = len(denue_amenity)/500
+                c_denue = len(denue_amenity)/200
                 for k in range(int(c_denue)+1):
                     aup.log(f"Starting range k = {k} of {int(c_denue)}")
-                    denue_process = denue_amenity.iloc[int(500*k):int(500*(1+k))].copy()
+                    denue_process = denue_amenity.iloc[int(200*k):int(200*(1+k))].copy()
+                    nodes_distance_prep = aup.calculate_distance_nearest_poi(denue_process, nodes_analysis, 
+                    edges, a, 'osmid', wght='time_min')
+                    #A middle gdf is created whose columns will be the name of the amenity and the group number it belongs to
+                    df_int = pd.DataFrame()
+                    df_int['time_'+str(k)+a] = nodes_distance_prep['dist_'+a]
+                    #The middle gdf is merged into the previously created temporary gdf to store the data
+                    df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
+                aup.log(f"finished")
+                #Once all groups of 100 are run, we drop the non-distance values from the temporary gdf
+                df_temp.drop(['x', 'y', 'street_count','geometry'], inplace = True, axis=1)
+                #We apply the min function to find the minimum value. This value is sent to a new df_min
+                df_min = pd.DataFrame()
+                df_min['time_'+a] = df_temp.min(axis=1)
+                #We merge df_min which contains the shortest distance to the POI with nodes_distance which will store
+                #all final data
+                nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
+            else:
+                #Due to memory constraints, the total number of POIs will be divided in groups of 250
+                #These will run with the calculate nearest distance poi function by group and will be stored
+                # to check later
+                c_denue = len(denue_amenity)/250
+                for k in range(int(c_denue)+1):
+                    aup.log(f"Starting range k = {k} of {int(c_denue)}")
+                    denue_process = denue_amenity.iloc[int(250*k):int(250*(1+k))].copy()
                     nodes_distance_prep = aup.calculate_distance_nearest_poi(denue_process, nodes_analysis, 
                     edges, a, 'osmid', wght='time_min')
                     #A middle gdf is created whose columns will be the name of the amenity and the group number it belongs to
@@ -135,28 +152,26 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             nodes_amenities = nodes_amenities.set_crs("EPSG:4326")
 
             #Give more efficient format to table
-            
-            for idx,row in hex_bins.iterrows():
-                data = {'hex_id_8': ['id'],
-                'time': ['time'], 'amenity':['amenity']}
-                hex_data = pd.DataFrame(data)
-                hex_id = hex_bins.loc[idx, 'hex_id_8']
-                time = hex_bins.loc[idx, 'time_'+a]
-                amenity = a
-                hex_data['hex_id_8']= hex_id
-                hex_data['time']= time
-                hex_data['amenity']= str(amenity)
-                hex_format = hex_format.append(hex_data)
+            hex_format = hex_bins[['hex_id_8', 'geometry']]
+            hex_format['time'] = hex_bins['time'+a].copy()
+            hex_format['amenity'] = str(a)
+            hex_format['metropolis'] =str(c)     
 
-        if save:
-            aup.gdf_to_db_slow(hex_format, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
-            #Due to memory constraints the nodes are uploaded in groups of 10,000
-            #c_nodes = len(nodes_amenities)/10000
-            #for p in range(int(c_nodes)+1):
-            #    nodes_upload = nodes_amenities.iloc[int(10000*p):int(10000*(p+1))].copy()
-            #    aup.gdf_to_db_slow(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
-            #    aup.log("uploaded nodes into DB ")
-            #aup.log("Finished uploading nodes ")
+            node_format = nodes_amenities[['osmid', 'x', 'y', 'geometry']]
+            node_format['time'] = nodes_amenities['time'+a].copy()
+            node_format['amenity'] = str(a)
+            node_format['metropolis'] =str(c)
+            if save:
+                aup.gdf_to_db_slow(hex_format, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+                aup.log(f"uploaded hexes for {a} in {c} ")
+                #Due to memory constraints the nodes are uploaded in groups of 10,000
+                c_nodes = len(node_format)/10000
+                for p in range(int(c_nodes)+1):
+                    nodes_upload = node_format.iloc[int(10000*p):int(10000*(p+1))].copy()
+                    aup.gdf_to_db_slow(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
+                    aup.log("uploaded nodes into DB ")
+                aup.log(f"uploaded nodes for {a} in {c} ")
+                aup.log("Finished uploading nodes ")
             
 
 
@@ -165,11 +180,26 @@ if __name__ == "__main__":
     aup.log('--'*10)
     aup.log('Starting script')
     year = '2020'
-    schema = 'time_amenities_clean'
-    folder_sufix = 'time_2020' #sufix for folder name
-    amenities = {'denue_supermercado': [462111,462112],'denue_farmacia': [464111,464112], 
-            'denue_hospital': [622111,622112], 'denue_kinder':[611111, 611112], 'denue_primaria':[611121, 611122],
+    schema = 'prox_analysis'
+    folder_sufix = 'proximity_2020' #sufix for folder name
+    amenities = {'denue_preescolar':[611111, 611112], 'denue_primaria':[611121, 611122],
             'denue_secundaria':[611131, 611132], 'denue_escuela_mixta': [611171, 611172], 
-            'denue_carniceria': [461121], 'denue_polleria': [461122], 'denue_pescaderia': [461123], 
-            'denue_verduleria': [461130] }
+            'denue_casa_adultos_mayores': [623311, 623312], 'denue_guarderias':[624411, 624412],
+            'denue_dif':[931610], 'denue_biblioteca':[519121, 519122], 'denue_supermercado':[462111],
+            'denue_abarrotes':[461110], 'denue_carnicerias': [461121, 461122, 461123],
+            'denue_farmacias':[464111, 464112], 'denue_ropa':[463211, 463212, 463213, 463215, 463216, 463218],
+            'denue_calzado':[463310], 'denue_muebles':[466111, 466112, 466113, 466114],
+            'denue_lavanderia':[812210], 'denue_cafe':[722515], 
+            'denue_restaurante_insitu':[722511, 722512, 722513, 722514, 722519],
+            'denue_restaurante_llevar':[722516, 722518, 722517],
+            'denue_bares':[722412],
+            'denue_museos':[712111, 712112], 'denue_cines':[512130],
+            'denue_centro_cultural':[711311, 711312],
+            'denue_parque_natural':[712190], 'denue_papelerias':[465311],
+            'denue_libros':[465312], 'denue_revistas_periodicos':[465313],
+            'denue_ferreteria_tlapaleria':[467111],
+            'denue_art_limpieza':[467115], 'denue_pintura':[467113],
+            'denue_peluqueria':[812110]
+            
+            }
     main(schema, folder_sufix, year, amenities, save = True)
