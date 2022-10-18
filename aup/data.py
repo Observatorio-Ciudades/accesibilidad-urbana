@@ -21,10 +21,6 @@ from shapely.geometry import Polygon, MultiLineString, Point, LineString
 
 from . import utils
 
-
-
-"HOLA ALEX"
-
  
 ox.config(
     data_folder="../data",
