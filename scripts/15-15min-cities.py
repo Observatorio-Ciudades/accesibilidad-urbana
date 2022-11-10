@@ -172,6 +172,9 @@ def main(city, cvegeo_list, save=False):
     aup.log(f'Population within 15 min city: {hex_res_8_idx.loc[hex_res_8_idx[index_column]<=15].pobtot.sum()}')
     aup.log(f'Population outside 15 min city: {hex_res_8_idx.loc[hex_res_8_idx[index_column]>15].pobtot.sum()}')
 
+    # add city data
+    hex_res_8_idx['city'] = city
+
     # upload data
     if save:
         aup.gdf_to_db_slow(hex_res_8_idx, f'hex{res}_15_min', 'prox_analysis', if_exists='append')
