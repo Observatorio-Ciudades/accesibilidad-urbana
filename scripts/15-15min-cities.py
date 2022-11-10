@@ -181,13 +181,13 @@ def main(city, cvegeo_list, save=False):
 if __name__ == "__main__":
 
     aup.log('--'*20)
-    aup.log('\n Starting script')
+    aup.log('Starting script')
 
     gdf_mun = aup.gdf_from_db('metro_list', 'metropolis')
 
     for city in gdf_mun.city.unique():
 
-        aup.log(f'Starting city {city}')
+        aup.log(f'\n Starting city {city}')
 
         cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
 
