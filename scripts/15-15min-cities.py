@@ -51,33 +51,6 @@ def main(city, cvegeo_list, save=False):
 
     # download nodes with distance data for a specified city
 
-    nodes_schema = 'prox_analysis'
-    nodes_folder = 'nodes_proximity_2020'
-    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\'"
-    nodes = aup.gdf_from_query(query, geometry_col='geometry')
-    
-    aup.log(f'Downloaded a total of {nodes.shape[0]} nodes')
-
-    # preprocess nodes for time analysis 
-    
-    # delete duplicastes and keep only one point for each node
-    nodes_geom = nodes.drop_duplicates(subset='osmid', keep="last")[['osmid','geometry','metropolis']].copy()
-
-    nodes_analysis = nodes_geom.copy()
-
-    # relate time data to each point
-    for amenidad in list(nodes.amenity.unique()):
-
-        nodes_tmp = nodes.loc[nodes.amenity == amenidad,['osmid','time']]
-        nodes_tmp = nodes_tmp.rename(columns={'time':amenidad})
-
-        if nodes_tmp[amenidad].mean() == 0:
-            nodes_tmp[amenidad] = np.nan
-
-        nodes_analysis = nodes_analysis.merge(nodes_tmp, on='osmid')
-        
-    aup.log(f'Transformed nodes data')
-
     # define dictionaries for time analysis
        
     idx_15_min = {'Escuelas':{'Preescolar':['denue_preescolar'],
@@ -116,6 +89,44 @@ def main(city, cvegeo_list, save=False):
                                     'Actividad física':1,
                                     'Cultural':1}
                 }
+
+    nodes_schema = 'prox_analysis'
+    nodes_folder = 'nodes_proximity_2020'
+
+    amenidades = []
+
+    # gather amenities for analysis
+    for eje in idx_15_min.keys():
+        for grupo in idx_15_min[eje].values():
+            for a in grupo:
+                amenidades.append(a)
+
+    amenidades =  str(tuple(amenidades))
+
+    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\' AND \"amenity\" IN {amenidades} "
+    nodes = aup.gdf_from_query(query, geometry_col='geometry')
+    
+    aup.log(f'Downloaded a total of {nodes.shape[0]} nodes')
+
+    # preprocess nodes for time analysis 
+    
+    # delete duplicastes and keep only one point for each node
+    nodes_geom = nodes.drop_duplicates(subset='osmid', keep="last")[['osmid','geometry','metropolis']].copy()
+
+    nodes_analysis = nodes_geom.copy()
+
+    # relate time data to each point
+    for amenidad in list(nodes.amenity.unique()):
+
+        nodes_tmp = nodes.loc[nodes.amenity == amenidad,['osmid','time']]
+        nodes_tmp = nodes_tmp.rename(columns={'time':amenidad})
+
+        if nodes_tmp[amenidad].mean() == 0:
+            nodes_tmp[amenidad] = np.nan
+
+        nodes_analysis = nodes_analysis.merge(nodes_tmp, on='osmid')
+        
+    aup.log(f'Transformed nodes data')
                     
     # time by ammenity
 
@@ -187,10 +198,14 @@ if __name__ == "__main__":
     gdf_mun = aup.gdf_from_db('metro_list', 'metropolis')
 
     # temporariliy added for frash
-    processed_city_list = aup.gdf_from_db('hex8_15_min', 'prox_analysis')
-    processed_city_list = list(processed_city_list.city.unique())
-    processed_city_list.append('Parral') # temporary remove Parral from analysis
-    processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
+    processed_city_list = []
+    try:
+        processed_city_list = aup.gdf_from_db('hex8_15_min', 'prox_analysis')
+        processed_city_list = list(processed_city_list.city.unique())
+        processed_city_list.append('Parral') # temporary remove Parral from analysis
+        # processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
+    except:
+        pass
 
     for city in gdf_mun.city.unique():
 
