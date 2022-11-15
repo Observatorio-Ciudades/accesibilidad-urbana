@@ -161,7 +161,7 @@ def make_html(hex_gdf, city, save=False):
     # define center coordinates for Kepler map
     longitude = hex_gdf.dissolve().geometry.centroid.x
     latitude = hex_gdf.dissolve().geometry.centroid.y
-    config["config"]["mapState"]["latitude"] = latitude[0] - 0.15
+    config["config"]["mapState"]["latitude"] = latitude[0] - 0.2
     config["config"]["mapState"]["longitude"] = longitude[0]
 
     # create Kepler
