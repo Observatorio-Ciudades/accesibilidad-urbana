@@ -33,12 +33,6 @@ def load_data(city, gdf_mun):
         query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
         hex_gdf = aup.gdf_from_query(query, geometry_col="geometry")
 
-        # query = f"SELECT * FROM {hexgrid_schema}.{hexgrid_folder} WHERE \"CVEGEO\" IN {str(tuple(cvegeo))}"
-        # hex_mun = aup.gdf_from_query(query, geometry_col="geometry")
-        # hex_codes = list(hex_mun.hex_id_8.unique())
-        # query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE \"hex_id_8\" IN {str(tuple(hex_codes))}"
-        # hex_gdf = aup.gdf_from_query(query, geometry_col="geometry")
-
     else:
         query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE \"city\" LIKE '{city}'"
         hex_gdf = aup.gdf_from_query(query, geometry_col="geometry")
@@ -167,7 +161,7 @@ def make_html(hex_gdf, city, save=False):
     # define center coordinates for Kepler map
     longitude = hex_gdf.dissolve().geometry.centroid.x
     latitude = hex_gdf.dissolve().geometry.centroid.y
-    config["config"]["mapState"]["latitude"] = latitude[0]
+    config["config"]["mapState"]["latitude"] = latitude[0] - 0.15
     config["config"]["mapState"]["longitude"] = longitude[0]
 
     # create Kepler
@@ -177,7 +171,7 @@ def make_html(hex_gdf, city, save=False):
 
     if save:
         output_folder = '../output/html/15_min_city/'
-        map_city.save_to_html(file_name=output_folder+f"{city.lower()}.html", read_only=False)
+        map_city.save_to_html(file_name=output_folder+f"{city.lower()}.html", read_only=True)
         aup.log(f'saved html for {city}')
 
 
