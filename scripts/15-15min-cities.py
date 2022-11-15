@@ -84,7 +84,6 @@ def main(city, cvegeo_list, save=False):
                          'Primaria':['denue_primaria'],
                          'Secundaria':['denue_secundaria']},
              'Servicios comunitarios':{'Salud':['clues_primer_nivel'],
-                                      'Gobierno':['sip_centro_admin'],
                                       'Guarderías':['denue_guarderias'],
                                       'Asistencia social':['denue_dif']},
               'Comercio':{'Alimentos':['denue_supermercado','denue_abarrotes',
@@ -106,14 +105,13 @@ def main(city, cvegeo_list, save=False):
                             'Primaria':1,
                             'Secundaria':1},
                 'Servicios comunitarios':{'Salud':1,
-                                        'Gobierno':1,
                                         'Guarderías':1,
                                         'Asistencia social':1},
                 'Comercio':{'Alimentos':1,
                             'Personal':1,
                             'Farmacias':1,
-                            'Hogar':2,
-                            'Complementarios':6},
+                            'Hogar':1,
+                            'Complementarios':1},
                 'Entretenimiento':{'Social':4,
                                     'Actividad física':1,
                                     'Cultural':1}
@@ -188,11 +186,19 @@ if __name__ == "__main__":
 
     gdf_mun = aup.gdf_from_db('metro_list', 'metropolis')
 
+    # temporariliy added for frash
+    processed_city_list = aup.gdf_from_db('hex8_15_min', 'prox_analysis')
+    processed_city_list = list(processed_city_list.city.unique())
+    processed_city_list.append('Parral') # temporary remove Parral from analysis
+    processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
+
     for city in gdf_mun.city.unique():
 
         aup.log(f'\n Starting city {city}')
 
-        cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+        if city not in processed_city_list:
 
-        main(city, cvegeo_list)
+            cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+
+            main(city, cvegeo_list, save=True)
 
