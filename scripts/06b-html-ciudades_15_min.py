@@ -92,9 +92,9 @@ def make_html(hex_gdf, city, save=False):
                     'max_farmacias':'Farmacia',
                     'max_hogar':'Comercio de artículos para el hogar',
                     'max_complementario':'Comercio barrial complementario',
-                    'max_social':'Espacios de esparcimiento social',
-                    'max_actividad física':'Espacios para la actividad física',
-                    'max_cultural':'Espacios de esparcimiento cultural',
+                    'max_social':'Esparcimiento social',
+                    'max_actividad física':'Actividad física',
+                    'max_cultural':'Esparcimiento cultural',
                     'No aplica':'No aplica'}
         return dict_names[amenity_code]
 
