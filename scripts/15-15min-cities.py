@@ -14,7 +14,6 @@ if module_path not in sys.path:
     import aup
 
 
-
 def main(city, cvegeo_list, save=False):
 
     # donwload hexagons with pop data
@@ -108,6 +107,7 @@ def main(city, cvegeo_list, save=False):
     
     aup.log(f'Downloaded a total of {nodes.shape[0]} nodes')
 
+
     # preprocess nodes for time analysis 
     
     # delete duplicastes and keep only one point for each node
@@ -127,6 +127,20 @@ def main(city, cvegeo_list, save=False):
         nodes_analysis = nodes_analysis.merge(nodes_tmp, on='osmid')
         
     aup.log(f'Transformed nodes data')
+
+    # fill missing columns
+    amenidades = list(amenidades)
+
+    column_list = list(nodes_analysis.columns)
+
+    cont = 0
+
+    for a in amenidades:
+        if a not in column_list:
+            nodes_analysis[a] = np.nan
+            cont += 1
+
+    aup.log(f'Finished missing amenities analysis with {cont} added')
                     
     # time by ammenity
 
@@ -170,10 +184,24 @@ def main(city, cvegeo_list, save=False):
     hex_res_8_idx = hex_res_8_idx.loc[hex_res_8_idx[index_column]>0].copy()
 
     aup.log('Grouped nodes data by hexagons')
+    # time by ammenity
 
-    # keep max time data for the 15 minute city index
-    idx = hex_res_8_idx.index==hex_res_8_idx[index_column].idxmax()
-    hex_res_8_idx = hex_res_8_idx[~idx].copy()
+    column_max_ejes = [] # list with ejes index column names
+
+    for e in idx_15_min.keys():
+        
+        column_max_ejes.append('max_'+ e.lower())
+        column_max_amenities = [] # list with amenity index column names
+        
+        for a in idx_15_min[e].keys():
+            
+            column_max_amenities.append('max_'+ a.lower())
+            
+        hex_res_8_idx['max_'+ e.lower()] = hex_res_8_idx[column_max_amenities].max(axis=1)
+
+    hex_res_8_idx[index_column] = hex_res_8_idx[column_max_ejes].max(axis=1)
+
+    aup.log('Finished recalculating times in hexagons')
 
     # add population data
     hex_res_8_idx = pd.merge(hex_res_8_idx, hex_pop[pop_list], on='hex_id_8')
@@ -202,7 +230,7 @@ if __name__ == "__main__":
     try:
         processed_city_list = aup.gdf_from_db('hex8_15_min', 'prox_analysis')
         processed_city_list = list(processed_city_list.city.unique())
-        processed_city_list.append('Parral') # temporary remove Parral from analysis
+        # processed_city_list.append('Parral') # temporary remove Parral from analysis
         # processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
     except:
         pass
