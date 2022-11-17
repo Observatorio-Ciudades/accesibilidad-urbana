@@ -10,7 +10,10 @@ if module_path not in sys.path:
     import aup
 
 
-def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
+
+
+def distance(schema, folder_sufix, year, amenities, resolution=8, save=False):
+
     # Read json with municipality codes by capital or metropolitan area
     df = pd.read_json("/home/jovyan/work/scripts/areas.json")
     aup.log("Read metropolitan areas and capitals json")
@@ -20,37 +23,27 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
 
     # Iterate over municipality DataFrame columns to access each municipality code
     for c in df.columns.unique():
+
         aup.log(f"\n Starting municipality filters for {c}")
-        # Creates empty GeoDataFrame to store specified municipality polygons
+        # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
-        #ageb_gdf = gpd.GeoDataFrame()
         hex_bins = gpd.GeoDataFrame()
-        hex_pop = gpd.GeoDataFrame()
-        # Iterates over municipality codes for each metropolitan area or capital
-        for i in range(len(df.loc["mpos", c])):
-            # Extracts specific municipality code
-            m = df.loc["mpos", c][i]
-            # Downloads municipality polygon according to code
-            query = f"SELECT * FROM marco.{mpos_folder} WHERE \"CVEGEO\" LIKE \'{m}\'"
-            mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Downloaded {m} GeoDataFrame at: {c}")
-            #Creates query to download hex bins
-            query = f"SELECT * FROM hexgrid.hex_grid WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-            hex_bins = hex_bins.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Donwloaded hex bins for {m}")
-            query = f"SELECT * FROM processed.hex_bins_pop WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-            hex_pop = hex_pop.append(aup.gdf_from_query(query, geometry_col='geometry'))
-            aup.log(f"Donwloaded hex bins for {m}")
-            
+        # Iterates over city names for each metropolitan area or capital
+        query = f"SELECT * FROM metropolis.metro_list WHERE \"city\" LIKE \'{c}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        query = f"SELECT * FROM metropolis.hexgrid_{resolution}_city WHERE \"metropolis\" LIKE \'{c}\'"
+        hex_bins = aup.gdf_from_query(query, geometry_col='geometry')
+         
         #Define projections
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
         hex_bins = hex_bins.set_crs("EPSG:4326")
 
-        # Creates query to download nodes from the metropolitan area or capital
+        # Creates query to download nodes from the metropolitan area or capital using
+        #the geomtery of the metropolitan municipalities
         G, nodes, edges = aup.graph_from_hippo(mun_gdf, 'osmnx')
         aup.log(f"Downloaded {len(nodes)} nodes and {len(edges)} from database for {c}")
 
-        #Creates wkt for query
+        #Creates wkt for query which will be used to download the POIs
         gdf_tmp = mun_gdf.copy()
         gdf_tmp = gdf_tmp.to_crs("EPSG:6372")
         gdf_tmp = gdf_tmp.buffer(1).reset_index().rename(columns={0:'geometry'})
@@ -58,35 +51,62 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
         poly_wkt = gdf_tmp.dissolve().geometry.to_wkt()[0]
         aup.log("Created wkt based on dissolved polygon")
 
-        nodes_amenities_street = gpd.GeoDataFrame()
-        nodes_amenities_linear = gpd.GeoDataFrame()
-        hex_street = hex_bins
-        hex_linear = hex_bins
+        #starts counter
         i = 0
-        
+
+        #Create empty gdfs to store the POIs, the square grid and its centroid.
+        grid = gpd.GeoDataFrame()
+        centroid = gpd.GeoDataFrame()
+        poi = gpd.GeoDataFrame()
+        query = f"SELECT * FROM infonavit.infonavit_poi WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        poi = aup.gdf_from_query(query, geometry_col='geometry')
+        aup.log(f"Downloaded accumulated total of {len(poi)} from database for {c}")
+        #Sets the index to its UID
+        query = f"SELECT * FROM infonavit.centroid WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        centroid = centroid.append(aup.gdf_from_query(query, geometry_col='geometry'))
+        centroid = centroid.set_index('UID')
+        #Sets index to its UID
+        query = f"SELECT * FROM infonavit.grid WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        grid = grid.append(aup.gdf_from_query(query, geometry_col='geometry'))
+        grid = grid.set_index('UID')
+
+        #Creates empty gdf to store data to nodes
+        nodes_amenities = gpd.GeoDataFrame()
+        #Creates gdf to store data to grid centroid
+        centroid_amenities = gpd.GeoDataFrame()
+        centroid_amenities = centroid_amenities.append(centroid)
+        grid_amenities = gpd.GeoDataFrame()
+        grid_amenities = grid_amenities.append(grid)
         for a in amenities:
-            nodes_calc = nodes
+            #Creates temporary centroid and nodes gdf
+            centroid_tmp = gpd.GeoDataFrame()
+            centroid_tmp = centroid_tmp.append(centroid)
+            nodes_tmp = gpd.GeoDataFrame()
+            nodes_tmp = nodes_tmp.append(nodes)
+            #Creates gdf for POIs retaining only data needed for the function
+            denue_points = gpd.GeoDataFrame()
+            denue_points = poi[poi['poi_type']==a]
+            denue_points = denue_points[['poi_type', 'geometry', 'x', 'y']]
+            ## Calculate distance in a straight line for nodes as a mid step to get distance by street
             denue_amenity = gpd.GeoDataFrame()
-            denue = gpd.GeoDataFrame()
-            for cod in amenities[a]:
-                query = f"SELECT * FROM denue.denue_2020 WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = {cod})"
-                denue = denue.append(aup.gdf_from_query(query, geometry_col='geometry'))
-                query = f"SELECT * FROM denue_nodes.denue_node_2020 WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = {cod})"
-                denue_amenity = denue_amenity.append(aup.gdf_from_query(query, geometry_col='geometry'))
-                aup.log(f"Downloaded {len(denue_amenity)} {a} from database for {c}")
-            denue_points = denue[['id','codigo_act', 'geometry']]
-            denue_points['x'] = denue['longitud'].copy()
-            denue_points['y'] = denue['latitud'].copy()
-            ##Calculate distance travelling by street
-            nodes_distance = gpd.GeoDataFrame()
-            nodes_distance = nodes_calc
-            df_temp = gpd.GeoDataFrame()
-            df_temp = nodes_calc
-            c_denue = len(denue_amenity)/150
+            denue_amenity= aup.find_nearest(G, nodes, denue_points, return_distance=True)
+            df_temp = nodes
+            nodes_distance = nodes
+            #Calculate distance in a straight line to centroid of square grid (end result)
+            centroid_dist = gpd.GeoDataFrame()
+            centroid_dist= aup.find_nearest(G, denue_points, centroid_tmp, return_distance=True)
+            centroid_join = gpd.GeoDataFrame()
+            centroid_join['dist_'+a]= centroid_dist['distance_node']
+            centroid_amenities = centroid_amenities.merge(centroid_join, left_index=True, right_index=True)
+            grid_amenities = grid_amenities.merge(centroid_join, left_index=True, right_index=True)
+            #Starts calculating distance by street to nodes acording to obscd method
+            #Due to memory constraints it is calculated in groups of 100 POIs
+            #Method based on 02-distance_amenities
+            c_denue = len(denue_amenity)/100
             for k in range(int(c_denue)+1):
                 aup.log(f"Starting range k = {k} of {int(c_denue)}")
-                denue_process = denue_amenity.iloc[int(150*k):int(150*(1+k))].copy()
-                nodes_distance_prep = aup.calculate_distance_nearest_poi(denue_process, nodes_calc, edges, a, 'osmid')
+                denue_process = denue_amenity.iloc[int(100*k):int(100*(1+k))].copy()
+                nodes_distance_prep = aup.calculate_distance_nearest_poi(denue_process, nodes, edges, a, 'osmid')
                 df_int = pd.DataFrame()
                 df_int['dist_'+str(k)+a] = nodes_distance_prep['dist_'+a]
                 df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
@@ -95,185 +115,39 @@ def main(schema, folder_sufix, year, amenities, resolution=8, save=False):
             df_min = pd.DataFrame()
             df_min['dist_'+a] = df_temp.min(axis=1)
             nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
-            aup.log(f"Calculated street distance for a TOTAL of {len(nodes_distance)} nodes")
-            ## Calculate distance in a straight line
-            nodes_linear = gpd.GeoDataFrame()
-            nodes_linear = nodes_calc
-            df_temp = gpd.GeoDataFrame()
-            df_temp = nodes_calc
-            c_denue = len(denue)/150
-            for k in range(int(c_denue)+1):
-                aup.log(f"Starting range k = {k} of {int(c_denue)}")
-                nodes_tmp = nodes_calc
-                denue_process = denue_points.iloc[int(150*k):int(150*(1+k))].copy()
-                nodes_linear_prep= aup.find_nearest(G, denue_process, nodes_tmp, return_distance=True)
-                df_int = pd.DataFrame()
-                df_int['dist_'+str(k)+a] = nodes_linear_prep['distance_node']
-                df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
-            aup.log(f"finished")
-            df_temp.drop(['x', 'y', 'street_count','geometry', 'osmid'], inplace = True, axis=1)
-            df_min = pd.DataFrame()
-            df_min['dist_'+a] = df_temp.min(axis=1)
-            nodes_linear = nodes_linear.merge(df_min, left_index=True, right_index=True)
-            nodes_linear.drop(['osmid'], inplace = True, axis=1)
-            aup.log(f"Calculated linear distance for a TOTAL of {len(nodes_linear)} nodes")
-            nodes.drop(['osmid', 'distance_node'], inplace = True, axis=1)
-        
-            #Data to hex_bins
+
+            aup.log(f"Calculated distance for a TOTAL of {len(nodes_distance)} nodes")
+
+            #Summarizes distance data of nodes into their corresponding hexbin by area
             nodes_distance.reset_index(inplace=True)
-            nodes_linear.reset_index(inplace=True)
             nodes_distance = nodes_distance.set_crs("EPSG:4326")
-            nodes_linear = nodes_linear.set_crs("EPSG:4326")
             hex_bins = hex_bins.set_crs("EPSG:4326")
-            hex_dist_street = aup.group_by_hex_mean(nodes_distance, hex_bins, resolution, a)
-            hex_dist_lin = aup.group_by_hex_mean(nodes_linear, hex_bins, resolution, a)
-            hex_street = hex_street.merge(hex_dist_street[['hex_id_'+str(resolution),'dist_'+a]], 
-            on='hex_id_'+str(resolution))
-            hex_linear = hex_linear.merge(hex_dist_lin[['hex_id_'+str(resolution),'dist_'+a]], 
+            hex_dist = aup.group_by_hex_mean(nodes_distance, hex_bins, resolution, a)
+            hex_bins = hex_bins.merge(hex_dist[['hex_id_'+str(resolution),'dist_'+a]], 
             on='hex_id_'+str(resolution))
             aup.log(f"Added distance data to {a} to {len(hex_bins)} hex bins")
-
+            #Creates nodes_amenities which will be uploaded with the data of all types of amenities run in the process
+            #In the first iteration it will duplicate nodes_distance, afterards it will merge
             if i == 0:
-                nodes_amenities_street = nodes_distance[['osmid','x','y','geometry','dist_'+a]]
-                nodes_amenities_linear = nodes_linear[['osmid','x','y','geometry','dist_'+a]]
+                nodes_amenities = nodes_distance[['osmid','x','y','geometry','dist_'+a]]
             else:
-                nodes_amenities_street = nodes_amenities_street.merge(
+                nodes_amenities = nodes_amenities.merge(
                     nodes_distance[['osmid','dist_'+a]], on='osmid')
-                nodes_amenities_linear = nodes_amenities_linear.merge(
-                    nodes_linear[['osmid','dist_'+a]], on='osmid')
             aup.log('Added nodes distance to nodes_amenities')
             i += 1
-            hex_street = hex_street.set_crs("EPSG:4326")
-            hex_linear = hex_linear.set_crs("EPSG:4326")
-            nodes_amenities_street = nodes_amenities_street.set_crs("EPSG:4326")
-            nodes_amenities_linear = nodes_amenities_linear.set_crs("EPSG:4326")
-        
-        #Define projections
-        hex_street = hex_street.set_crs("EPSG:4326")
-        hex_linear = hex_linear.set_crs("EPSG:4326")
-        hex_pop = hex_pop.set_crs("EPSG:4326")
+            hex_bins = hex_bins.set_crs("EPSG:4326")
+            nodes_amenities = nodes_amenities.set_crs("EPSG:4326")
 
-        # keep relevant columns in gdf_pop: ID and total population
-        hex_pop = hex_pop[['hex_id_8', 'pobtot']]
-
-        # merge hexes with distance with hexes with population
-        pop_street = hex_street.merge(hex_pop, on= 'hex_id_8')
-        pop_linear = hex_linear.merge(hex_pop, on= 'hex_id_8')
-
-        #### Assign mixed grade schools as a wildcard: As long as there is an elementary 
-        # or middle school ithin range, a mixed grade school 
-        # within range can substitute one of the missing ones
-
-        # Make mixed level schools a "Wild card" for elementary and middle schools for street distance´
-
-        dist_prim_mix = pop_street[['dist_mixto', 'dist_primaria']]
-        pop_street['dist_prim_mix'] = dist_prim_mix.min(axis=1)
-
-        dist_secun_mix = pop_street[['dist_mixto', 'dist_secundaria']]
-        pop_street['dist_secun_mix'] = dist_secun_mix.min(axis=1)
-
-
-        # find the longest distance to any of the 3 amenities in streets
-        hex_max = pop_street[['dist_salud', 'hex_id_8']]
-        hex_max = hex_max.rename(columns={'dist_salud':'dist_max'})
-        dist_street = pop_street[['dist_salud', 'dist_prim_mix', 'dist_secun_mix', 'dist_primaria', 'dist_secundaria']]
-
-        for r in range(int(len(pop_street))):
-            secun = dist_street.loc[[r], ['dist_secundaria']]
-            secun = secun.values
-            prim = dist_street.loc[[r], ['dist_primaria']]
-            prim = prim.values
-            if ((secun<=2500) or(prim<=2500) and(secun !=0) and (prim!= 0)):
-                comp = dist_street[['dist_salud', 'dist_prim_mix', 'dist_secun_mix']]
-                maxim = comp.max(axis =1)
-                insertion = maxim.iloc[r]
-                hex_max.at[r, 'dist_max'] = insertion
-            else:
-                comp = dist_street[['dist_salud', 'dist_primaria', 'dist_secundaria']]
-                maxim = comp.max(axis =1)
-                insertion = maxim.iloc[r]
-                hex_max.at[r, 'dist_max'] = insertion
-        dist_max = hex_max['dist_max']
-        pop_street = pop_street.merge(dist_max, left_index = True, right_index = True)
-
-        # Make mixed level schools a "Wild card" for elementary and middle schools for LINEAR distance´
-
-        dist_prim_mix = pop_linear[['dist_mixto', 'dist_primaria']]
-        pop_linear['dist_prim_mix'] = dist_prim_mix.min(axis=1)
-
-        dist_secun_mix = pop_linear[['dist_mixto', 'dist_secundaria']]
-        pop_linear['dist_secun_mix'] = dist_secun_mix.min(axis=1)
-
-
-        # find the longest distance to any of the 3 amenities in LINEAR
-        hex_max = pop_linear[['dist_salud', 'hex_id_8']]
-        hex_max = hex_max.rename(columns={'dist_salud':'dist_max'})
-        dist_linear = pop_linear[['dist_salud', 'dist_prim_mix', 'dist_secun_mix', 'dist_primaria', 'dist_secundaria']]
-
-        for r in range(int(len(pop_linear))):
-            secun = dist_linear.loc[[r], ['dist_secundaria']]
-            secun = secun.values
-            prim = dist_linear.loc[[r], ['dist_primaria']]
-            prim = prim.values
-            if ((secun<=2500) or(prim<=2500) and(secun !=0) and (prim!= 0)):
-                comp = dist_linear[['dist_salud', 'dist_prim_mix', 'dist_secun_mix']]
-                maxim = comp.max(axis =1)
-                insertion = maxim.iloc[r]
-                hex_max.at[r, 'dist_max'] = insertion
-            else:
-                comp = dist_linear[['dist_salud', 'dist_primaria', 'dist_secundaria']]
-                maxim = comp.max(axis =1)
-                insertion = maxim.iloc[r]
-                hex_max.at[r, 'dist_max'] = insertion
-        dist_max = hex_max['dist_max']
-        pop_linear = pop_linear.merge(dist_max, left_index = True, right_index = True)
-
-        summary_linear = pop_linear[['geometry', 'hex_id_8', 'CVEGEO', 'pobtot', 'dist_max']]
-        summary_street = pop_street[['geometry', 'hex_id_8', 'CVEGEO', 'pobtot', 'dist_max']]
-
-        compare_street_linear = pop_linear[['geometry', 'hex_id_8', 'CVEGEO', 'pobtot']]
-        compare_street_linear['dist_lin'] = summary_linear['dist_max']
-        compare_street_linear['dist_street'] = summary_street['dist_max']
-        compare_street_linear['bool_street'] = 0
-        compare_street_linear['bool_lin'] = 0
-        for s in range(int(len(compare_street_linear))):
-            linear = compare_street_linear.loc[[s], ['dist_lin']]
-            linear = linear.values
-            street = compare_street_linear.loc[[s], ['dist_street']]
-            street = street.values
-            if 0<linear<=2500:
-                compare_street_linear.at[s, 'bool_lin'] = 3
-            if 0<street<=2500:
-                compare_street_linear.at[s, 'bool_street'] = 1
-            if linear == 0:
-                compare_street_linear.at[s, 'bool_lin'] = -100
-            if street == 0:
-                compare_street_linear.at[s, 'bool_street'] = -100
-            if linear>2500:
-                compare_street_linear.at[s, 'bool_lin'] = 0
-            if street>2500:
-                compare_street_linear.at[s, 'bool_street'] = 0
-        compare_street_linear['bool_tot'] = compare_street_linear['bool_lin'] + compare_street_linear['bool_street']
-        
         if save:
-            aup.gdf_to_db_slow(pop_street, "hex_street", schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(pop_linear, "hex_linear", schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(summary_street, "summary_street_", schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(summary_linear, "summary_linear_", schema=schema, if_exists="append")
-            aup.gdf_to_db_slow(compare_street_linear, "compare_hexes", schema=schema, if_exists="append")
-
-            c_nodes = len(nodes_amenities_street)/10000
+            aup.gdf_to_db_slow(hex_bins, "hex_bins_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(centroid_amenities, "centroid_"+folder_sufix, schema=schema, if_exists="append")
+            aup.gdf_to_db_slow(grid_amenities, "grid_"+folder_sufix, schema=schema, if_exists="append")
+            c_nodes = len(nodes_amenities)/10000
             for p in range(int(c_nodes)+1):
-                nodes_upload = nodes_amenities_street.iloc[int(10000*p):int(10000*(p+1))].copy()
-                aup.gdf_to_db_slow(nodes_upload, "nodes_street_"+folder_sufix, schema=schema, if_exists="append")
-                aup.log("uploaded nodes into DB ")
-            c_nodes = len(nodes_amenities_linear)/10000
-            for p in range(int(c_nodes)+1):
-                nodes_upload = nodes_amenities_linear.iloc[int(10000*p):int(10000*(p+1))].copy()
-                aup.gdf_to_db_slow(nodes_upload, "nodes_linear_"+folder_sufix, schema=schema, if_exists="append")
+                nodes_upload = nodes_amenities.iloc[int(10000*p):int(10000*(p+1))].copy()
+                aup.gdf_to_db_slow(nodes_upload, "nodes_"+folder_sufix, schema=schema, if_exists="append")
                 aup.log("uploaded nodes into DB ")
             aup.log("Finished uploading nodes ")
-
 
 
 if __name__ == "__main__":
@@ -282,9 +156,6 @@ if __name__ == "__main__":
     year = '2020'
     schema = 'infonavit'
     folder_sufix = 'dist' #sufix for folder name
-    amenities = {'primaria':[611121,611122], 
-    'secundaria':[611131,611132],
-    'mixto':[611171,611172],
-    'salud':[621111,621112,621113,621114,621115,621116,621491,621492,622111,622112]}
+    amenities = {'primaria':['primaria'], 'secundaria':['secundaria'], 'mixto':['mixto'], 'salud':['salud'], 'abasto':['abasto'], 'recreacion':['recreacion']}
     save = True
-    main(schema, folder_sufix, year, amenities, save = save)
+    distance(schema, folder_sufix, year, amenities, save = save)
