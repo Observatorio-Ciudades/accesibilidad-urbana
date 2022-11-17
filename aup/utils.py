@@ -180,35 +180,22 @@ def get_cursor():
     return pg_conn, cur
 
 
-def find_nearest_old(G, gdf, amenity_name):
-	"""
-	Find the nearest graph nodes to the points in a GeoDataFrame
-
-	Arguments:
-		G {networkx.Graph} -- Graph created with OSMnx that contains geographic information (Lat,Lon, etc.)
-		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with the points to locate
-		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
-
-	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
-	"""
-	gdf['x'] = gdf['geometry'].apply(lambda p: p.x)
-	gdf['y'] = gdf['geometry'].apply(lambda p: p.y)
-	gdf[f'nearest_{amenity_name}'] = ox.get_nearest_nodes(G,list(gdf['x']),list(gdf['y']))
-	return gdf
-
 def find_nearest(G, nodes, gdf, return_distance=False):
     """
 	Find the nearest graph nodes to the points in a GeoDataFrame
 
 	Arguments:
-		G {networkx.Graph} -- Graph created with OSMnx that contains geographic information (Lat,Lon, etc.)
+		G {networkx.Graph} -- Graph created with OSMnx that contains CRS information
+        nodes {geopandas.GeoDataFrame} -- OSMnx nodes with osmid index
 		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with the points to locate
-		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
+		return_distance {bool} -- If True, returns distance to nearest node. Defaults to False
 
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
 	"""
+
+    gdf = gdf.copy()
+
     osmnx_tuple = graph.nearest_nodes(G, nodes, list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
     
     if return_distance:
@@ -218,34 +205,19 @@ def find_nearest(G, nodes, gdf, return_distance=False):
         gdf['osmid'] = osmnx_tuple
     return gdf
 
-def to_igraph_old(G):
-	"""
-	Convert a graph from networkx to igraph
+def to_igraph(nodes, edges, wght='lenght'):
+    """
+    Convert a graph from networkx to igraph
 
 	Arguments:
-		G {networkx.Graph} -- networkx Graph to be converted
+		nodes {geopandas.GeoDataFrame} -- OSMnx nodes with osmid index
+        edges {geopandas.GeoDataFrame} -- OSMnx edges with u and v indexes
+        wght {string} -- weights column in edges. Defaults to length
 
 	Returns:
 		igraph.Graph -- Graph with the same number of nodes and edges as the original one
-		np.array  -- With the weight of the graph, if the original graph G is from OSMnx the weights are lengths
+		np.array  -- Array of weights, defined according to weight variable
 		dict -- With the node mapping, index is the node in networkx.Graph, value is the node in igraph.Graph
-	"""
-	node_mapping = dict(zip(G.nodes(),range(G.number_of_nodes())))
-	g = ig.Graph(len(G), [(node_mapping[i[0]],node_mapping[i[1]]) for i in G.edges()])
-	weights=np.array([float(e[2]['length']) for e in G.edges(data=True)])
-	#node_id_array=np.array(list(G.nodes())) #the inverse of the node_mapping (the index is the key)
-	#assert g.vcount() == G.number_of_nodes()
-	return g, weights, node_mapping
-
-def to_igraph(nodes,edges):
-    """[summary]
-
-    Args:
-        nodes ([type]): [description]
-        edges ([type]): [description]
-
-    Returns:
-        [type]: [description]
     """
 
     nodes.reset_index(inplace=True)
@@ -256,24 +228,10 @@ def to_igraph(nodes,edges):
 
     node_mapping = dict(zip(nodes.index.values,range(len(nodes))))
     g = ig.Graph(len(nodes), [(node_mapping[i[0]],node_mapping[i[1]]) for i in edges.index.values])
-    weights=np.array([float(e) for e in edges['length']])
+    weights=np.array([float(e) for e in edges[wght]])
     
     return g, weights, node_mapping
 
-
-def get_seeds_old(gdf, node_mapping, amenity_name):
-	"""
-	Generate the seed to be used to calculate shortest paths for the Voronoi's
-
-	Arguments:
-		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with 'nearest' column
-		node_mapping {dict} -- dictionary containing the node mapping from networkx.Graph to igraph.Graph
-
-	Returns:
-		np.array -- numpy.array with the set of seeds
-	"""
-	# Get the seed to calculate shortest paths
-	return np.array(list(set([node_mapping[i] for i in gdf[f'nearest_{amenity_name}']])))
 
 def get_seeds(gdf, node_mapping, column_name):
 	"""
@@ -282,6 +240,7 @@ def get_seeds(gdf, node_mapping, column_name):
 	Arguments:
 		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with 'nearest' column
 		node_mapping {dict} -- dictionary containing the node mapping from networkx.Graph to igraph.Graph
+        column_name {string} -- column name where the nearest distance index is stored
 
 	Returns:
 		np.array -- numpy.array with the set of seeds
@@ -314,8 +273,8 @@ def haversine(coord1, coord2):
 	km = meters / 1000.0  # output distance in kilometers    
 	return meters
 
-def create_hexgrid(polygon, hex_res, geometry_col='geometry',buffer=0.000):
-	"""
+def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
+    """
 	Takes in a geopandas geodataframe, the desired resolution, the specified geometry column and some map parameters to create a hexagon grid (and potentially plot the hexgrid
 
 	Arguments:
@@ -324,51 +283,38 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry',buffer=0.000):
 
 	Keyword Arguments:
 		geometry_col {str} -- column in the geoDataFrame that contains the geometry (default: {'geometry'})
-		buffer {float} -- buffer to be used (default: {0.000})
 
 	Returns:
-		geopandas.geoDataFrame -- geoDataFrame with the hexbins and the hex_id_{resolution} column
+		geopandas.geoDataFrame -- geoDataFrame with the hexbins according to resolution and EPSG:4326
 	"""
-	centroid = list(polygon.centroid.values[0].coords)[0]
+	
+    #multiploygon to polygon
+    polygons = polygon[geometry_col].explode(index_parts=True)
 
-	# Explode multipolygon into individual polygons
-	exploded = polygon.explode().reset_index(drop=True)
+    polygons = polygons.reset_index(drop=True)
+    
+    all_polys = gpd.GeoDataFrame()
+    
+    for p in range(len(polygons)):
+    
+        #create hex grid from GeoDataFrame
+        #for i in range(len(polygons[p])):
+        dict_poly = polygons[p].__geo_interface__
+        hexs = h3.polyfill(dict_poly, hex_res, geo_json_conformant = True)
+        polygonise = lambda hex_id: Polygon(
+                                    h3.h3_to_geo_boundary(
+                                        hex_id, geo_json=True)
+                                        )
 
-	# Master lists for geodataframe
-	hexagon_polygon_list = []
-	hexagon_geohash_list = []
+        poly_tmp = gpd.GeoSeries(list(map(polygonise, hexs)), \
+                                                index=hexs, \
+                                                crs="EPSG:4326" \
+                                                )
+        gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
 
-	# For each exploded polygon
-	for poly in exploded[geometry_col].values:
+        all_polys = all_polys.append(gdf_tmp, ignore_index=True)
 
-		# Reverse coords for original polygon
-		reversed_coords = [[i[1], i[0]] for i in list(poly.exterior.coords)]
-
-		# Reverse coords for buffered polygon
-		buffer_poly = poly.buffer(buffer)
-		reversed_buffer_coords = [[i[1], i[0]] for i in list(buffer_poly.exterior.coords)]
-
-		# Format input to the way H3 expects it
-		aoi_input = {'type': 'Polygon', 'coordinates': [reversed_buffer_coords]}
-
-		# Generate list geohashes filling the AOI
-		geohashes = list(h3.polyfill(aoi_input, hex_res))
-		for geohash in geohashes:
-			polygons = h3.h3_set_to_multi_polygon([geohash], geo_json=True)
-			outlines = [loop for polygon in polygons for loop in polygon]
-			polyline_geojson = [outline + [outline[0]] for outline in outlines][0]
-			hexagon_polygon_list.append(shapely.geometry.Polygon(polyline_geojson))
-			hexagon_geohash_list.append(geohash)
-
-	# Create a geodataframe containing the hexagon geometries and hashes
-	hexgrid_gdf = gpd.GeoDataFrame()
-	hexgrid_gdf['geometry'] = hexagon_polygon_list
-	id_col_name = 'hex_id_' + str(hex_res)
-	hexgrid_gdf[id_col_name] = hexagon_geohash_list
-	hexgrid_gdf.crs = {'init' :'epsg:4326'}
-
-	# Drop duplicate geometries
-	geoms_wkb = hexgrid_gdf["geometry"].apply(lambda geom: geom.wkb)
-	hexgrid_gdf = hexgrid_gdf.loc[geoms_wkb.drop_duplicates().index]
-
-	return hexgrid_gdf
+    all_polys = all_polys.drop_duplicates()
+    all_polys.set_crs("EPSG:4326")
+    
+    return all_polys

@@ -62,6 +62,11 @@ def make_html(hex_bins, column, c):
             "data"
         ][0]["name"] = _name
     hex_bins["d"] = 0
+    aup.log(
+        config["config"]["visState"]["interactionConfig"]["tooltip"]["fieldsToShow"][
+            "data"
+        ][0]["name"]
+    )
     longitude = hex_bins.dissolve(by="d").geometry.centroid.x
     latitude = hex_bins.dissolve(by="d").geometry.centroid.y
     config["config"]["mapState"]["latitude"] = latitude[0]

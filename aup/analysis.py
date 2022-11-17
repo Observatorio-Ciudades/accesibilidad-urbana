@@ -8,13 +8,15 @@
 
 import igraph as ig
 import numpy as np
+import networkx as nx
 from .utils import *
+from .data import *
 
 
 def voronoi_cpu(g, weights, seeds):
 	"""
 	Voronoi diagram calculator for undirected graphs
-    Optimized for computational efficiency
+	Optimized for computational efficiency
 
 	Args:
 		g (igraph.Graph): graph object with Nodes and Edges
@@ -26,7 +28,7 @@ def voronoi_cpu(g, weights, seeds):
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
-def get_distances(g,seeds,weights,voronoi_assignment):
+def get_distances(g, seeds, weights, voronoi_assignment):
 	"""
 	Distance for the shortest path for each node to the closest seed
 
@@ -42,71 +44,44 @@ def get_distances(g,seeds,weights,voronoi_assignment):
 	shortest_paths = np.array(g.shortest_paths_dijkstra(seeds,weights=weights))
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
 	return distances
-	
-def calculate_distance_nearest_poi_old(gdf_f, G, amenity_name, city):
+
+
+def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name, 
+wght='length', max_distance=(0,'distance_node')):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
 	Arguments:
 		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
-		G {networkx.MultiDiGraph} -- Graph created with OSMnx
+		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with nodes for network analysis
+		edges {geopandas.GeoDataFrame} -- GeoDataFrame with edges for network analysis
 		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
-		city {str} -- string with the name of the city
-
-	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
-	"""
-	g, weights, node_mapping = to_igraph(G) #convert to igraph to run the calculations
-	col_dist = f'dist_{amenity_name}'
-	seeds = get_seeds(gdf_f, node_mapping, amenity_name)
-	voronoi_assignment = voronoi_cpu(g, weights, seeds)
-	distances = get_distances(g,seeds,weights,voronoi_assignment)
-	df = pd.DataFrame(node_mapping ,index=[0]).T
-	df[col_dist] = distances
-	try:
-		nodes = gpd.read_file('../data/processed/nodes_{}.geojson'.format(city))
-		#nodes = pd.merge(nodes,df,left_on='osmid',right_index=True)
-		nodes[col_dist] = distances
-	except:
-		nodes = ox.graph_to_gdfs(G, edges=False)
-		#nodes = pd.merge(nodes,df,left_index=True,right_index=True)
-		nodes[col_dist] = distances
-	print(df.head(2))
-	print(nodes.head(2))
-	#nodes.drop([i for i in nodes.columns if str(i) not in ['geometry','dist_farmacias','dist_supermercados','osmid','dist_hospitales']],axis=1,inplace=True)
-	print(list(nodes.columns))
-	return nodes
-
-def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name):
-	"""
-	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
-
-	Arguments:
-		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
-		G {networkx.MultiDiGraph} -- Graph created with OSMnx
-		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
-		city {str} -- string with the name of the city
+		column_name {str} -- column name where the nearest distance index is stored
+		wght {str} -- weights column in edges. Defaults to length
+		max_distance {tuple} -- tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
 
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
 	"""
 	nodes = nodes.copy()
 	edges = edges.copy()
-	gdf_f = gdf_f.loc[gdf_f.distance_node<=500]
-	g, weights, node_mapping = to_igraph(nodes,edges) #convert to igraph to run the calculations
-	col_dist = f'dist_{amenity_name}'
+	if max_distance[0] > 0:
+		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance[0]]
+	g, weights, node_mapping = to_igraph(nodes,edges,wght=wght) #convert to igraph to run the calculations
+	col_weight = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
 	distances = get_distances(g,seeds,weights,voronoi_assignment)
 
-	nodes[col_dist] = distances
+	nodes[col_weight] = distances
 
 	nodes.replace([np.inf, -np.inf], np.nan, inplace=True)
-	nodes.dropna(inplace=True)
+	idx = pd.notnull(nodes[col_weight])
+	nodes = nodes[idx].copy()
 
 	return nodes
 
-def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
+def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
@@ -119,33 +94,329 @@ def group_by_hex_mean(nodes, hex_bins, resolution, amenity_name):
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
 	"""
-	dist_col = f'dist_{amenity_name}'
+	dist_col = col_name
+	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
-	hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	if osmid:
+		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
+	else:
+		hex_new = hex_new.drop(['index_right'],axis=1)
 	hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
 	hex_new.fillna(0, inplace=True)
 	return hex_new
 
-def population_to_nodes(nodes, gdf_population, column_start=1, column_end=-1, cve_column='CVEGEO'):
+def socio_polygon_to_points(
+	nodes,
+	gdf_socio,
+	column_start=0,
+	column_end=-1,
+	cve_column="CVEGEO",
+	avg_column=None,
+):
 	"""
-	Assign the proportion of population to each node inside an AGEB
-
-	Arguments:
+	Assign the proportion of sociodemographic data from polygons to points
+	Args:
 		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
-		gdf_population {geopandas.GeoDataFrame} -- GeoDataFrame with the population attributes of each AGEB
-
+		gdf_socio {geopandas.GeoDataFrame} -- GeoDataFrame with the sociodemographic attributes of each AGEB
+		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
+		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
+		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
+		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
 	Returns:
 		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
 	"""
-	totals = gpd.sjoin(nodes, gdf_population).groupby(cve_column).count().rename(
-		columns={'x': 'nodes_in'})[['nodes_in']].reset_index()  # caluculate the totals
+
+	if column_end == -1:
+		column_end = len(list(gdf_socio.columns))
+
+	if avg_column is None:
+		avg_column = []
+	totals = (
+		gpd.sjoin(nodes, gdf_socio)
+		.groupby(cve_column)
+		.count()
+		.rename(columns={"x": "nodes_in"})[["nodes_in"]]
+		.reset_index()
+	)  # caluculate the totals
 	# get a temporal dataframe with the totals and columns
-	temp = pd.merge(gdf_population, totals, on=cve_column)
-	for col in temp.columns.tolist()[column_start:column_end]:  # get the average for the values
-		temp[col] = temp[col]/temp['nodes_in']
+	temp = pd.merge(gdf_socio, totals, on=cve_column)
+	# get the average for the values
+	for col in temp.columns.tolist()[column_start:column_end]:
+		if col not in avg_column:
+			temp[col] = temp[col] / temp["nodes_in"]
 	temp = temp.set_crs("EPSG:4326")
 	nodes = gpd.sjoin(nodes, temp)
-	nodes.drop(['nodes_in','index_right'], axis=1, inplace=True)  # drop the nodes_in column
-	return  nodes # spatial join the nodes with the values
+	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)  # drop the nodes_in column
+	return nodes  # spatial join the nodes with the values
+
+def socio_points_to_polygon(
+	gdf_polygon,
+	gdf_socio,
+	cve_column,
+	string_columns,
+	wgt_dict=None,
+	avg_column=None):
+
+	"""Group sociodemographic point data in polygons
+    Args:
+        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
+        gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
+        cve_column (str): Column name with polygon id in gdf_polygon.
+        string_columns (list): List with column names for string data in gdf_socio.
+        column_start (int, optional): Column position were sociodemographic data starts in gdf_socio. Defaults to 0.
+        column_end (int, optional): Column position were sociodemographic data ends in gdf_socio. Defaults to -1.
+        wgt_dict (dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
+        avg_column (list, optional): List with column names with average data. Defaults to None.
+    Returns:
+        pandas.DataFrame: DataFrame with group sociodemographic data and polygon id
+
+	"""
+
+	dictionary_list = []
+	# Adds census data from points to polygon
+	gdf_tmp = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
+
+	# convert data types
+	all_columns = list(gdf_socio.columns)
+	numeric_columns = [x for x in all_columns if x not in string_columns]
+	type_dict = {"string": string_columns, "float": numeric_columns}
+	gdf_tmp = convert_type(gdf_tmp, type_dict)
+
+	#group sociodemographic points to polygon
+	for idx in gdf_tmp[cve_column].unique():
+
+		socio_filter = gdf_tmp.loc[gdf_tmp[cve_column]==idx].copy()
+
+		dict_tmp = group_sociodemographic_data(socio_filter, numeric_columns,
+		avg_column=avg_column, avg_dict=wgt_dict)
+		
+		dict_tmp[cve_column] = idx
+		
+		dictionary_list.append(dict_tmp)
+	
+	data = pd.DataFrame.from_dict(dictionary_list)
+
+	return data
+
+def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None):
+	
+	"""
+    Aggregate sociodemographic variables from DataFrame.
+    Args:
+        df_socio {pd.DataFrame}: DataFrame containing sociodemographic variables to be aggregated by sum or mean.
+        column_start (int, optional): Column number were sociodemographic variables start at DataFrame. Defaults to 1.
+        column_end (int, optional): Column number were sociodemographic variables end at DataFrame. Defaults to -1.
+        avg_column (list, optional): List of column names to be averaged and not sum. Defaults to None.
+        avg_dict (dictionary, optional): Dictionary containing column names to average and
+                                            column with which a weighted average will be crated. Defaults to None.
+    Returns:
+        pd.DataFrame: DataFrame with sum and mean values for sociodemographic data
+    """
+	# column names with sociodemographic data
+	if 'geometry' in numeric_cols:
+		numeric_cols.remove('geometry')
+	socio_cols = numeric_cols
+
+	# Dictionary to store aggregated variables
+	group_dict = {}
+
+	if avg_column is None:
+		# creates empty lists to avoid crash for None
+		avg_column = []
+		avg_dict = []
+	# iterate over columns: mean or sum
+	for col in socio_cols:
+		if col in avg_column:
+			# creates weighted averages
+			pop_weight = df_socio[avg_dict[col]].sum()
+			if pop_weight == 0:
+				group_dict[col] = 0
+			else:
+				tmp_df = df_socio[[avg_dict[col], col]].groupby(col).sum().reset_index()
+				tmp_df["weight"] = tmp_df[col] * tmp_df[avg_dict[col]]
+				tmp_df["wavg"] = tmp_df["weight"] / pop_weight
+				group_dict[col] = tmp_df["wavg"].sum()
+		else:
+			group_dict[col] = df_socio[col].sum()
+
+	return group_dict
+
+def walk_speed(edges_elevation):
+
+	"""
+	Calculates the Walking speed Using Tobler's Hiking Function and the slope in edges
+
+	Arguments:
+		edges_elevation {geopandas.GeoDataFrame} -- GeoDataFrame with the street edges with slope data
+		
+
+	Returns:
+		geopandas.GeoDataFrame -- edges_speed GeoDataFrame with the edges with an added column for speed
+	"""
+	edges_speed = edges_elevation.copy()
+	edges_speed['walkspeed'] = edges_speed.apply(lambda row : (4*np.exp(-3.5*abs((row['grade'])))), axis=1)
+	##To adapt to speed at 0 slope = 3.5km/hr use: (4.2*np.exp(-3.5*abs((row['grade']+0.05))))
+	#Using this the max speed 4.2 at -0,05 slope
+	return edges_speed
+
+
+def create_network(nodes, edges):
+
+	"""
+	Create a network based on nodes and edges without unique ids and to - from attributes.
+
+	Arguments:
+		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with nodes for network in EPSG:4326
+		edges {geopandas.GeoDataFrame} -- GeoDataFrame with edges for network in EPSG:4326
+
+	Returns:
+		geopandas.GeoDataFrame  -- nodes GeoDataFrame with unique ids based on coordinates named osmid in EPSG:4326
+		geopandas.GeoDataFrame  -- edges GeoDataFrame with to - from attributes based on nodes ids named u and v respectively in EPSG:4326
+	"""
+
+	#Copy edges and nodes to avoid editing original GeoDataFrames
+	nodes = nodes.copy()
+	edges = edges.copy()
+
+	#Create unique ids for nodes and edges
+	##Change coordinate system to meters for unique ids
+	nodes = nodes.to_crs("EPSG:6372")
+	edges = edges.to_crs("EPSG:6372")
+
+	##Unique id for nodes based on coordinates
+	nodes['osmid'] = ((nodes.geometry.x).astype(int)).astype(str)+((nodes.geometry.y).astype(int)).astype(str)
+
+	##Set columns in edges for to [u] from[v] columns
+	edges['u'] = np.nan
+	edges['v'] = np.nan
+	edges.u.astype(str)
+	edges.v.astype(str)
+
+	##Extract start and end coordinates for [u,v] columns
+	for index, row in edges.iterrows():
+		
+		edges.at[index,'u'] = str(int(list(row.geometry.coords)[0][0]))+str(int(list(row.geometry.coords)[0][1]))
+		edges.at[index,'v'] = str(int(list(row.geometry.coords)[-1][0]))+str(int(list(row.geometry.coords)[-1][1]))
+
+	#Add key column for compatibility with osmnx
+	edges['key'] = 0
+
+	#Change [u,v] columns to integer
+	edges['u'] = edges.u.astype(int)
+	edges['v'] = edges.v.astype(int)
+	#Calculate edges lentgh
+	edges['length'] = edges.to_crs("EPSG:6372").length
+	
+	#Change osmid to integer
+	nodes['osmid'] = nodes.osmid.astype(int)
+
+	#Transform coordinates
+	nodes = nodes.to_crs("EPSG:4326")
+	edges = edges.to_crs("EPSG:4326")
+
+	return nodes, edges
+
+	
+def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
+
+	"""
+	Finds the hexagons that have or do not have a point within
+
+	Arguments:
+		grid {geopandas.GeoDataFrame} -- GeoDataFrame with the full H3 hex grid of the city
+		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
+		gdf {geopandas.GeoDataFrame} -- GeoDataFrame of figures to be overlaid with hexes
+		contain {str} -- True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
+
+		
+	Returns:
+		geopandas.GeoDataFrame -- gdf_in_hex -- hexes that contain or do not contain a gdf within
+	"""
+	#PIP (Point in Polygon). Overlays gdf with hexes to find hexes that have the gdf in them and those that do not
+	pip = gpd.overlay(grid, gdf, how='intersection', keep_geom_type=False)
+	pip = pip.set_index(f'hex_id_{resolution}')
+	grid = grid.set_index(f'hex_id_{resolution}')
+	#simplify and keep only relevant columns
+	pip_idx = pip.drop(['geometry'], axis=1)
+	hex_geom = grid[['geometry']]
+	#Merge with indicator. Right only means that the hexagon does NOT have any node
+	hex_merge = pip_idx.merge(hex_geom, left_index=True, right_index=True, how='outer', indicator=True)
+	## False means it will find hexes without points
+	if contain == False:
+		hex_node = hex_merge[hex_merge['_merge']=='right_only']
+	## False means it will find hexes with points
+	if contain == True:
+		hex_node = hex_merge[hex_merge['_merge']=='both']
+	#(simplify)
+	point_hex = gpd.GeoDataFrame(hex_node, geometry = 'geometry')
+	point_hex = point_hex[['geometry']]
+	point_hex.reset_index(inplace = True)
+	grid.reset_index(inplace = True)
+	point_hex = point_hex.drop_duplicates(subset=[f'hex_id_{resolution}'])
+
+	return point_hex
+
+
+def fill_hex(missing_hex, data_hex, resolution, data_column):
+
+	"""
+	Fills hexagons with no data with the average data of neighbors (note: hex id must be a column not index)
+
+	Arguments:
+		missing_hex {geopandas.GeoDataFrame} -- GeoDataFrame with the hexes that does not have the information due to lack of nodes
+		data_hex {geopandas.GeoDataFrame} -- GeoDataFrame of hexes that do contain the information
+		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
+		data_column {str} -- Name of the column with the data to be filled with (ex. distance)
+
+		
+	Returns:
+		geopandas.GeoDataFrame -- full_hex -- hexgrid filled with relevant data
+	"""
+	missing_hex[[f'{data_column}']] = np.nan
+	urb_hex = gpd.GeoDataFrame()
+	urb_hex = data_hex.append(missing_hex)
+	urb_hex = urb_hex.set_index(f'hex_id_{resolution}')
+	## Start looping
+	count = 0
+	iter = 1
+	urb_hex[f'{data_column}'+ str(count)] = urb_hex[f'{data_column}'].copy()
+	while urb_hex[f'{data_column}'+str(count)].isna().sum() > 0:
+		missing = urb_hex[urb_hex[f'{data_column}'+str(count)].isna()]
+		urb_hex[f'{data_column}'+ str(iter)] = urb_hex[f'{data_column}'+str(count)].copy()
+		for idx,row in missing.iterrows():
+			###Cell 1
+			near = pd.DataFrame(h3.k_ring(idx,1))
+			near[f'hex_id_{resolution}'] = h3.k_ring(idx,1)
+			near['a'] = np.nan
+			near= near.set_index(f'hex_id_{resolution}')
+			###Cell 2
+			neighbors = near.merge(urb_hex, left_index=True, right_index=True, how='left')
+			#Cell 3
+			average = neighbors[f'{data_column}'+str(count)].mean()
+			urb_hex.at[idx, f'{data_column}'+str(iter)] = average
+		count = count + 1
+		iter = iter + 1
+	full_hex = urb_hex[['geometry']]
+	full_hex[f'{data_column}'] = urb_hex[f'{data_column}'+ str(count)].copy()
+
+	return full_hex
+
+def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
+    """Calculate the isochrone fom the center_node in graph G.
+    Args:
+        G (networkx.Graph): networkx Graph with travel time (time) attribute.
+        center_node (int): id of the node to use
+        trip_time (int): maximum travel time allowed
+        subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
+    Returns:
+        sub_G: (optional) subgraph of the covered area.
+        geometry: geometry with the covered area
+    """
+    sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
+    geometry = gpd.GeoSeries([Point((data["x"], data["y"])) for node, data in sub_G.nodes(data=True)]).unary_union.convex_hull
+    if subgraph:
+        return sub_G, geometry
+    else:
+        return geometry

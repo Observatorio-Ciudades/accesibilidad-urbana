@@ -14,9 +14,10 @@ from io import StringIO
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
+import numpy as np
 import psycopg2
 from geoalchemy2 import WKTElement
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, MultiLineString, Point, LineString
 
 from . import utils
 
@@ -91,18 +92,6 @@ def download_graph(polygon, city, network_type="walk", save=True):
         return G
 
 
-def load_population():
-    """
-    Load urban AGEBs population into a GeoDataFrame
-
-    Returns:
-            geopandas.GeoDataFrame -- GeoDataFrame with urban AGEBs
-            list -- list with the columns names
-    """
-    gdf = gpd.read_file("../data/raw/AGEB_urb_2010_SCINCE.geojson")
-    return gdf, gdf.columns.tolist()[3:-1]
-
-
 def df_to_geodf(df, x, y, crs):
     """Create a GeoDataFrame from a pandas DataFrame
 
@@ -133,83 +122,25 @@ def load_study_areas():
     return distros_dict
 
 
-def load_polygon(city):
-    """
-    Load the polygon of a city from the raw data
-
-    Arguments:
-            city {str} -- string with the name of the city/metropolitan area to load
-
-    Returns:
-            geopandas.GeoDataFrame -- geoDataFrame with the area
-    """
-    return gpd.read_file(f"../data/raw/{city}_area.geojson")
-
-
-def load_mpos():
-    """
-    Load Mexico's municipal boundaries
-
-    Returns:
-            geopandas.geoDataFrame -- geoDataFrame with all the Mexican municipal boundaries
-    """
-    return gpd.read_file(
-        "../data/external/LimitesPoliticos/MunicipiosMexico_INEGI19_GCS_v1.shp"
-    )
-
-
-def load_denue(amenity_name):
-    """
-    Load the DENUE into a geoDataFrame
-
-    Arguments:
-            amenity_name {str} -- string with the name of the amenity to load the availables are: ('farmacias','supermercados','hospitales')
-
-    Returns:
-            geopandas.geoDataFrame -- geoDataFrame with the DENUE
-    """
-    if amenity_name == "farmacias":
-        gdf = gpd.read_file(
-            "../data/external/DENUE/denue_00_46321-46531_shp/conjunto_de_datos/denue_inegi_46321-46531_.shp"
-        )
-        gdf = gdf[(gdf["codigo_act"] == "464111") | (gdf["codigo_act"] == "464112")]
-        return gdf
-    if amenity_name == "hospitales":
-        gdf = gpd.read_file(
-            "../data/external/DENUE/denue_00_62_shp/conjunto_de_datos/denue_inegi_62_.shp"
-        )
-        gdf = gdf[(gdf["codigo_act"] == "622111") | (gdf["codigo_act"] == "622112")]
-        return gdf
-    elif amenity_name == "supermercados":
-        gdf = gpd.read_file(
-            "../data/external/DENUE/denue_00_46112-46311_shp/conjunto_de_datos/denue_inegi_46112-46311_.shp"
-        )
-        gdf = gdf[(gdf["codigo_act"] == "462111") | (gdf["codigo_act"] == "462112")]
-        return gdf
-
-
-def convert_type(df, dc=None, string_column=None):
-    """Converts columns from DataFrame to numeric or string if specified
+def convert_type(df, data_dict):
+    """Converts columns from DataFrame to specified data type
     Args:
         df (pandas.DataFrame): DataFrame containing all columns
-        column (str): Column name, which will be converted
-        string_column (list): list of names for columns that will be set as string
+        data_dict (dictionary): Dictionary with the desiered data type as a
+                                key {string, integer, float} and a list of columns.
+                                For example: {'string':[column1,column2],'integer':[column3,column4]}
     Returns:
-        pandas.Series: Series converted to numeric value or kept as object
+        pandas.DataFrame: DataFrame with converted data types for columns
     """
-
-    if string_column is not None:
-        for column in df.columns:
-            if column not in string_column:
-                df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
-        for sc in string_column:
-            df[sc] = df[sc].astype("str")
-    else:
-        for column in df.columns:
-            df[column] = pd.to_numeric(df[column], downcast=dc, errors="ignore")
+    for d in data_dict:
+        if d == "string":
+            for c in data_dict[d]:
+                df[c] = df[c].astype("str")
+        else:
+            for c in data_dict[d]:
+                df[c] = pd.to_numeric(df[c], downcast=d, errors="ignore")
 
     return df
-
 
 def create_schema(schema):
     """create schema in the database if it does not exists already,
@@ -260,6 +191,22 @@ def df_to_db(df, name, table, schema, if_exists="fail"):
         return 1
     cursor.close()
     conn.close()
+
+def df_to_db_slow(df, name, schema, if_exists='fail'):
+     """Upload a Pandas.DataFrame to the database
+     Args:
+         df (pandas.DataFrame): DataFrame to be uploadead
+         name (str): Name of the table to be created
+         schema (str): Name of the folder in which to save the geoDataFrame
+         if_exists (str): Behaivor if the table already exists in the database ('fail', 'replace', 'append') 'fail' by default.
+     """
+     create_schema(schema)
+     utils.log('Getting DB connection')
+     engine = utils.db_engine()
+     utils.log(f'Uploading table {name} to database')
+     df.to_sql(name=name.lower(), con=engine,
+               if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=50000)
+     utils.log(f'Table {name} in DB')
 
 
 def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
@@ -391,23 +338,26 @@ def gdf_from_db(name, schema):
     return gdf
 
 
-def graph_from_hippo(gdf, schema):
-    """[summary]
+def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
+    """Download OSMnx edges and nodes from DataBase according to GeoDataFrame boundary
 
     Args:
-        gdf ([type]): [description]
-        schema ([type]): [description]
+        gdf (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for download
+        schema (str): schema from DataBase where edges and nodes are stored
+        edges_folder (str): folder name whithin schema where edges stored. Defaults to edges
+        nodes_folder (str): folder name whithin schema where nodes stored. Defaults to nodes
 
     Returns:
-        [type]: [description]
+        networkx.MultiDiGraph -- Graph with edges and nodes from DataBase
+		gpd.GeoDataFrame  -- GeoDataFrame for nodes within boundaries
+		gpd.GeoDataFrame  -- GeoDataFrame for edges within boundaries
     """
 
     gdf = gdf.to_crs("EPSG:6372")
     gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
     gdf = gdf.to_crs("EPSG:4326")
-    #poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
-    poly_wkt = gdf.dissolve(by="index")["geometry"][0].to_wkt()
-    edges_query = f"SELECT * FROM {schema}.edges WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
+    poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
+    edges_query = f"SELECT * FROM {schema}.{edges_folder} WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
     edges = gdf_from_query(edges_query, geometry_col="geometry")
 
     nodes_id = list(edges.v.unique())
@@ -415,36 +365,56 @@ def graph_from_hippo(gdf, schema):
     nodes_id.extend(u)
     myset = set(nodes_id)
     nodes_id = list(myset)
-    nodes_query = f"SELECT * FROM {schema}.nodes WHERE osmid IN {str(tuple(nodes_id))}"
+    nodes_query = f"SELECT * FROM {schema}.{nodes_folder} WHERE osmid IN {str(tuple(nodes_id))}"
     nodes = gdf_from_query(nodes_query, geometry_col="geometry", index_col="osmid")
 
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
-
-    tmp = edges.reset_index().merge(
-        nodes.reset_index().rename(columns={"osmid": "osmid_v"})["osmid_v"],
-        left_on=["v"],
-        right_on=["osmid_v"],
-        how="left",
-    )
-    tmp = tmp.merge(
-        nodes.reset_index().rename(columns={"osmid": "osmid_u"})["osmid_u"],
-        left_on=["u"],
-        right_on=["osmid_u"],
-        how="left",
-    )
-
-    tmp["id_tmp"] = tmp.osmid_v + tmp.osmid_u
-
-    edges_tmp = tmp[["u", "v", "key", "osmid", "length", "id_tmp", "geometry"]].dropna()
-
-    edges = edges_tmp.drop(columns=["id_tmp"])
 
     edges = edges.set_index(["u", "v", "key"])
 
     nodes = nodes.set_crs("EPSG:4326")
     edges = edges.set_crs("EPSG:4326")
 
+    nodes_tmp = nodes.reset_index().copy()
+
+    edges_tmp = edges.reset_index().copy()
+
+    from_osmid = list(set(edges_tmp['u'].to_list()).difference(set(nodes_tmp.osmid.to_list())))
+
+    nodes_dict = nodes_tmp.to_dict()
+
+    for i in from_osmid:
+        row = edges_tmp.loc[(edges_tmp.u==i)].iloc[0]
+        coords = [(coords) for coords in list(row['geometry'].coords)]
+        first_coord, last_coord = [ coords[i] for i in (0, -1) ]
+        
+        nodes_dict['osmid'][len(nodes_dict['osmid'])] = i
+        nodes_dict['x'][len(nodes_dict['x'])] = first_coord[0]
+        nodes_dict['y'][len(nodes_dict['y'])] = first_coord[1]
+        nodes_dict['street_count'][len(nodes_dict['street_count'])] = np.nan
+        nodes_dict['geometry'][len(nodes_dict['geometry'])] = Point(first_coord)
+            
+        
+    to_osmid = list(set(edges_tmp['v'].to_list()).difference(set(list(nodes_dict['osmid'].values()))))
+
+    for i in to_osmid:
+        row = edges_tmp.loc[(edges_tmp.v==i)].iloc[0]
+        coords = [(coords) for coords in list(row['geometry'].coords)]
+        first_coord, last_coord = [ coords[i] for i in (0, -1) ]
+        
+        nodes_dict['osmid'][len(nodes_dict['osmid'])] = i
+        nodes_dict['x'][len(nodes_dict['x'])] = last_coord[0]
+        nodes_dict['y'][len(nodes_dict['y'])] = last_coord[1]
+        nodes_dict['street_count'][len(nodes_dict['street_count'])] = np.nan
+        nodes_dict['geometry'][len(nodes_dict['geometry'])] = Point(last_coord)
+        
+    nodes_tmp = pd.DataFrame.from_dict(nodes_dict)
+    nodes_tmp = gpd.GeoDataFrame(nodes_tmp, crs="EPSG:4326", geometry='geometry')
+    nodes = nodes_tmp.copy()
+    nodes.set_index('osmid',inplace=True)
+
     G = ox.graph_from_gdfs(nodes, edges)
+
 
     return G, nodes, edges
