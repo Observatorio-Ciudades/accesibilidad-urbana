@@ -312,7 +312,8 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
                                                 )
         gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
 
-        all_polys = all_polys.append(gdf_tmp, ignore_index=True)
+        all_polys = pd.concat([all_polys, gdf_tmp], 
+        ignore_index = True, axis = 0)
 
     all_polys = all_polys.drop_duplicates()
     all_polys.set_crs("EPSG:4326")
