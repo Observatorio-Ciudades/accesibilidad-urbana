@@ -52,41 +52,25 @@ def main(city, cvegeo_list, save=False):
 
     # define dictionaries for time analysis
        
-    idx_15_min = {'Escuelas':{'Preescolar':['denue_preescolar'],
+    idx_cd_cuidadoras = {'Preescolar':['denue_preescolar'],
                          'Primaria':['denue_primaria'],
-                         'Secundaria':['denue_secundaria']},
-             'Servicios comunitarios':{'Salud':['clues_primer_nivel'],
-                                      'Guarderías':['denue_guarderias'],
-                                      'Asistencia social':['denue_dif']},
-              'Comercio':{'Alimentos':['denue_supermercado','denue_abarrotes',
+                         'Secundaria':['denue_secundaria'],
+                     'Salud':['clues_primer_nivel'],
+                     'Guarderias':['denue_guarderias'],
+                     'Alimentos' : ['denue_supermercado','denue_abarrotes',
                                     'denue_carnicerias','sip_mercado'],
-                         'Personal':['denue_peluqueria'],
-                          'Farmacias':['denue_farmacias'],
-                         'Hogar':['denue_ferreteria_tlapaleria','denue_art_limpieza'],
-                         'Complementarios':['denue_ropa','denue_calzado','denue_muebles',
-                                           'denue_lavanderia','denue_revistas_periodicos',
-                                           'denue_pintura']},
-              'Entretenimiento':{'Social':['denue_restaurante_insitu','denue_restaurante_llevar',
-                                          'denue_bares','denue_cafe'],
-                                'Actividad física':['sip_cancha','sip_unidad_deportiva',
-                                                   'sip_espacio_publico','denue_parque_natural'],
-                                'Cultural':['denue_cines','denue_museos']} 
+                     'Personal' : ['denue_ropa','denue_peluqueria'],
+                     'Parques' : ['sip_cancha','sip_unidad_deportiva','sip_espacio_publico']
              }
 
-    wegiht_idx = {'Escuelas':{'Preescolar':1,
-                            'Primaria':1,
-                            'Secundaria':1},
-                'Servicios comunitarios':{'Salud':1,
-                                        'Guarderías':1,
-                                        'Asistencia social':1},
-                'Comercio':{'Alimentos':1,
-                            'Personal':1,
-                            'Farmacias':1,
-                            'Hogar':1,
-                            'Complementarios':1},
-                'Entretenimiento':{'Social':4,
-                                    'Actividad física':1,
-                                    'Cultural':1}
+    wegiht_idx = {'Preescolar': 1,
+                            'Primaria': 1,
+                            'Secundaria': 1,
+                        'Salud': 1,
+                        'Guarderias': 1,
+                        'Alimentos' : 1,
+                        'Personal' : 2,
+                        'Parques' : 1
                 }
 
     nodes_schema = 'prox_analysis'
@@ -95,8 +79,8 @@ def main(city, cvegeo_list, save=False):
     amenidades = []
 
     # gather amenities for analysis
-    for eje in idx_15_min.keys():
-        for grupo in idx_15_min[eje].values():
+    for eje in idx_cd_cuidadoras.keys():
+        for grupo in idx_cd_cuidadoras[eje].values():
             for a in grupo:
                 amenidades.append(a)
 
@@ -147,22 +131,22 @@ def main(city, cvegeo_list, save=False):
     column_max_ejes = [] # list with ejes index column names
     column_max_all = [] # list with all max index column names
 
-    for e in idx_15_min.keys():
+    for e in idx_cd_cuidadoras.keys():
         
         column_max_ejes.append('max_'+ e.lower())
         column_max_all.append('max_'+ e.lower())
         column_max_amenities = [] # list with amenity index column names
         
-        for a in idx_15_min[e].keys():
+        for a in idx_cd_cuidadoras[e].keys():
             
             column_max_amenities.append('max_'+ a.lower())
             column_max_all.append('max_'+ a.lower())
 
-            if wegiht_idx[e][a] < len(idx_15_min[e][a]):
-                nodes_analysis['max_'+ a.lower()] = nodes_analysis[idx_15_min[e][a]].min(axis=1)
+            if wegiht_idx[e][a] < len(idx_cd_cuidadoras[e][a]):
+                nodes_analysis['max_'+ a.lower()] = nodes_analysis[idx_cd_cuidadoras[e][a]].min(axis=1)
 
             else:
-                nodes_analysis['max_'+ a.lower()] = nodes_analysis[idx_15_min[e][a]].max(axis=1)
+                nodes_analysis['max_'+ a.lower()] = nodes_analysis[idx_cd_cuidadoras[e][a]].max(axis=1)
             
         nodes_analysis['max_'+ e.lower()] = nodes_analysis[column_max_amenities].max(axis=1)
 
@@ -188,12 +172,12 @@ def main(city, cvegeo_list, save=False):
 
     column_max_ejes = [] # list with ejes index column names
 
-    for e in idx_15_min.keys():
+    for e in idx_cd_cuidadoras.keys():
         
         column_max_ejes.append('max_'+ e.lower())
         column_max_amenities = [] # list with amenity index column names
         
-        for a in idx_15_min[e].keys():
+        for a in idx_cd_cuidadoras[e].keys():
             
             column_max_amenities.append('max_'+ a.lower())
             
@@ -214,7 +198,7 @@ def main(city, cvegeo_list, save=False):
 
     # upload data
     if save:
-        aup.gdf_to_db_slow(hex_res_8_idx, f'hex{res}_15_min', 'prox_analysis', if_exists='append')
+        aup.gdf_to_db_slow(hex_res_8_idx, f'hex{res}_cd_cuidadoras', 'prox_analysis', if_exists='append')
     
     
     
@@ -228,7 +212,7 @@ if __name__ == "__main__":
     # temporariliy added for frash
     processed_city_list = []
     try:
-        processed_city_list = aup.gdf_from_db('hex8_15_min', 'prox_analysis')
+        processed_city_list = aup.gdf_from_db('hex8_cd_cuidadoras', 'prox_analysis')
         processed_city_list = list(processed_city_list.city.unique())
         # processed_city_list.append('Parral') # temporary remove Parral from analysis
         # processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
