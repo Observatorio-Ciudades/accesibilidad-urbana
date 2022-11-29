@@ -100,9 +100,9 @@ def main(city, cvegeo_list, save=False):
             for a in grupo:
                 amenidades.append(a)
 
-    amenidades =  str(tuple(amenidades))
+    # amenidades =  str(tuple(amenidades))
 
-    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\' AND \"amenity\" IN {amenidades} "
+    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\' AND \"amenity\" IN {str(tuple(amenidades))} "
     nodes = aup.gdf_from_query(query, geometry_col='geometry')
     
     aup.log(f'Downloaded a total of {nodes.shape[0]} nodes')
@@ -129,7 +129,7 @@ def main(city, cvegeo_list, save=False):
     aup.log(f'Transformed nodes data')
 
     # fill missing columns
-    amenidades = list(amenidades)
+    # amenidades = list(amenidades)
 
     column_list = list(nodes_analysis.columns)
 
@@ -179,11 +179,12 @@ def main(city, cvegeo_list, save=False):
 
     # group data by hex
     res = 8
-    hex_tmp = hex_pop[['hex_id_8','geometry']]
+    hex_tmp = hex_pop[['hex_id_8','geometry']].copy()
     hex_res_8_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
     hex_res_8_idx = hex_res_8_idx.loc[hex_res_8_idx[index_column]>0].copy()
 
     aup.log('Grouped nodes data by hexagons')
+    
     # time by ammenity
 
     column_max_ejes = [] # list with ejes index column names
@@ -214,7 +215,7 @@ def main(city, cvegeo_list, save=False):
 
     # upload data
     if save:
-        aup.gdf_to_db_slow(hex_res_8_idx, f'hex{res}_15_min', 'prox_analysis', if_exists='append')
+        aup.gdf_to_db_slow(hex_res_8_idx, f'15_min_analysis_hexres{res}', 'prox_analysis', if_exists='append')
     
     
     
@@ -225,13 +226,11 @@ if __name__ == "__main__":
 
     gdf_mun = aup.gdf_from_db('metro_list', 'metropolis')
 
-    # temporariliy added for frash
+    # prevent cities being analyzed to times in case of a crash
     processed_city_list = []
     try:
-        processed_city_list = aup.gdf_from_db('hex8_15_min', 'prox_analysis')
+        processed_city_list = aup.gdf_from_db('15_min_analysis_hexres8', 'prox_analysis')
         processed_city_list = list(processed_city_list.city.unique())
-        # processed_city_list.append('Parral') # temporary remove Parral from analysis
-        # processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
     except:
         pass
 
