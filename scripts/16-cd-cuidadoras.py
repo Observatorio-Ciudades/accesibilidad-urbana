@@ -79,14 +79,13 @@ def main(city, cvegeo_list, save=False):
     amenidades = []
 
     # gather amenities for analysis
-    for eje in idx_cd_cuidadoras.keys():
-        for grupo in idx_cd_cuidadoras[eje].values():
-            for a in grupo:
-                amenidades.append(a)
+    for amenidad in idx_cd_cuidadoras.keys():
+        for a in idx_cd_cuidadoras[amenidad]:
+            amenidades.append(a)
 
-    amenidades =  str(tuple(amenidades))
+    # amenidades =  str(tuple(amenidades))
 
-    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\' AND \"amenity\" IN {amenidades} "
+    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\' AND \"amenity\" IN {str(tuple(amenidades))} "
     nodes = aup.gdf_from_query(query, geometry_col='geometry')
     
     aup.log(f'Downloaded a total of {nodes.shape[0]} nodes')
@@ -113,7 +112,6 @@ def main(city, cvegeo_list, save=False):
     aup.log(f'Transformed nodes data')
 
     # fill missing columns
-    amenidades = list(amenidades)
 
     column_list = list(nodes_analysis.columns)
 
@@ -128,46 +126,37 @@ def main(city, cvegeo_list, save=False):
                     
     # time by ammenity
 
-    column_max_ejes = [] # list with ejes index column names
-    column_max_all = [] # list with all max index column names
+    column_max_all = []
 
     for e in idx_cd_cuidadoras.keys():
         
-        column_max_ejes.append('max_'+ e.lower())
         column_max_all.append('max_'+ e.lower())
-        column_max_amenities = [] # list with amenity index column names
-        
-        for a in idx_cd_cuidadoras[e].keys():
+
+        if wegiht_idx[e] < len(idx_cd_cuidadoras[e]):
+            nodes_analysis['max_'+ e.lower()] = nodes_analysis[idx_cd_cuidadoras[e]].min(axis=1)
             
-            column_max_amenities.append('max_'+ a.lower())
-            column_max_all.append('max_'+ a.lower())
-
-            if wegiht_idx[e][a] < len(idx_cd_cuidadoras[e][a]):
-                nodes_analysis['max_'+ a.lower()] = nodes_analysis[idx_cd_cuidadoras[e][a]].min(axis=1)
-
-            else:
-                nodes_analysis['max_'+ a.lower()] = nodes_analysis[idx_cd_cuidadoras[e][a]].max(axis=1)
+        else:
+            nodes_analysis['max_'+ e.lower()] = nodes_analysis[idx_cd_cuidadoras[e]].max(axis=1)
             
-        nodes_analysis['max_'+ e.lower()] = nodes_analysis[column_max_amenities].max(axis=1)
-
     index_column = 'max_idx_15_min' # column name for 15 minute index data
-    column_max_all.append(index_column)
-    nodes_analysis[index_column] = nodes_analysis[column_max_ejes].max(axis=1)
+    nodes_analysis[index_column] = nodes_analysis[column_max_all].max(axis=1)
 
     # nodes for grouping by hex
     column_max_all.append('osmid')
     column_max_all.append('geometry')
+    column_max_all.append(index_column)
     nodes_analysis_filter = nodes_analysis[column_max_all].copy()
 
     aup.log(f'Calculated 15 minutes city index by node with an average of {nodes_analysis_filter[index_column].mean()} min')
 
     # group data by hex
     res = 8
-    hex_tmp = hex_pop[['hex_id_8','geometry']]
+    hex_tmp = hex_pop[['hex_id_8','geometry']].copy()
     hex_res_8_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
     hex_res_8_idx = hex_res_8_idx.loc[hex_res_8_idx[index_column]>0].copy()
 
     aup.log('Grouped nodes data by hexagons')
+    
     # time by ammenity
 
     column_max_ejes = [] # list with ejes index column names
@@ -176,12 +165,6 @@ def main(city, cvegeo_list, save=False):
         
         column_max_ejes.append('max_'+ e.lower())
         column_max_amenities = [] # list with amenity index column names
-        
-        for a in idx_cd_cuidadoras[e].keys():
-            
-            column_max_amenities.append('max_'+ a.lower())
-            
-        hex_res_8_idx['max_'+ e.lower()] = hex_res_8_idx[column_max_amenities].max(axis=1)
 
     hex_res_8_idx[index_column] = hex_res_8_idx[column_max_ejes].max(axis=1)
 
@@ -198,7 +181,7 @@ def main(city, cvegeo_list, save=False):
 
     # upload data
     if save:
-        aup.gdf_to_db_slow(hex_res_8_idx, f'hex{res}_cd_cuidadoras', 'prox_analysis', if_exists='append')
+        aup.gdf_to_db_slow(hex_res_8_idx, f'cd_cuidadoras_hexres{res}', 'prox_analysis', if_exists='append')
     
     
     
@@ -209,13 +192,11 @@ if __name__ == "__main__":
 
     gdf_mun = aup.gdf_from_db('metro_list', 'metropolis')
 
-    # temporariliy added for frash
+    # prevent cities being analyzed to times in case of a crash
     processed_city_list = []
     try:
-        processed_city_list = aup.gdf_from_db('hex8_cd_cuidadoras', 'prox_analysis')
+        processed_city_list = aup.gdf_from_db('cd_cuidadoras_hexres8', 'prox_analysis')
         processed_city_list = list(processed_city_list.city.unique())
-        # processed_city_list.append('Parral') # temporary remove Parral from analysis
-        # processed_city_list.append('ZMVM') # temporary remove ZMVM from analysis for memory constrains
     except:
         pass
 
@@ -228,4 +209,3 @@ if __name__ == "__main__":
             cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
 
             main(city, cvegeo_list, save=True)
-
