@@ -11,6 +11,8 @@ import numpy as np
 import networkx as nx
 from .utils import *
 from .data import *
+import math
+from scipy import optimize
 
 
 def voronoi_cpu(g, weights, seeds):
@@ -420,3 +422,43 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
         return sub_G, geometry
     else:
         return geometry
+
+
+def sigmoidal_function(x, di, d0):
+	idx_eq = 1 / (1 + math.exp(x * (di - d0)))
+	return idx_eq
+
+
+def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
+	tmp_idx = [] # list that stores constant decay values for 0.25 and 0.75
+
+	# calculate 0.75 quarter time
+	quarter_limit = mid_limit_value - ((mid_limit_value-positive_limit_value)/2)
+	idx_objective = 0.75
+
+	
+	def sigmoidal_function(x, di=quarter_limit, d0=mid_limit_value):
+		idx_eq = 1 / (1 + math.exp(x * (di - d0)))
+		return idx_eq
+
+	def sigmoidal_function_condition(x, di=quarter_limit, d0=mid_limit_value, idx_0=idx_objective):
+		return (1 / (1 + math.exp(x * (di - d0)))) - idx_0
+
+	# search for constant decay value in 0.75 quarter_time
+	cons = {'type':'eq', 'fun': sigmoidal_function_condition}
+	result = optimize.minimize(sigmoidal_function, 0.01, constraints = cons)
+	tmp_idx.append(result.x[0])
+
+	# calculate 0.25 quarter time
+	quarter_limit = mid_limit_value + ((mid_limit_value-positive_limit_value)/2)
+	idx_objective = 0.25
+
+	# search for constant decay value in 0.25 quarter_time
+	cons = {'type':'eq', 'fun': sigmoidal_function_condition}
+	result = optimize.minimize(sigmoidal_function, 0.01, constraints = cons)
+	tmp_idx.append(result.x[0])
+
+	# calculate average constant decay for 0.25 and 0.75
+	constant_value_average = sum(tmp_idx) / len(tmp_idx)
+
+	return constant_value_average
