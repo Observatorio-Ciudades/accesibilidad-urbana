@@ -316,6 +316,7 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
         ignore_index = True, axis = 0)
 
     all_polys = all_polys.drop_duplicates()
+    all_polys = all_polys.set_geometry('geometry')
     all_polys.set_crs("EPSG:4326")
     
     return all_polys
