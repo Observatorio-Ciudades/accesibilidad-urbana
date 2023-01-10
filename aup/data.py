@@ -156,6 +156,7 @@ def create_schema(schema):
     except Exception as e:
         utils.log(e)
         pass
+    
 
 
 def df_to_db(df, name, table, schema, if_exists="fail"):
@@ -208,6 +209,8 @@ def df_to_db_slow(df, name, schema, if_exists='fail'):
                if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=50000)
      utils.log(f'Table {name} in DB')
 
+     engine.dispose()
+
 
 def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
     """Upload a geoPandas.GeoDataFrame to the database
@@ -231,6 +234,8 @@ def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
         schema=schema.lower(),
     )
     utils.log(f"Table {name} in DB")
+
+    engine.dispose()
 
 
 def gdf_to_df_geo(gdf):
@@ -282,6 +287,9 @@ def df_from_db(name, schema):
     utils.log(f"Getting {name} from DB")
     df = pd.read_sql(f"SELECT * FROM {schema.lower()}.{name.lower()}", engine)
     utils.log(f"{name} retrived")
+
+    engine.dispose()
+
     return df
 
 
@@ -316,6 +324,9 @@ def gdf_from_query(query, geometry_col="geom", index_col=None):
         query, engine, geom_col=geometry_col, index_col=index_col
     )
     utils.log("Data retrived")
+
+    engine.dispose()
+
     return df
 
 
@@ -335,6 +346,9 @@ def gdf_from_db(name, schema):
         f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col="geometry"
     )
     utils.log(f"{name} retrived")
+
+    engine.dispose()
+
     return gdf
 
 
