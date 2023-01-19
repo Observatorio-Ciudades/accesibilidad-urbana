@@ -1,0 +1,211 @@
+import os
+import sys
+
+import pandas as pd
+import geopandas as gpd
+import numpy as np
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+module_path = os.path.abspath(os.path.join('..'))
+if module_path not in sys.path:
+    sys.path.append(module_path)
+    import aup
+
+
+def main(city, cvegeo_list, save=False):
+
+    # donwload hexagons with pop data
+    hex_pop = gpd.GeoDataFrame()
+    hex_folder = 'hex_bins_pop_2020'
+    # Iterates over municipality codes for each metropolitan area or capital
+    for cvegeo in cvegeo_list:
+        # Downloads municipality polygon according to code
+        query = f"SELECT * FROM censo.{hex_folder} WHERE \"CVEGEO\" LIKE \'{cvegeo}%%\'"
+        hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
+        hex_pop = pd.concat([hex_pop, hex_tmp],
+        ignore_index = True, axis = 0)
+
+    pob_tot = hex_pop.pobtot.sum()
+    aup.log(f'Downloaded hex data with a total of {pob_tot} persons')
+
+    # calculate population density
+    hex_pop = hex_pop.to_crs("EPSG:6372")
+    hex_pop['dens_pobha'] = hex_pop['pobtot'] / (hex_pop.area/10000)
+    hex_pop = hex_pop.to_crs("EPSG:4326")
+
+    # calculate age groups
+    hex_pop['pob_0a14'] = hex_pop['p_0a2'] + hex_pop['p_3a5'] + hex_pop['p_6a11'] + hex_pop['p_12a14']
+    hex_pop['pob_15a24'] = hex_pop['p_15a17'] + hex_pop['p_18a24']
+    hex_pop['pob_25a59'] = hex_pop['p_18ymas'] - + hex_pop['p_18a24'] - hex_pop['p_60ymas']
+
+    pop_list = ['hex_id_8','pobtot','pobfem','pobmas',
+            'pob_0a14','pob_15a24','pob_25a59',
+            'p_60ymas','dens_pobha']
+
+    aup.log('Calculated density and age groups')
+
+    # determine missing elements by group
+
+    # download nodes with distance data for a specified city
+
+    # define dictionaries for time analysis
+       
+    idx_cd_cuidadoras = {'Preescolar':['denue_preescolar'],
+                         'Primaria':['denue_primaria'],
+                         'Secundaria':['denue_secundaria'],
+                     'Salud':['clues_primer_nivel'],
+                     'Guarderias':['denue_guarderias'],
+                     'Alimentos' : ['denue_supermercado','denue_abarrotes',
+                                    'denue_carnicerias','sip_mercado'],
+                     'Personal' : ['denue_ropa','denue_peluqueria'],
+                     'Parques' : ['sip_cancha','sip_unidad_deportiva','sip_espacio_publico']
+             }
+
+    wegiht_idx = {'Preescolar': 1,
+                            'Primaria': 1,
+                            'Secundaria': 1,
+                        'Salud': 1,
+                        'Guarderias': 1,
+                        'Alimentos' : 1,
+                        'Personal' : 2,
+                        'Parques' : 1
+                }
+
+    nodes_schema = 'prox_analysis'
+    nodes_folder = 'nodes_proximity_2020'
+
+    amenidades = []
+
+    # gather amenities for analysis
+    for amenidad in idx_cd_cuidadoras.keys():
+        for a in idx_cd_cuidadoras[amenidad]:
+            amenidades.append(a)
+
+    # amenidades =  str(tuple(amenidades))
+
+    query = f"SELECT * FROM {nodes_schema}.{nodes_folder} WHERE \"metropolis\" LIKE \'{city}\' AND \"amenity\" IN {str(tuple(amenidades))} "
+    nodes = aup.gdf_from_query(query, geometry_col='geometry')
+    
+    aup.log(f'Downloaded a total of {nodes.shape[0]} nodes')
+
+
+    # preprocess nodes for time analysis 
+    
+    # delete duplicastes and keep only one point for each node
+    nodes_geom = nodes.drop_duplicates(subset='osmid', keep="last")[['osmid','geometry','metropolis']].copy()
+
+    nodes_analysis = nodes_geom.copy()
+
+    # relate time data to each point
+    for amenidad in list(nodes.amenity.unique()):
+
+        nodes_tmp = nodes.loc[nodes.amenity == amenidad,['osmid','time']]
+        nodes_tmp = nodes_tmp.rename(columns={'time':amenidad})
+
+        if nodes_tmp[amenidad].mean() == 0:
+            nodes_tmp[amenidad] = np.nan
+
+        nodes_analysis = nodes_analysis.merge(nodes_tmp, on='osmid')
+        
+    aup.log(f'Transformed nodes data')
+
+    # fill missing columns
+
+    column_list = list(nodes_analysis.columns)
+
+    cont = 0
+
+    for a in amenidades:
+        if a not in column_list:
+            nodes_analysis[a] = np.nan
+            cont += 1
+
+    aup.log(f'Finished missing amenities analysis with {cont} added')
+                    
+    # time by ammenity
+
+    column_max_all = []
+
+    for e in idx_cd_cuidadoras.keys():
+        
+        column_max_all.append('max_'+ e.lower())
+
+        if wegiht_idx[e] < len(idx_cd_cuidadoras[e]):
+            nodes_analysis['max_'+ e.lower()] = nodes_analysis[idx_cd_cuidadoras[e]].min(axis=1)
+            
+        else:
+            nodes_analysis['max_'+ e.lower()] = nodes_analysis[idx_cd_cuidadoras[e]].max(axis=1)
+            
+    index_column = 'max_idx_15_min' # column name for 15 minute index data
+    nodes_analysis[index_column] = nodes_analysis[column_max_all].max(axis=1)
+
+    # nodes for grouping by hex
+    column_max_all.append('osmid')
+    column_max_all.append('geometry')
+    column_max_all.append(index_column)
+    nodes_analysis_filter = nodes_analysis[column_max_all].copy()
+
+    aup.log(f'Calculated 15 minutes city index by node with an average of {nodes_analysis_filter[index_column].mean()} min')
+
+    # group data by hex
+    res = 8
+    hex_tmp = hex_pop[['hex_id_8','geometry']].copy()
+    hex_res_8_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+    hex_res_8_idx = hex_res_8_idx.loc[hex_res_8_idx[index_column]>0].copy()
+
+    aup.log('Grouped nodes data by hexagons')
+    
+    # time by ammenity
+
+    column_max_ejes = [] # list with ejes index column names
+
+    for e in idx_cd_cuidadoras.keys():
+        
+        column_max_ejes.append('max_'+ e.lower())
+        column_max_amenities = [] # list with amenity index column names
+
+    hex_res_8_idx[index_column] = hex_res_8_idx[column_max_ejes].max(axis=1)
+
+    aup.log('Finished recalculating times in hexagons')
+
+    # add population data
+    hex_res_8_idx = pd.merge(hex_res_8_idx, hex_pop[pop_list], on='hex_id_8')
+
+    aup.log(f'Population within 15 min city: {hex_res_8_idx.loc[hex_res_8_idx[index_column]<=15].pobtot.sum()}')
+    aup.log(f'Population outside 15 min city: {hex_res_8_idx.loc[hex_res_8_idx[index_column]>15].pobtot.sum()}')
+
+    # add city data
+    hex_res_8_idx['city'] = city
+
+    # upload data
+    if save:
+        aup.gdf_to_db_slow(hex_res_8_idx, f'cd_cuidadoras_hexres{res}', 'prox_analysis', if_exists='append')
+    
+    
+    
+if __name__ == "__main__":
+
+    aup.log('--'*20)
+    aup.log('Starting script')
+
+    gdf_mun = aup.gdf_from_db('metro_list', 'metropolis')
+
+    # prevent cities being analyzed to times in case of a crash
+    processed_city_list = []
+    try:
+        processed_city_list = aup.gdf_from_db('cd_cuidadoras_hexres8', 'prox_analysis')
+        processed_city_list = list(processed_city_list.city.unique())
+    except:
+        pass
+
+    for city in gdf_mun.city.unique():
+
+        aup.log(f'\n Starting city {city}')
+
+        if city not in processed_city_list:
+
+            cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+
+            main(city, cvegeo_list, save=True)
