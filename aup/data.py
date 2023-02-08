@@ -193,7 +193,7 @@ def df_to_db(df, name, table, schema, if_exists="fail"):
     cursor.close()
     conn.close()
 
-def df_to_db_slow(df, name, schema, if_exists='fail'):
+def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      """Upload a Pandas.DataFrame to the database
      Args:
          df (pandas.DataFrame): DataFrame to be uploadead
@@ -206,7 +206,7 @@ def df_to_db_slow(df, name, schema, if_exists='fail'):
      engine = utils.db_engine()
      utils.log(f'Uploading table {name} to database')
      df.to_sql(name=name.lower(), con=engine,
-               if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=50000)
+               if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=chunksize)
      utils.log(f'Table {name} in DB')
 
 
