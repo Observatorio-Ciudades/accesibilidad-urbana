@@ -302,7 +302,7 @@ def df_from_query(query, index_col=None):
     return df
 
 
-def gdf_from_query(query, geometry_col="geom", index_col=None):
+def gdf_from_query(query, geometry_col="geometry", index_col=None):
     """Load a table from the database into a GeoDataFrame
 
     Args:
@@ -320,7 +320,7 @@ def gdf_from_query(query, geometry_col="geom", index_col=None):
     return df
 
 
-def gdf_from_db(name, schema):
+def gdf_from_db(name, schema,geom_col="geometry"):
     """Load a table from the database into a GeoDataFrame
 
     Args:
@@ -333,7 +333,7 @@ def gdf_from_db(name, schema):
     engine = utils.db_engine()
     utils.log(f"Getting {name} from DB")
     gdf = gpd.read_postgis(
-        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col="geometry"
+        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col=geom_col
     )
     utils.log(f"{name} retrived")
     return gdf
