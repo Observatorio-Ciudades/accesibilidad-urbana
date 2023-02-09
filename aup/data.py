@@ -159,7 +159,7 @@ def create_schema(schema):
         pass
 
 
-def df_to_db(df, name, table, schema, if_exists="fail"):
+def df_to_db(df, table, schema, if_exists="fail"):
     """Save a dataframe into the database as a table
 
     Args:
@@ -177,16 +177,16 @@ def df_to_db(df, name, table, schema, if_exists="fail"):
     buffer.seek(0)
     conn = utils.connect()
     cursor = conn.cursor()
-    utils.log(f"{name} starting upload to: {table}")
+    utils.log(f"{table} starting upload to: {schema}")
     try:
         cursor.copy_expert(
             f"""COPY {schema}.{table} FROM STDIN WITH (FORMAT CSV)""", buffer
         )
         conn.commit()
-        utils.log(f"{name} Copy to {schema}.{table} done.")
+        utils.log(f"Copy to {schema}.{table} done.")
         buffer = 0
     except (Exception, psycopg2.DatabaseError) as error:
-        utils.log(f"{name} Error: {error}")
+        utils.log(f"{table} Error: {error}")
         conn.rollback()
         cursor.close()
         return 1
