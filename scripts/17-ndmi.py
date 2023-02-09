@@ -264,12 +264,20 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
         hex_raster_analysis['city'] = city
         
         if save==True:
+
+            if r == 8:
             
-            aup.df_to_db_slow(hex_raster_inter, f'{index_analysis}_complete_dataset_hex',
-                            'raster_analysis', if_exists='append', chunksize=upload_chunk)
-            
-            aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
-                            'raster_analysis', if_exists='append')
+                aup.df_to_db_slow(hex_raster_inter, f'{index_analysis}_complete_dataset_hex',
+                                'raster_analysis', if_exists='append', chunksize=upload_chunk)
+                
+                aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
+                                'raster_analysis', if_exists='append')
+
+            else:
+                aup.df_to_db(hex_raster_inter,f'{index_analysis}_complete_dataset_hex',
+                                'raster_analysis', if_exists='append')
+                aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
+                                'raster_analysis', if_exists='append')
         
         # delete variables
         
