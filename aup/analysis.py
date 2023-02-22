@@ -602,7 +602,7 @@ def clean_mask(geom, dataset='', **mask_kw):
                                   **mask_kw)
     return masked
 
-def raster_to_hex(hex_gdf, df_complete_dates, r, index_analysis, raster_dir):
+def raster_to_hex(hex_gdf, df_complete_dates, r, index_analysis, city, raster_dir):
     # create empty geodataframe to save ndmi by date
     hex_raster = gpd.GeoDataFrame()
 
@@ -616,7 +616,7 @@ def raster_to_hex(hex_gdf, df_complete_dates, r, index_analysis, raster_dir):
         if type(df_complete_dates.iloc[d].nir)==list:
 
             # read ndmi file
-            raster_file = rasterio.open(f"{raster_dir}{index_analysis}_{month_}_{year_}.tif")
+            raster_file = rasterio.open(f"{raster_dir}{city}_{index_analysis}_{month_}_{year_}.tif")
 
             hex_tmp = hex_tmp.to_crs(raster_file.crs)
 
