@@ -49,7 +49,7 @@ def time_limit(seconds):
             signal.alarm(0)
 
 
-def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
+def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=False):
 
     ###############################
     # Download hex polygons with AGEB data
@@ -137,14 +137,17 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
 
     aup.log(f"Returned {len(items)} Items")
 
-    # gather links
-    assets_hrefs = aup.link_dict(band_name_list, items)
-    # filters for dates with full data
-    assets_hrefs, max_links = aup.filter_links(assets_hrefs, band_name_list)
-    aup.log(f'{max_links} rasters by time analysis')
-    # create complete dates DataFrame
-    df_complete_dates, missing_months = aup.df_date_links(assets_hrefs, "2020-01-01", time_range)
+    def gather_links():
+            # gather links
+        assets_hrefs = aup.link_dict(band_name_list, items)
+        # filters for dates with full data
+        assets_hrefs, max_links = aup.filter_links(assets_hrefs, band_name_list)
+        aup.log(f'{max_links} rasters by time analysis')
+        # create complete dates DataFrame
+        df_complete_dates, missing_months = aup.df_date_links(assets_hrefs, "2020-01-01", time_range)
+        return df_complete_dates,missing_months
 
+    df_complete_dates,missing_months = gather_links()
     aup.log(f'Created DataFrame with {missing_months} missing months')
 
     ###############################
@@ -157,7 +160,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
     for i in tqdm(range(len(df_len)), position=0, leave=True):
         
         if type(df_len.iloc[i].nir)!=list:
-            continue
+            continueinterations
             
         # gather month and year from df to save ndmi
         month_ = df_complete_dates.iloc[i]['month']
@@ -166,7 +169,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
             continue
             
-        def first_attempt():
+        def mosaic_process(df_complete_dates):
             mosaic_red, _,_ = aup.mosaic_raster(df_complete_dates.iloc[i].red)
             aup.log('Finished processing red')
             mosaic_nir, out_trans_nir, out_meta = aup.mosaic_raster(df_complete_dates.iloc[i].nir)
@@ -174,21 +177,15 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
             return mosaic_red, mosaic_nir, out_trans_nir,out_meta
         
         def second_attempt():
-            assets_hrefs = aup.link_dict(band_name_list,items)
-            assets_hrefs, _ = aup.filter_links(assets_hrefs, band_name_list)
-            df_complete_dates, _ = aup.df_date_links(assets_hrefs, "2020-01-01", 36)
-            
-            mosaic_red, _,_ = aup.mosaic_raster(df_complete_dates.iloc[i].red)
-            aup.log('Finished processing red')
-            mosaic_nir, out_trans_nir, out_meta = aup.mosaic_raster(df_complete_dates.iloc[i].nir)
-            aup.log('Finished processing nir')
+            df_complete_dates,_ = gather_links()
+            mosaic_red, mosaic_nir, out_trans_nir,out_meta = mosaic_process(df_complete_dates)
             return df_complete_dates, mosaic_red, mosaic_nir, out_trans_nir,out_meta
             
         # mosaic by raster band
         aup.log(f'\n Starting new analysis for {month_}/{year_}')
         try:
             with time_limit(900):
-                mosaic_red, mosaic_nir, out_trans_nir,out_meta = first_attempt()
+                mosaic_red, mosaic_nir, out_trans_nir,out_meta = mosaic_process(df_complete_dates)
             
         except Exception as e:
             aup.log(e)
@@ -229,22 +226,26 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
 
     raster_file = ''
     raster_dir = tmp_dir
-    city = 'Guadalajara'
     upload_chunk = 150000
 
     def interpolate_raster_data(data, index_analysis=index_analysis):
         return data[index_analysis].interpolate()
 
+    aup.log('Starting raster data to hex')
 
     for r in range(8,12):
         # group raster by hex
-        hex_raster = aup.raster_to_hex(hex_gdf, df_complete_dates, r, index_analysis, raster_dir)
+        hex_raster = aup.raster_to_hex(hex_gdf, df_complete_dates, r, 
+        index_analysis, city, raster_dir)
+        aup.log('Assigned raster data to hexagons')
         # interpolate data
         hex_raster_inter = hex_raster.groupby('hex_id').apply(interpolate_raster_data)
         # data treatment for interpolation
         hex_raster_inter = hex_raster_inter.reset_index().merge(hex_raster[['month','year','geometry']].reset_index(), 
                                                             left_on='level_1', right_on='index')
         hex_raster_inter.drop(columns=['level_1','index'], inplace=True)
+
+        aup.log('Interpolated missing months')
         
         # summary statistics
         hex_raster_analysis = hex_gdf.loc[hex_gdf['res']==r,['hex_id','geometry','res']].drop_duplicates().copy()
@@ -254,6 +255,8 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
         
         hex_raster_analysis = hex_raster_analysis.merge(hex_group_data.reset_index(), on='hex_id')
         hex_raster_analysis[index_analysis+'_diff'] = hex_raster_analysis[index_analysis+'_max'] - hex_raster_analysis[index_analysis+'_min']
+
+        aup.log('Created analysis GeoDataFrame')
         
         # remove geometry information
         hex_raster_inter = hex_raster_inter.drop(columns=['geometry'])
@@ -263,7 +266,10 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
         hex_raster_inter['city'] = city
         hex_raster_analysis['city'] = city
         
+        # upload to database
         if save==True:
+
+            aup.log('Starting upload')
 
             if r == 8:
             
@@ -278,6 +284,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
                                 'raster_analysis', if_exists='append')
                 aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
                                 'raster_analysis', if_exists='append')
+            aup.log(f'Finished uploading data for res{r}')
         
         # delete variables
         
@@ -285,7 +292,8 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
         del hex_raster_inter
         del hex_group_data
         del hex_raster_analysis
-
+    
+    # delete raster files
     for filename in os.listdir(tmp_dir):
         file_path = os.path.join(tmp_dir, filename)
         try:
@@ -294,7 +302,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range):
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
         except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
+            aup.log('Failed to delete %s. Reason: %s' % (file_path, e))
 
 if __name__ == "__main__":
     aup.log('--'*10)
@@ -303,7 +311,7 @@ if __name__ == "__main__":
     index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     time_range = 36
-    save = False
+    save = True
 
     gdf_mun = aup.gdf_from_db('metro_gdf', 'metropolis')
 
@@ -323,5 +331,5 @@ if __name__ == "__main__":
 
             cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
 
-            main(index_analysis, city, cvegeo_list, band_name_list, time_range)
+            main(index_analysis, city, cvegeo_list, band_name_list, time_range, save)
             # ndvi_analysis(schema, folder_sufix, year, amenities, save = save)
