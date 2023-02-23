@@ -10,6 +10,9 @@ from rasterio import warp
 import rasterio.mask
 from rasterio.enums import Resampling
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
 import numpy as np
 from PIL import Image
 
@@ -32,21 +35,6 @@ if module_path not in sys.path:
     import aup
 
 np.seterr(divide='ignore', invalid='ignore')
-
-from contextlib import contextmanager
-
-class TimeoutException(Exception): pass
-
-@contextmanager
-def time_limit(seconds):
-        def signal_handler(signum, frame):
-            raise TimeoutException("Timed out!")
-        signal.signal(signal.SIGALRM, signal_handler)
-        signal.alarm(seconds)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
 
 
 def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=False):
@@ -86,7 +74,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
     aup.log('Created hex data at different resolutions')
 
     ###############################
-    # Gather links for raster data
+    # Determine available links for raster data
 
     # Reads mun_gdf GeoDataFrame as polygon
     poly = hex_gdf.loc[hex_gdf.res==8].geometry
@@ -120,113 +108,131 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
                         "2022-07-01/2022-09-30","2022-10-01/2022-12-31",
                     ]
 
-    catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+    def gather_items(time_of_interest):
+        catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
-    items = []
+        items = []
 
-    for t in time_of_interest:
-        search = catalog.search(
-            collections=["sentinel-2-l2a"],
-            intersects=area_of_interest,
-            datetime=t,
-            query={"eo:cloud_cover": {"lt": 10}},
-        )
+        for t in time_of_interest:
+            search = catalog.search(
+                collections=["sentinel-2-l2a"],
+                intersects=area_of_interest,
+                datetime=t,
+                query={"eo:cloud_cover": {"lt": 10}},
+            )
+            # Check how many items were returned
+            items.extend(list(search.get_items()))
+        return items
 
-        # Check how many items were returned
-        items.extend(list(search.get_items()))
+    items = gather_items(time_of_interest)
 
     aup.log(f"Returned {len(items)} Items")
 
-    def gather_links():
-            # gather links
-        assets_hrefs = aup.link_dict(band_name_list, items)
-        # filters for dates with full data
-        assets_hrefs, max_links = aup.filter_links(assets_hrefs, band_name_list)
-        aup.log(f'{max_links} rasters by time analysis')
-        # create complete dates DataFrame
-        df_complete_dates, missing_months = aup.df_date_links(assets_hrefs, "2020-01-01", time_range)
-        return df_complete_dates,missing_months
+    # gather links
+    assets_hrefs = aup.link_dict(band_name_list, items)
+    # filters for dates with full data
+    assets_hrefs, max_links = aup.filter_links(assets_hrefs, band_name_list)
+    aup.log(f'{max_links} rasters links by time analysis')
+    # create complete dates DataFrame
+    df_len, missing_months = aup.df_date_links(assets_hrefs, "2020-01-01", time_range)
 
-    df_complete_dates,missing_months = gather_links()
     aup.log(f'Created DataFrame with {missing_months} missing months')
 
     ###############################
     # Download raster data
 
-    df_len = df_complete_dates.copy()
-
     aup.log('\n Starting raster analysis')
 
     for i in tqdm(range(len(df_len)), position=0, leave=True):
         
-        if type(df_len.iloc[i].nir)!=list:
-            continueinterations
+        checker = 0
+
+        if df_len.iloc[i].data_id==0:
+            continue
             
         # gather month and year from df to save ndmi
-        month_ = df_complete_dates.iloc[i]['month']
-        year_ = df_complete_dates.iloc[i]['year']
+        month_ = df_len.iloc[i]['month']
+        year_ = df_len.iloc[i]['year']
         
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
             continue
-            
-        def mosaic_process(df_complete_dates):
-            mosaic_red, _,_ = aup.mosaic_raster(df_complete_dates.iloc[i].red)
+        
+        aup.log(f'\n Starting new analysis for {month_}/{year_}')
+        
+        # gather links for raster images
+        sample_date = datetime(year_, month_, 1)
+        first_day = sample_date + relativedelta(day=1)
+        last_day = sample_date + relativedelta(day=31)
+        
+        time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
+                            f"-{month_:02d}-{last_day.day:02d}"]
+        
+        items = gather_items(time_of_interest)
+        
+        assets_hrefs = link_dict(band_name_list, items)
+        
+        df_links = pd.DataFrame.from_dict(assets_hrefs, 
+                                        orient='Index').reset_index().rename(columns={'index':'date'})
+        
+        # mosaic raster
+        def mosaic_process(red_links, nir_links):
+            mosaic_red, _,_ = aup.mosaic_raster(red_links)
             aup.log('Finished processing red')
-            mosaic_nir, out_trans_nir, out_meta = aup.mosaic_raster(df_complete_dates.iloc[i].nir)
+            mosaic_nir, out_trans_nir, out_meta = aup.mosaic_raster(nir_links)
             aup.log('Finished processing nir')
             return mosaic_red, mosaic_nir, out_trans_nir,out_meta
-        
-        def second_attempt():
-            df_complete_dates,_ = gather_links()
-            mosaic_red, mosaic_nir, out_trans_nir,out_meta = mosaic_process(df_complete_dates)
-            return df_complete_dates, mosaic_red, mosaic_nir, out_trans_nir,out_meta
-            
-        # mosaic by raster band
-        aup.log(f'\n Starting new analysis for {month_}/{year_}')
-        try:
-            with time_limit(900):
-                mosaic_red, mosaic_nir, out_trans_nir,out_meta = mosaic_process(df_complete_dates)
-            
-        except Exception as e:
-            aup.log(e)
-            aup.log(f'Fetching new url for: {month_}/{year_}')
-            
-            df_complete_dates, mosaic_red, mosaic_nir, out_trans_nir,out_meta = second_attempt()
-        
+
+        for data_link in range(len(df_links)):
+            try:
+                aup.log(f'Mosaic date {df_links.iloc[data_link].date.day}'+
+                        f'/{df_links.iloc[data_link].date.month}'+
+                        f'/{df_links.iloc[data_link].date.year}')
+                mosaic_red, mosaic_nir, out_trans_nir,out_meta = mosaic_process(
+                    df_links.iloc[data_link].red,
+                            df_links.iloc[data_link].nir)
+                checker = 1
+                break
+            except:
+                continue
+                
+        if checker==0:
+            df_len.iloc[i].data_id=0
+            continue
+
+        # modify data types
         mosaic_red = mosaic_red.astype('float32')
         mosaic_nir = mosaic_nir.astype('float32')
         aup.log('Transformed red and nir to float')
         aup.log(f'array datatype: {mosaic_red.dtype}')
-        
+
         ndvi = (mosaic_nir-mosaic_red)/(mosaic_nir+mosaic_red)
         aup.log('Calculated ndvi')
-        
+
         out_meta.update({"driver": "GTiff",
                     "dtype": 'float32',
                     "height": ndvi.shape[1],
                     "width": ndvi.shape[2],
                     "transform": out_trans_nir})
 
-        
-        
+        # save raster to local file
         aup.log('Starting save')
 
         with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif", "w", **out_meta) as dest:
             dest.write(ndvi)
 
             dest.close()
-        
+
         aup.log('Finished saving')
         del mosaic_red
         del mosaic_nir
         del ndvi
 
+    aup.log(f'Could not process {len(df_len.loc[df_len.data_id==0])-missing_months} months')
+
     ###############################
     # Raster data to hex
 
     raster_file = ''
-    raster_dir = tmp_dir
-    upload_chunk = 150000
 
     def interpolate_raster_data(data, index_analysis=index_analysis):
         return data[index_analysis].interpolate()
@@ -235,11 +241,11 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
 
     for r in range(8,12):
         # group raster by hex
-        hex_raster = aup.raster_to_hex(hex_gdf, df_complete_dates, r, 
-        index_analysis, city, raster_dir)
+        hex_raster = aup.raster_to_hex(hex_gdf, df_len, r, 
+        index_analysis, city, tmp_dir)
         aup.log('Assigned raster data to hexagons')
         # interpolate data
-        hex_raster_inter = hex_raster.groupby('hex_id').apply(interpolate_raster_data)
+        hex_raster_inter = hex_raster.groupby('hex_id',group_keys=True).apply(interpolate_raster_data)
         # data treatment for interpolation
         hex_raster_inter = hex_raster_inter.reset_index().merge(hex_raster[['month','year','geometry']].reset_index(), 
                                                             left_on='level_1', right_on='index')
@@ -323,13 +329,14 @@ if __name__ == "__main__":
     except:
         pass
 
+    city_analysis_list = ['Guadalajara','Monterrey','ZMVM']
+
     for city in gdf_mun.city.unique():
 
-        aup.log(f'\n Starting city {city}')
+        if city not in city_analysis_list:
 
-        if city not in processed_city_list:
+            aup.log(f'\n Starting city {city}')
 
             cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
 
             main(index_analysis, city, cvegeo_list, band_name_list, time_range, save)
-            # ndvi_analysis(schema, folder_sufix, year, amenities, save = save)
