@@ -164,20 +164,20 @@ def df_to_db(df, table, schema, if_exists="fail"):
 
     Args:
         df (DataFrame): pandas.DataFrame to upload
-        name (str): name of the dataframe to upload (used for logs)
-        table (str): name of the table to create/append to.
+        table (str): name of the dataframe to upload (used for logs)
+        schema (str): name of the schema to that contains the table.
 
     """
-
     create_schema(schema)
     table = table.lower()
     schema = schema.lower()
+    # save dataframe to an in memory buffer
     buffer = StringIO()
-    df.to_csv(buffer, index=False, header=False, quoting=csv.QUOTE_NONNUMERIC, sep=",")
+    df.to_csv(buffer, index=False, header=False)
     buffer.seek(0)
+    
     conn = utils.connect()
     cursor = conn.cursor()
-    utils.log(f"{table} starting upload to: {schema}")
     try:
         cursor.copy_expert(
             f"""COPY {schema}.{table} FROM STDIN WITH (FORMAT CSV)""", buffer
@@ -186,12 +186,11 @@ def df_to_db(df, table, schema, if_exists="fail"):
         utils.log(f"Copy to {schema}.{table} done.")
         buffer = 0
     except (Exception, psycopg2.DatabaseError) as error:
-        utils.log(f"{table} Error: {error}")
+        utils.log("Error: %s" % error)
         conn.rollback()
         cursor.close()
         return 1
     cursor.close()
-    conn.close()
 
 def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      """Upload a Pandas.DataFrame to the database
