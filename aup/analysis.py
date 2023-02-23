@@ -545,7 +545,13 @@ def df_date_links(assets_hrefs, start_date, periods):
     df_complete_dates.drop(columns='date', inplace=True)
     df_complete_dates.sort_values(by=['year','month'], inplace=True)
     
-    missing_months = df_complete_dates.nir.isna().sum()
+    idx = df_complete_dates.red.isna()
+    df_complete_dates['data_id'] = 0
+    df_complete_dates.loc[~idx,'data_id'] = 1
+    
+    df_complete_dates.drop(columns=['red','nir'], inplace=True)
+    
+    missing_months = len(df_complete_dates.loc[df_complete_dates.data_id==0])
     
     return df_complete_dates, missing_months
 
