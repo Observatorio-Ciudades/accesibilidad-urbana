@@ -19,6 +19,8 @@ import psycopg2
 from geoalchemy2 import WKTElement
 from shapely.geometry import Polygon, MultiLineString, Point, LineString
 
+import shutil
+
 from . import utils
 
  
@@ -336,6 +338,18 @@ def gdf_from_db(name, schema):
     )
     utils.log(f"{name} retrived")
     return gdf
+
+
+def delete_files_from_folder(delete_dir):
+    for filename in os.listdir(delete_dir):
+        file_path = os.path.join(delete_dir, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            utils.log('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
 def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
