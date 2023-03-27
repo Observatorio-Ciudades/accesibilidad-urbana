@@ -20,12 +20,8 @@ import matplotlib.pyplot as plt
 
 from shapely.geometry import Point
 
-import signal
-import time
-
 from tqdm import tqdm
 
-import shutil
 
 import os
 import sys
@@ -71,7 +67,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
         
         del hex_tmp
 
-    aup.log('Created hex data at different resolutions')
+    aup.log(f'Created {len(hex_gdf)} hex data at different resolutions')
 
     ###############################
     # Determine available links for raster data
@@ -169,7 +165,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
         
         items = gather_items(time_of_interest)
         
-        assets_hrefs = link_dict(band_name_list, items)
+        assets_hrefs = aup.link_dict(band_name_list, items)
         
         df_links = pd.DataFrame.from_dict(assets_hrefs, 
                                         orient='Index').reset_index().rename(columns={'index':'date'})
@@ -187,6 +183,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
                 aup.log(f'Mosaic date {df_links.iloc[data_link].date.day}'+
                         f'/{df_links.iloc[data_link].date.month}'+
                         f'/{df_links.iloc[data_link].date.year}')
+                aup.log(df_links.iloc[data_link].red)
                 mosaic_red, mosaic_nir, out_trans_nir,out_meta = mosaic_process(
                     df_links.iloc[data_link].red,
                             df_links.iloc[data_link].nir)
@@ -229,6 +226,10 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
 
     aup.log(f'Could not process {len(df_len.loc[df_len.data_id==0])-missing_months} months')
 
+    if len(df_len.loc[df_len.data_id==0])/len(df_len) > 0.5:
+        aup.log(f'Aborting analysis for amount of missing data for {city}')
+        aup.delete_files_from_folder(tmp_dir)
+
     ###############################
     # Raster data to hex
 
@@ -240,6 +241,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
     aup.log('Starting raster data to hex')
 
     for r in range(8,12):
+        aup.log(f'Starting analysis for resolution {r}')
         # group raster by hex
         hex_raster = aup.raster_to_hex(hex_gdf, df_len, r, 
         index_analysis, city, tmp_dir)
@@ -271,7 +273,8 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
         # add city information
         hex_raster_inter['city'] = city
         hex_raster_analysis['city'] = city
-        
+        upload_chunk = 150000
+
         # upload to database
         if save==True:
 
@@ -300,15 +303,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, time_range, save=Fal
         del hex_raster_analysis
     
     # delete raster files
-    for filename in os.listdir(tmp_dir):
-        file_path = os.path.join(tmp_dir, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            aup.log('Failed to delete %s. Reason: %s' % (file_path, e))
+    aup.delete_files_from_folder(tmp_dir)
 
 if __name__ == "__main__":
     aup.log('--'*10)
@@ -320,6 +315,7 @@ if __name__ == "__main__":
     save = True
 
     gdf_mun = aup.gdf_from_db('metro_gdf', 'metropolis')
+    gdf_mun = gdf_mun.sort_values(by='city')
 
     # prevent cities being analyzed to times in case of a crash
     processed_city_list = []
@@ -329,11 +325,9 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis_list = ['Guadalajara','Monterrey','ZMVM']
-
     for city in gdf_mun.city.unique():
 
-        if city not in city_analysis_list:
+        if city not in processed_city_list:
 
             aup.log(f'\n Starting city {city}')
 
