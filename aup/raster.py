@@ -34,6 +34,16 @@ class AvailableData(Exception):
         return self.message
 
 
+def available_data_check(df_len, missing_months, pct_limit=50, window_limit=5):
+    pct_missing = round(missing_months/len(df_len),2)*100
+    log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
+    if pct_missing >= pct_limit: 
+        raise AvailableData('Missing more than 50 percent of data points')
+    df_rol = df_len.rolling(window_limit).sum()
+    if len(df_rol.loc[df_rol.data_id==0])>0:
+        raise AvailableData('Multiple missing months together')
+    del df_rol
+
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
                                tmp_dir, band_name_list, satellite="sentinel-2-l2a"):
@@ -86,12 +96,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
 
     # analyze available data
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq)
-    pct_missing = round(missing_months/len(df_len),2)*100
-    log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
-
-    if pct_missing >= 50:
-        
-        raise AvailableData('Missing more than 50 percent of data points')
+    available_data_check(df_len, missing_months)
 
     # raster cropping
     bounding_box = gpd.GeoDataFrame(geometry=poly).envelope
@@ -343,139 +348,14 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     
     return mosaic, out_trans, meta
 
-def clean_mask(geom, dataset='', **mask_kw):
-    mask_kw.setdefault('crop', True)
-    mask_kw.setdefault('all_touched', True)
-    mask_kw.setdefault('filled', False)
-    masked, _ = rasterio.mask.mask(dataset=dataset, shapes=(geom,),
-                                  **mask_kw)
-    return masked
-
-
-def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
-    hex_raster = hex_gdf.copy()
-    # read ndmi file
-    raster_file = rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month}_{year}.tif")
-
-    hex_raster = hex_raster.to_crs(raster_file.crs)
-    try:
-
-        hex_raster[index_analysis] = hex_raster.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
-    except:
-        hex_raster[index_analysis] = np.nan
-
-    hex_raster['month'] = month
-    hex_raster['year'] = year
-
-    hex_raster = hex_raster.to_crs("EPSG:4326")
-
-    return hex_raster
-
-
-def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
-    # create empty geodataframe to save ndmi by date
-    hex_raster = gpd.GeoDataFrame()
-
-    years_list = list(df_len.year.unique())
-
-    for i in tqdm(range(len(years_list)),position=0,leave=True):
-        y = years_list[i]
-        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.month.unique())]
-        pbar = tqdm(total=len(input_list))
-        pool = Pool()
-        hex_res = pd.concat(pool.starmap(mask_by_hexagon,input_list))
-        pool.close()
-        hex_raster = pd.concat([hex_raster, hex_res], 
-            ignore_index = True, axis = 0)
-        del hex_res
-        
-    return hex_raster
-
-def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
-    # create empty geodataframe to save ndmi by date
-    hex_raster = gpd.GeoDataFrame()
-
-    for d in tqdm(range(len(df_len)),position=0,leave=True):
-
-        month_ = df_len.loc[df_len.index==d].month.values[0]
-        year_ = df_len.loc[df_len.index==d].year.values[0]
-
-        hex_tmp = hex_gdf.loc[hex_gdf.res==r].copy()
-
-        if df_len.iloc[d].data_id==1:
-
-            # read ndmi file
-            raster_file = rasterio.open(f"{raster_dir}{city}_{index_analysis}_{month_}_{year_}.tif")
-
-            hex_tmp = hex_tmp.to_crs(raster_file.crs)
-
-            try:
-                hex_tmp[index_analysis] = hex_tmp.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
-            except:
-                hex_tmp[index_analysis] = np.nan
-
-        else:
-            hex_tmp[index_analysis] = np.nan
-
-        hex_tmp['month'] = month_
-        hex_tmp['year'] = year_
-
-        hex_tmp = hex_tmp.to_crs("EPSG:4326")
-
-        # concatenate into single geodataframe
-        hex_raster = pd.concat([hex_raster, hex_tmp], 
-            ignore_index = True, axis = 0)
-
-        del hex_tmp
-        
-    return hex_raster
-
-
-def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
-    # group raster by hex
-    log('Starting raster to hexagons')
-    hex_gdf = hex_gdf.loc[hex_gdf.res==res].copy()
-    hex_raster = raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, tmp_dir)
-    log('Assigned raster data to hexagons')
-    
-    # summary statistics
-    hex_raster_analysis = hex_gdf[['hex_id','geometry','res']].drop_duplicates().copy()
-    
-    hex_raster_minmax = hex_raster[['hex_id',index_analysis,'year']].groupby(['hex_id','year']).agg(['max','min'])
-    hex_raster_minmax.columns = ['_'.join(col) for col in hex_raster_minmax.columns]
-    hex_raster_minmax = hex_raster_minmax.reset_index()
-    hex_raster_minmax = hex_raster_minmax[['hex_id','ndvi_max','ndvi_min']].groupby(['hex_id']).mean()
-    hex_raster_minmax = hex_raster_minmax.reset_index()
-
-    hex_group_data = hex_raster[['hex_id',index_analysis]].groupby('hex_id').agg(['mean','std',
-                                                                                'median',mk.sens_slope])
-    hex_group_data.columns = ['_'.join(col) for col in hex_group_data.columns]
-    hex_group_data = hex_group_data.reset_index().merge(hex_raster_minmax, on='hex_id')
-    
-    hex_raster_analysis = hex_raster_analysis.merge(hex_group_data, on='hex_id')
-    hex_raster_analysis[index_analysis+'_diff'] = hex_raster_analysis[index_analysis+'_max'] - hex_raster_analysis[index_analysis+'_min']
-    hex_raster_analysis[index_analysis+'_tend'] = hex_raster_analysis[f'{index_analysis}_sens_slope'].apply(lambda x: x[0])
-    hex_raster_analysis = hex_raster_analysis.drop(columns=[f'{index_analysis}_sens_slope'])
-    
-    # remove geometry information
-    hex_raster_df = hex_raster.drop(columns=['geometry'])
-    
-    # add city information
-    hex_raster_df['city'] = city
-    hex_raster_analysis['city'] = city
-
-    log(f'df nan values: {hex_raster_df[index_analysis].isna().sum()}')
-
-    return hex_raster_analysis, hex_raster_df
-
 def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
     mosaic_band_1, _,_ = mosaic_raster(links_band_1, tmp_dir, upscale=False)
-    mosaic_band_1 = mosaic_band_1.astype('float32')
+    mosaic_band_1 = mosaic_band_1.astype('float16')
     log(f'Finished processing {band_name_list[0]}')
     mosaic_band_2, out_trans_band_2, out_meta = mosaic_raster(links_band_2)
     log(f'Finished processing {band_name_list[1]}')
-    mosaic_band_2 = mosaic_band_2.astype('float32')
-    log('Transformed band arrays to float32')
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+    log('Transformed band arrays to float16')
     log(f'array datatype: {mosaic_band_1.dtype}')
     return mosaic_band_1, mosaic_band_2, out_trans_band_2,out_meta
 
@@ -628,6 +508,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         
         del out_image
 
+        available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0]))
+
     df_len = pd.read_csv(df_file_dir)[['year','month','data_id','raster_row','raster_col','no_data_values','able_to_download']]
 
     return df_len
@@ -651,12 +533,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
 
     log(f'Interpolating {len(df_len.loc[df_len.data_id==0])}')
 
-    pct_missing = len(df_len.loc[df_len.data_id==0]) / len(df_len)
-    pct_missing = round(pct_missing,2)*100
-    
-    if pct_missing > 50:
-        
-        raise AvailableData('Missing more than 50 percent of data points')
+    available_data_check(df_len, len(df_len.loc[df_len.data_id==0]))
 
     df_len['interpolate'] = 0
     
@@ -794,3 +671,129 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
     df_len.to_csv(df_file_dir)
 
     return df_len
+
+
+def clean_mask(geom, dataset='', **mask_kw):
+    mask_kw.setdefault('crop', True)
+    mask_kw.setdefault('all_touched', True)
+    mask_kw.setdefault('filled', False)
+    masked, _ = rasterio.mask.mask(dataset=dataset, shapes=(geom,),
+                                  **mask_kw)
+    return masked
+
+
+def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
+    hex_raster = hex_gdf.copy()
+    # read ndmi file
+    raster_file = rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month}_{year}.tif")
+
+    hex_raster = hex_raster.to_crs(raster_file.crs)
+    try:
+
+        hex_raster[index_analysis] = hex_raster.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+    except:
+        hex_raster[index_analysis] = np.nan
+
+    hex_raster['month'] = month
+    hex_raster['year'] = year
+
+    hex_raster = hex_raster.to_crs("EPSG:4326")
+
+    return hex_raster
+
+
+def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
+    # create empty geodataframe to save ndmi by date
+    hex_raster = gpd.GeoDataFrame()
+
+    years_list = list(df_len.year.unique())
+
+    for i in tqdm(range(len(years_list)),position=0,leave=True):
+        y = years_list[i]
+        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.month.unique())]
+        pbar = tqdm(total=len(input_list))
+        pool = Pool()
+        hex_res = pd.concat(pool.starmap(mask_by_hexagon,input_list))
+        pool.close()
+        hex_raster = pd.concat([hex_raster, hex_res], 
+            ignore_index = True, axis = 0)
+        del hex_res
+        
+    return hex_raster
+
+def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
+    # create empty geodataframe to save index_analysis by date
+    hex_raster = gpd.GeoDataFrame()
+
+    for d in tqdm(range(len(df_len)),position=0,leave=True):
+
+        month_ = df_len.loc[df_len.index==d].month.values[0]
+        year_ = df_len.loc[df_len.index==d].year.values[0]
+
+        hex_tmp = hex_gdf.copy()
+
+        if df_len.iloc[d].data_id==1:
+
+            # read index_analysis file
+            raster_file = rasterio.open(f"{raster_dir}{city}_{index_analysis}_{month_}_{year_}.tif")
+
+            hex_tmp = hex_tmp.to_crs(raster_file.crs)
+
+            try:
+                hex_tmp[index_analysis] = hex_tmp.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+            except:
+                hex_tmp[index_analysis] = np.nan
+
+        else:
+            hex_tmp[index_analysis] = np.nan
+
+        hex_tmp['month'] = month_
+        hex_tmp['year'] = year_
+
+        hex_tmp = hex_tmp.to_crs("EPSG:4326")
+
+        # concatenate into single geodataframe
+        hex_raster = pd.concat([hex_raster, hex_tmp], 
+            ignore_index = True, axis = 0)
+
+        del hex_tmp
+        
+    return hex_raster
+
+
+def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
+    # group raster by hex
+    log('Starting raster to hexagons')
+    hex_gdf = hex_gdf.copy()
+    hex_raster = raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, tmp_dir)
+    log('Assigned raster data to hexagons')
+    
+    # summary statistics
+    hex_raster_analysis = hex_gdf[['hex_id','geometry','res']].drop_duplicates().copy()
+    
+    hex_raster_minmax = hex_raster[['hex_id',index_analysis,'year']].groupby(['hex_id','year']).agg(['max','min'])
+    hex_raster_minmax.columns = ['_'.join(col) for col in hex_raster_minmax.columns]
+    hex_raster_minmax = hex_raster_minmax.reset_index()
+    hex_raster_minmax = hex_raster_minmax[['hex_id','ndvi_max','ndvi_min']].groupby(['hex_id']).mean()
+    hex_raster_minmax = hex_raster_minmax.reset_index()
+
+    hex_group_data = hex_raster[['hex_id',index_analysis]].groupby('hex_id').agg(['mean','std',
+                                                                                'median',mk.sens_slope])
+    hex_group_data.columns = ['_'.join(col) for col in hex_group_data.columns]
+    hex_group_data = hex_group_data.reset_index().merge(hex_raster_minmax, on='hex_id')
+    
+    hex_raster_analysis = hex_raster_analysis.merge(hex_group_data, on='hex_id')
+    hex_raster_analysis[index_analysis+'_diff'] = hex_raster_analysis[index_analysis+'_max'] - hex_raster_analysis[index_analysis+'_min']
+    hex_raster_analysis[index_analysis+'_tend'] = hex_raster_analysis[f'{index_analysis}_sens_slope'].apply(lambda x: x[0])
+    hex_raster_analysis = hex_raster_analysis.drop(columns=[f'{index_analysis}_sens_slope'])
+    
+    # remove geometry information
+    hex_raster_df = hex_raster.drop(columns=['geometry'])
+    
+    # add city information
+    hex_raster_df['city'] = city
+    hex_raster_analysis['city'] = city
+
+    log(f'df nan values: {hex_raster_df[index_analysis].isna().sum()}')
+
+    return hex_raster_analysis, hex_raster_df
