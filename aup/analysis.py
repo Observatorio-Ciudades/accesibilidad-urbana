@@ -411,6 +411,7 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
         G (networkx.Graph): networkx Graph with travel time (time) attribute.
         center_node (int): id of the node to use
         trip_time (int): maximum travel time allowed
+		dist_column (int): column name with weight for calculation
         subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
     Returns:
         sub_G: (optional) subgraph of the covered area.
