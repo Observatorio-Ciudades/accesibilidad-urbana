@@ -362,7 +362,7 @@ def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_list, date_list, gdf_bb, 
-                           aoi, sat, time_exc_limit=600):
+                           aoi, sat, time_exc_limit=900):
 
     df_len['raster_row'] = np.nan
     df_len['raster_col'] = np.nan
