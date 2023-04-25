@@ -68,49 +68,25 @@ def main(index_analysis, city, cvegeo_list, band_name_list, start_date, end_date
 
     for r in list(hex_gdf.res.unique()):
 
-        aup.log(f'Translating raster to hexagon for res: {r}')
+        processing_chunk = 100000
 
-        hex_raster_analysis, df_raster_analysis = aup.raster_to_hex_analysis(hex_gdf, df_len, index_analysis,
-                                                                    tmp_dir, city, r)
-        aup.log('Finished assigning raster data to hexagons')
-        aup.log(f'df nan values: {df_raster_analysis[index_analysis].isna().sum()}')
-        if df_raster_analysis[index_analysis].isna().sum() > 0:
-            raise NanValues('NaN values are still present after processing')
+        # filters hexagons at specified resolution
+        hex_gdf_res = hex_gdf.loc[hex_gdf.res==r].copy()
+        hex_gdf_res = hex_gdf_res.reset_index(drop=True)
 
-        if save:
-            # hex_raster_analysis.to_file(tmp_dir+f'{city}_{index_analysis}_HexRes{r}.geojson')
-            # df_raster_analysis.to_csv(tmp_dir+f'{city}_{index_analysis}_HexRes{r}.csv')
-            # upload to database
-            upload_chunk = 150000
-            aup.log('Starting upload')
+        if len(hex_gdf_res)>processing_chunk:
+            aup.log(f'hex_gdf_res len: {len(hex_gdf_res)} is bigger than processing chunk: {processing_chunk}')
+            c_processing = len(hex_gdf_res)/processing_chunk
+            aup.log(f'There are {round(c_processing)} processes')
+            for i in range(int(c_processing)):
+                aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
+                hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
+                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
 
-            if r == 8:
-
-                aup.df_to_db_slow(df_raster_analysis, f'{index_analysis}_complete_dataset_hex',
-                                'raster_analysis', if_exists='append', chunksize=upload_chunk)
-
-                aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
-                                'raster_analysis', if_exists='append')
-
-            else:
-                limit_len = 5000000
-                if len(df_raster_analysis)>limit_len:
-                    c_upload = len(df_raster_analysis)/limit_len
-                    for k in range(int(c_upload)+1):
-                        aup.log(f"Starting range k = {k} of {int(c_upload)}")
-                        df_inter_upload = df_raster_analysis.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
-                        aup.df_to_db(df_inter_upload,f'{index_analysis}_complete_dataset_hex',
-                                        'raster_analysis', if_exists='append')
-                else:
-                    aup.df_to_db(df_raster_analysis,f'{index_analysis}_complete_dataset_hex',
-                                        'raster_analysis', if_exists='append')
-                aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
-                                'raster_analysis', if_exists='append')
-            aup.log(f'Finished uploading data for res{r}')
-        
-            # delete variables
-            del df_raster_analysis
-            del hex_raster_analysis
+        else:
+            aup.log('hex_gdf len smaller than processing chunk')
+            hex_gdf_i = hex_gdf_res.copy()
+            raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
 
     aup.log(f'Finished processing city -- {city}')
     del hex_gdf
@@ -120,6 +96,52 @@ def main(index_analysis, city, cvegeo_list, band_name_list, start_date, end_date
         # delete raster files
         aup.delete_files_from_folder(tmp_dir)
 
+def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
+    aup.log(f'Translating raster to hexagon for res: {r}')
+
+    hex_raster_analysis, df_raster_analysis = aup.raster_to_hex_analysis(hex_gdf_i, df_len, index_analysis,
+                                                                tmp_dir, city, r)
+    aup.log('Finished assigning raster data to hexagons')
+    aup.log(f'df nan values: {df_raster_analysis[index_analysis].isna().sum()}')
+    if df_raster_analysis[index_analysis].isna().sum() > 0:
+        raise NanValues('NaN values are still present after processing')
+
+    if save:
+        # hex_raster_analysis.to_file(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.geojson')
+        # df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
+        # upload to database
+        
+        upload_chunk = 150000
+        aup.log('Starting upload')
+
+        if r == 8:
+
+            aup.df_to_db_slow(df_raster_analysis, f'{index_analysis}_complete_dataset_hex',
+                            'raster_analysis', if_exists='append', chunksize=upload_chunk)
+
+            aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
+                            'raster_analysis', if_exists='append')
+
+        else:
+            limit_len = 5000000
+            if len(df_raster_analysis)>limit_len:
+                c_upload = len(df_raster_analysis)/limit_len
+                for k in range(int(c_upload)+1):
+                    aup.log(f"Starting range k = {k} of {int(c_upload)}")
+                    df_inter_upload = df_raster_analysis.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                    aup.df_to_db(df_inter_upload,f'{index_analysis}_complete_dataset_hex',
+                                    'raster_analysis', if_exists='append')
+            else:
+                aup.df_to_db(df_raster_analysis,f'{index_analysis}_complete_dataset_hex',
+                                    'raster_analysis', if_exists='append')
+            aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
+                            'raster_analysis', if_exists='append')
+        aup.log(f'Finished uploading data for res{r}')
+        
+    
+    # delete variables
+    del df_raster_analysis
+    del hex_raster_analysis
 
 if __name__ == "__main__":
     aup.log('--'*10)
@@ -128,13 +150,13 @@ if __name__ == "__main__":
     band_name_list = ['nir','red']
     index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    res = [8,11]
+    res = [8, 11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
     end_date = '2022-12-31'
     satellite = "sentinel-2-l2a"
-    save = True
-    del_data = True
+    save = True # True
+    del_data = True # True
 
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
     if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
@@ -148,7 +170,7 @@ if __name__ == "__main__":
     gdf_mun = aup.gdf_from_db('metro_gdf', 'metropolis')
     gdf_mun = gdf_mun.sort_values(by='city')
 
-    # prevent cities being analyzed to times in case of a crash
+    # prevent cities being analyzed several times in case of a crash
     aup.log('Downloading preprocessed data')
     processed_city_list = []
     try:
@@ -158,7 +180,7 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Guadalajara'] # Guaymas
+    city_analysis = ['Monterrey'] # Guaymas
     for city in gdf_mun.city.unique():
 
         if city not in processed_city_list and city not in skip_list:
@@ -171,7 +193,8 @@ if __name__ == "__main__":
             try:
                 main(index_analysis, city, cvegeo_list, band_name_list, start_date,
                     end_date, freq, satellite, save, del_data)
-            except:
+            except Exception as e:
+                aup.log(e)
                 aup.log(f'Error with city {city}')
                 df_skip.loc[len(df_skip)+1,'city'] = city
                 df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
