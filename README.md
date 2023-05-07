@@ -42,7 +42,7 @@ El mapa del marco geoestadístico muestra de manera precisa límites estatales y
 Una Plataforma diseñada para monitorear procesos y datos de manera global en temas ambientales con APIs intuitivos. Dichos recursos muestran imágenes satelitales que permiten utilizar los resultados para un proceso de toma de decisiones más sostenible.      
 [**OSMnx**](https://osmnx.readthedocs.io/en/latest/)
 ***
-Fuentes como OpenStreetMap son utilizadas como complemento, la información (VGI) nos da pie a datos relevantes. OSMNx es un paquete para interactuar dentro de Python con información geográfica construida con NetworkX, geopandas y matplotlib para facilitar el análisis y cálculo estadístico espacial.  
+Fuentes como OpenStreetMap son utilizadas como complemento, la información (VGI) nos da pie a datos relevantes. OSMnx es un paquete para interactuar dentro de Python con información geográfica construida con NetworkX, geopandas y matplotlib para facilitar el análisis y cálculo estadístico espacial.  
 ## Servicios
 
 _El Observatorio de Ciudades busca proporcionar servicios de utilidad urbana aportando la experiencia y la evaluación de diferentes herramientas para informar acerca de temas de geolocalización enfocada al urbanismo, mismas que pueden ayudar a diversos sectores a crear ciudades inclusivas._
@@ -63,7 +63,7 @@ La composición de la población y sus procesos demográficos son un factor impo
 **Análisis de proximidad**
 ***
 La relación que subyace entre recorridos puede revelar patrones y tendencias en la distribución espacial de un territorio. El método se basa en la vinculación de sistemas de información geográfica evaluados a través de la generación de algoritmos que permiten calcular tanto las distancias como sus relaciones desde y hacia cualquier punto.
-La morfología urbana es considerada a partir de nodos y aristas viales que se obtienen utilizando OSMx. Se divide la ciudad en hexágonos identificando las estructuras urbanas ofreciendo un comparativo de distancias hacia el punto de interés.
+La morfología urbana es considerada a partir de nodos y aristas viales que se obtienen utilizando OSMnx. Se divide la ciudad en hexágonos identificando las estructuras urbanas ofreciendo un comparativo de distancias hacia el punto de interés.
 
 
 ![](https://raw.githubusercontent.com/avdesni/Imagenes_Observatorio/main/Prox_index.png)
@@ -71,7 +71,10 @@ La morfología urbana es considerada a partir de nodos y aristas viales que se o
 **Visores**
 ***
 Para que las ciudades sean inclusivas, seguras, resilientes y sostenibles es necesario que los datos se conviertan en conocimientos aplicables que transformen la política y el entorno.
-El visor urbano presenta una exposición interactiva donde es posible analizar información sobre diferentes aspectos de una ciudad mediante la comparación y el contraste de territorio, nos acerca a historias y contextos por medio su visualización directa, dinámica e informativa para el monitoreo y mejora de la planificación urbana. Es un acercamiento hacia la accesibilidad hecha para el peatón y basada en el concepto de movilidad conocido como [_Ciudades de 15 minutos_](https://www.mdpi.com/2624-6511/4/1/6) en donde los servicios y amenidades deberían existir a una distancia menor a 15 minutos, para lograr ese objetivo es necesario tener información precisa sobre la ubicación de servicios, transporte y negocios. Los visores dan pie a la recopilación de esta información entendiendo a profundidad la distribución geográfica de los servicios y equipamientos, promoviendo un enfoque urbanístico de proximidad, que puede aumentar los niveles de sostenibilidad de las zonas al tiempo que aumenta la calidad de vida urbana.
+
+El visor urbano presenta una exposición interactiva donde es posible analizar información sobre diferentes aspectos de una ciudad mediante la comparación y el contraste de territorio, nos acerca a historias y contextos por medio su visualización directa, dinámica e informativa para el monitoreo y mejora de la planificación urbana. Es un acercamiento hacia la accesibilidad hecha para el peatón y basada en el concepto de movilidad conocido como [_Ciudades de 15 minutos_](https://www.mdpi.com/2624-6511/4/1/6) en donde los servicios y amenidades deberían existir a una distancia menor a 15 minutos, para lograr ese objetivo es necesario tener información precisa sobre la ubicación de servicios, transporte y negocios.   
+
+Los visores dan pie a la recopilación de esta información entendiendo a profundidad la distribución geográfica de los servicios y equipamientos; promoviendo un enfoque urbanístico de proximidad que puede aumentar los niveles de sostenibilidad de las zonas al tiempo que incrementa la calidad de vida urbana.
 
 
 ![](https://raw.githubusercontent.com/avdesni/Imagenes_Observatorio/main/Visores.png)
