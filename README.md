@@ -27,19 +27,23 @@ Se emplean las siguientes herramientas de información geográfica para evaluar 
 
 [**H3**](https://h3geo.org/docs/)
 ***
-Es un sistema de índices geoespaciales que dividen el territorio por medio de celdas hexagonales. Cada polígono incluye coordenadas que permiten encontrar límites dentro de cada arista. Calcula de manera coherente los datos demográficos de acuerdo con las coordenadas y dependiendo su área. Los hexágonos representan una forma estandarizada de comparar diferentes partes de la ciudad en parcelas del mismo tamaño.      
+Es un sistema de índices geoespaciales que dividen el territorio por medio de celdas hexagonales. Cada polígono incluye coordenadas que permiten encontrar límites dentro de cada arista. Calcula de manera coherente los datos demográficos de acuerdo con las coordenadas y dependiendo su área. Los hexágonos representan una forma estandarizada de comparar diferentes partes de la ciudad en parcelas del mismo tamaño.   
+   
 [**DENUE**](https://www.inegi.org.mx/app/mapa/denue/default.aspx)
 ***
 El Directorio Estadístico Nacional de Unidades Económicas (DENUE) ofrece datos cuantitativos, de ubicación y actividad económica de unidades en el territorio nacional.      
 [**CENSO DEL INEGI**](https://www.inegi.org.mx/programas/ccpv/2020/default.html#Resultados_generales)
 ***
-Se utilizan los datos más actualizados del  Censo de Población y Vivienda 2020 para analizar las características demográficas, socioeconómicas y culturales del país.      
+Se utilizan los datos más actualizados del  Censo de Población y Vivienda 2020 para analizar las características demográficas, socioeconómicas y culturales del país.
+
 [**MARCO GEOESTADÍSTICO:**](https://www.inegi.org.mx/temas/mg/#Mapa)  
 ***
-El mapa del marco geoestadístico muestra de manera precisa límites estatales y municipales que hacen referencia a establecimientos económicos, viviendas y unidades de producción del país, permitiendo su consulta detallada de cualquier parte del territorio nacional.      
+El mapa del marco geoestadístico muestra de manera precisa límites estatales y municipales que hacen referencia a establecimientos económicos, viviendas y unidades de producción del país, permitiendo su consulta detallada de cualquier parte del territorio nacional.   
+
 [**PLANETARY COMPUTER**](https://planetarycomputer.microsoft.com/:)
 ***
-Una Plataforma diseñada para monitorear procesos y datos de manera global en temas ambientales con APIs intuitivos. Dichos recursos muestran imágenes satelitales que permiten utilizar los resultados para un proceso de toma de decisiones más sostenible.      
+Una Plataforma diseñada para monitorear procesos y datos de manera global en temas ambientales con APIs intuitivos. Dichos recursos muestran imágenes satelitales que permiten utilizar los resultados para un proceso de toma de decisiones más sostenible.   
+
 [**OSMnx**](https://osmnx.readthedocs.io/en/latest/)
 ***
 Fuentes como OpenStreetMap son utilizadas como complemento, la información (VGI) nos da pie a datos relevantes. OSMnx es un paquete para interactuar dentro de Python con información geográfica construida con NetworkX, geopandas y matplotlib para facilitar el análisis y cálculo estadístico espacial.  
