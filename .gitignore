@@ -40,3 +40,6 @@ aup.egg-info/
 
 #tif files
 *.tif
+
+# env
+*.env
