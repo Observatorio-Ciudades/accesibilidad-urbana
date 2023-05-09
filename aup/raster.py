@@ -33,6 +33,13 @@ class AvailableData(Exception):
     def __str__(self):
         return self.message
 
+class NanValues(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return self.message
+    
 
 def available_data_check(df_len, missing_months, pct_limit=50, window_limit=5):
     pct_missing = round(missing_months/len(df_len),2)*100
@@ -103,9 +110,14 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     gdf_bb = gpd.GeoDataFrame(gpd.GeoSeries(bounding_box), columns=['geometry'])
     log('Created bounding box for raster cropping')
 
+    gdf_raster_test = gdf.to_crs("EPSG:6372").buffer(1)
+    gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
+    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test).dissolve()
     log('Starting raster creation for specified time')
-    df_len = create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
-                                    band_name_list,date_list, gdf_bb, area_of_interest, satellite)
+    df_len = create_raster_by_month_v2(
+        df_len, index_analysis, city, tmp_dir,
+        band_name_list,date_list, gdf_raster_test,
+        gdf_bb, area_of_interest, satellite)
     log('Finished raster creation')
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
@@ -360,6 +372,109 @@ def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
     return mosaic_band_1, mosaic_band_2, out_trans_band_2,out_meta
 
 
+def mosaic_process_v2(links_band_1, links_band_2, band_name_list, gdf_bb, tmp_dir=''):
+    log(f'Starting mosaic for {band_name_list[0]}')
+    mosaic_band_1, out_trans_band_1, out_meta_1= mosaic_raster(links_band_1, tmp_dir, upscale=False)
+    mosaic_band_1 = mosaic_band_1.astype('float16')
+
+    out_meta_1.update({"driver": "GTiff",
+                    "dtype": 'float32',
+                    "height": mosaic_band_1.shape[1],
+                    "width": mosaic_band_1.shape[2],
+                    "transform": out_trans_band_1})
+
+    log(f'Starting save: {band_name_list[0]}')
+
+    with rasterio.open(f"{tmp_dir}{band_name_list[0]}.tif", "w", **out_meta_1) as dest:
+        dest.write(mosaic_band_1)
+
+        dest.close()
+        
+    del mosaic_band_1
+    log('Finished saving complete dataset')
+    
+    log('Starting crop')
+    
+    with rasterio.open(f"{tmp_dir}{band_name_list[0]}.tif") as src:
+        gdf_bb = gdf_bb.to_crs(src.crs)
+        shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
+        mosaic_band_1, out_transform = rasterio.mask.mask(src, shapes, crop=True)
+        out_meta = src.meta
+        out_meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic_band_1.shape[1],
+                            "width": mosaic_band_1.shape[2],
+                            "transform": out_transform})
+        src.close()
+
+
+    with rasterio.open(f"{tmp_dir}{band_name_list[0]}.tif", "w", **out_meta) as dest:
+        dest.write(mosaic_band_1)
+
+        dest.close()
+
+    log(f'Finished croping: {band_name_list[0]}')
+
+    log(f'Finished processing {band_name_list[0]}')
+
+    log(f'Starting mosaic for {band_name_list[1]}')
+    mosaic_band_2, out_trans_band_2, out_meta_2 = mosaic_raster(links_band_2)
+    log(f'Finished processing {band_name_list[1]}')
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+    log('Transformed band arrays to float16')
+
+    out_meta_2.update({"driver": "GTiff",
+                    "dtype": 'float32',
+                    "height": mosaic_band_2.shape[1],
+                    "width": mosaic_band_2.shape[2],
+                    "transform": out_trans_band_2})
+
+    log(f'Starting save: {band_name_list[1]}')
+
+    with rasterio.open(f"{tmp_dir}{band_name_list[1]}.tif", "w", **out_meta_2) as dest:
+        dest.write(mosaic_band_2)
+
+        dest.close()
+        
+    del mosaic_band_2
+    log('Finished saving complete dataset')
+    
+    log('Starting crop')
+    
+    with rasterio.open(f"{tmp_dir}{band_name_list[1]}.tif") as src:
+        gdf_bb = gdf_bb.to_crs(src.crs)
+        shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
+        mosaic_band_2, out_transform = rasterio.mask.mask(src, shapes, crop=True)
+        out_meta = src.meta
+        out_meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic_band_2.shape[1],
+                            "width": mosaic_band_2.shape[2],
+                            "transform": out_transform})
+        src.close()
+
+    with rasterio.open(f"{tmp_dir}{band_name_list[1]}.tif", "w", **out_meta) as dest:
+        dest.write(mosaic_band_2)
+
+        dest.close()
+    log(f'Finished croping: {band_name_list[1]}')
+
+    log(f'Finished processing {band_name_list[1]}')
+    
+
+    return mosaic_band_1, mosaic_band_2, out_transform, out_meta
+
+
+
+def raster_nan_test(gdf, raster_file):
+    
+    gdf['test'] = gdf.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+    
+    log(f'There are {gdf.test.isna().sum()} null data values')
+
+    if gdf['test'].isna().sum() > 0:
+        raise NanValues('NaN values are still present after processing')
+
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_list, date_list, gdf_bb, 
                            aoi, sat, time_exc_limit=900):
@@ -375,6 +490,9 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
     if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
         df_len.to_csv(df_file_dir)
+    tmp_raster_dir = tmp_dir+'temporary_files/'
+    if os.path.exists(tmp_raster_dir) == False: # Or folder, will return true or false
+        os.mkdir(tmp_raster_dir) ### TESTTTTT
 
     for i in tqdm(range(len(df_len)), position=0, leave=True):
         
@@ -399,14 +517,15 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         sample_date = datetime(year_, month_, 1)
         first_day = sample_date + relativedelta(day=1)
         last_day = sample_date + relativedelta(day=31)
-        
+
+        # creates time range for a specific month
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
-        
+        # gather links for the date range
         items = gather_items(time_of_interest, aoi, sat)
-        
+        # gather links from dates that are within date_list
         assets_hrefs = link_dict(band_name_list,items,date_list)
-        
+        # create dataframe
         df_links = pd.DataFrame.from_dict(assets_hrefs, 
                                         orient='Index').reset_index().rename(columns={'index':'date'})
         
@@ -507,6 +626,171 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         df_raster.to_csv(df_file_dir, index=False)
         
         del out_image
+
+        available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0]))
+
+    df_len = pd.read_csv(df_file_dir)[['year','month','data_id','raster_row','raster_col','no_data_values','able_to_download']]
+
+    return df_len
+
+
+def create_raster_by_month_v2(df_len, index_analysis, city, tmp_dir, 
+                           band_name_list, date_list, gdf_raster_test, gdf_bb, 
+                           aoi, sat, time_exc_limit=900):
+
+    df_len['raster_row'] = np.nan
+    df_len['raster_col'] = np.nan
+    df_len['no_data_values'] = np.nan
+    df_len['able_to_download'] = np.nan
+
+    log('\n Starting raster analysis')
+
+    # check if file exists, for example in case of code crash
+    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
+    if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
+        df_len.to_csv(df_file_dir)
+    # create folder for temporary raster files
+    tmp_raster_dir = tmp_dir+'temporary_files/'
+    if os.path.exists(tmp_raster_dir) == False: # Or folder, will return true or false
+        os.mkdir(tmp_raster_dir) ### TESTTTTT
+
+    for i in tqdm(range(len(df_len)), position=0, leave=True):
+        
+        df_raster = pd.read_csv(df_file_dir, index_col=False)
+
+        # binary id - checks if month could be processed
+        checker = 0
+
+        if df_raster.iloc[i].data_id==0:
+            continue
+            
+        # gather month and year from df to save ndmi
+        month_ = df_raster.loc[df_raster.index==i].month.values[0]
+        year_ = df_raster.loc[df_raster.index==i].year.values[0]
+        
+        if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
+            continue
+        
+        log(f'\n Starting new analysis for {month_}/{year_}')
+        
+        # gather links for raster images
+        sample_date = datetime(year_, month_, 1)
+        first_day = sample_date + relativedelta(day=1)
+        last_day = sample_date + relativedelta(day=31)
+
+        # creates time range for a specific month
+        time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
+                            f"-{month_:02d}-{last_day.day:02d}"]
+        # gather links for the date range
+        items = gather_items(time_of_interest, aoi, sat)
+        # gather links from dates that are within date_list
+        assets_hrefs = link_dict(band_name_list,items,date_list)
+        # create dataframe
+        df_links = pd.DataFrame.from_dict(assets_hrefs, 
+                                        orient='Index').reset_index().rename(columns={'index':'date'})
+        
+        # mosaic raster
+        
+        iter_count = 1
+        
+        while iter_count <= 5:
+
+            # create skip date list used to analyze null values in raster
+            skip_date_list = []
+
+            for data_link in range(len(df_links)):
+                log(f'Mosaic date {df_links.iloc[data_link].date.day}'+
+                            f'/{df_links.iloc[data_link].date.month}'+
+                            f'/{df_links.iloc[data_link].date.year} - iteration:{iter_count}')
+                
+                # check if date contains null values within study area
+                if df_links.iloc[data_link]['date'] in skip_date_list:
+                    continue
+
+                try:
+                    links_band_1 = df_links.iloc[data_link][band_name_list[0]]
+                    links_band_2 = df_links.iloc[data_link][band_name_list[1]]
+                    # band_links = [df_links.iloc[data_link][band_name_list[band]] for band in band_name_list]
+
+                    mosaic_band_1, mosaic_band_2, _,out_meta = func_timeout(time_exc_limit, mosaic_process_v2,
+                                                                                args=(links_band_1,links_band_2,
+                                                                                      band_name_list,gdf_bb, tmp_raster_dir))
+
+                    # calculate raster index
+                    raster_index = (mosaic_band_1-mosaic_band_2)/(mosaic_band_1+mosaic_band_2)
+                    log(f'Calculated {index_analysis}')
+                    del mosaic_band_1
+                    del mosaic_band_2
+
+                    log(f'Starting interpolation')
+
+                    raster_index[raster_index == 0 ] = np.nan # change zero values to nan
+
+                    log(f'Interpolating {np.isnan(raster_index).sum()} nan values')
+                    raster_fill = fillnodata(raster_index, mask=~np.isnan(raster_index),
+                                        max_search_distance=50, smoothing_iterations=0)
+                    log(f'Finished interpolation to fill na - {np.isnan(raster_fill).sum()} nan')
+
+                    with rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif",'w', **out_meta) as dest:
+                            dest.write(raster_fill)
+
+                            dest.close()
+
+                    log('Starting null test')
+
+                    raster_file = rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif")
+
+                    gdf_raster_test = gdf_raster_test.to_crs(raster_file.crs)
+
+                    try:
+                        # test for nan values within study area
+                        raster_nan_test(gdf_raster_test,raster_file)
+
+                        log('Passed null test')
+                        
+                        with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif",'w', **out_meta) as dest:
+                            dest.write(raster_fill)
+
+                            dest.close()
+                        log(f'Finished saving {index_analysis} raster')
+
+                        checker = 1
+                        iter_count = 6
+                        delete_files_from_folder(tmp_raster_dir)
+                        break
+                    except:
+                        log('Failed null test')
+                        skip_date_list.append(df_links.iloc[data_link]['date'])
+                        delete_files_from_folder(tmp_raster_dir)
+
+                except:
+                    log(f'Error in iteration {iter_count}')
+                    continue
+            iter_count = iter_count + 1
+                
+        if checker==0:
+            df_raster.loc[df_raster.index==i,'data_id']=0
+            df_raster.loc[df_raster.index==i,'able_to_download']=0
+            df_raster.to_csv(df_file_dir, index=False)
+            continue
+
+        
+        
+
+
+        df_raster.loc[((df_raster['year']==year_)&
+                (df_raster['month']==month_)),'raster_row'] = raster_fill.shape[1]
+        df_raster.loc[((df_len['year']==year_)&
+                (df_raster['month']==month_)),'raster_col'] = raster_fill.shape[2]
+        df_raster.loc[((df_len['year']==year_)&
+                (df_raster['month']==month_)),'able_to_download'] = 1
+        
+        df_raster.loc[((df_len['year']==year_)&
+                            (df_raster['month']==month_)),'no_data_values'] = np.isnan(raster_fill).sum()
+        
+        df_raster.to_csv(df_file_dir, index=False)
+        
+        del raster_fill
 
         available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0]))
 
