@@ -16,7 +16,7 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, cvegeo_list, band_name_list, start_date, end_date, freq, satellite, save=False, del_data=False):
+def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
 
     ###############################
     # Download hex polygons with AGEB data
@@ -25,7 +25,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, start_date, end_date
 
     hex_ageb = gpd.GeoDataFrame()
 
-    cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+    # cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
 
     for m in cvegeo_list:
         query = f"SELECT hex_id_8,geometry FROM {schema_hex}.{folder_hex} WHERE \"CVEGEO\" LIKE \'{m}%%\'"
@@ -37,7 +37,7 @@ def main(index_analysis, city, cvegeo_list, band_name_list, start_date, end_date
     
 
     df_len = aup.download_raster_from_pc(hex_ageb, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_list, satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -107,8 +107,10 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
         raise NanValues('NaN values are still present after processing')
 
     if save:
+        # local save
         # hex_raster_analysis.to_file(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.geojson')
         # df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
+        
         # upload to database
         
         upload_chunk = 150000
@@ -144,19 +146,20 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
     del hex_raster_analysis
 
 if __name__ == "__main__":
-    aup.log('--'*10)
+    aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_list = ['nir','red']
-    index_analysis = 'ndvi'
+    band_name_dict = {'nir':[False],
+                      'red':[False]}
+    index_analysis = 'ndmi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    res = [8, 11] # 8, 11
+    res = [8] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
     end_date = '2022-12-31'
     satellite = "sentinel-2-l2a"
-    save = True # True
-    del_data = True # True
+    save = False # True
+    del_data = False # True
 
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
     if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
@@ -180,18 +183,21 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Monterrey'] # Guaymas
+    city_analysis = ['ZMVM'] # Guaymas
     for city in gdf_mun.city.unique():
 
-        if city not in processed_city_list and city not in skip_list:
-        # if city in city_analysis:
+        # if city not in processed_city_list and city not in skip_list:
+        if city in city_analysis:
 
             aup.log(f'\n Starting city {city}')
 
-            cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+            # cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+            cvegeo_list = ["09002", "09003", "09004", "09005", 
+                           "09006", "09007", "09008", "09009", "09010", 
+                           "09011", "09012", "09013", "09014", "09015", "09016", "09017"]
 
             try:
-                main(index_analysis, city, cvegeo_list, band_name_list, start_date,
+                main(index_analysis, city, cvegeo_list, band_name_dict, start_date,
                     end_date, freq, satellite, save, del_data)
             except Exception as e:
                 aup.log(e)
