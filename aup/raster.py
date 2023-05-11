@@ -360,6 +360,17 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
                         ),
                         resampling=Resampling.bilinear
                     )
+            out_trans = ds.transform * ds.transform.scale(
+                                (ds.width / mosaic.shape[-1]),
+                                (ds.height / mosaic.shape[-2])
+                            )
+            meta = ds.meta
+
+            meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic.shape[1],
+                            "width": mosaic.shape[2],
+                            "transform": out_trans})
 
         ds.close()
     src.close()
@@ -370,7 +381,7 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
 def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir=''):
     log(f'Starting mosaic for {list(band_name_dict.keys())[0]}')
     mosaic_band_1, out_trans_band_1, out_meta_1= mosaic_raster(links_band_1, tmp_dir, 
-                                                               upscale=band_name_dict[list(band_name_dict.keys())[0]])
+                                                               upscale=band_name_dict[list(band_name_dict.keys())[0]][0])
     mosaic_band_1 = mosaic_band_1.astype('float16')
 
     out_meta_1.update({"driver": "GTiff",
@@ -409,13 +420,15 @@ def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir='
 
         dest.close()
 
+    mosaic_band_1 = mosaic_band_1.astype('float16')
+
     log(f'Finished croping: {list(band_name_dict.keys())[0]}')
 
     log(f'Finished processing {list(band_name_dict.keys())[0]}')
 
     log(f'Starting mosaic for {list(band_name_dict.keys())[1]}')
     mosaic_band_2, out_trans_band_2, out_meta_2 = mosaic_raster(links_band_2, tmp_dir, 
-                                                               upscale=band_name_dict[list(band_name_dict.keys())[1]])
+                                                               upscale=band_name_dict[list(band_name_dict.keys())[1]][0])
     log(f'Finished processing {list(band_name_dict.keys())[1]}')
     mosaic_band_2 = mosaic_band_2.astype('float16')
     log('Transformed band arrays to float16')
@@ -454,6 +467,9 @@ def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir='
         dest.write(mosaic_band_2)
 
         dest.close()
+
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+
     log(f'Finished croping: {list(band_name_dict.keys())[1]}')
 
     log(f'Finished processing {list(band_name_dict.keys())[1]}')
@@ -561,6 +577,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     log(f'Starting interpolation')
 
                     raster_index[raster_index == 0 ] = np.nan # change zero values to nan
+                    raster_index = raster_index.astype('float32') # change data type to float32 to avoid fillnodata error
 
                     log(f'Interpolating {np.isnan(raster_index).sum()} nan values')
                     raster_fill = fillnodata(raster_index, mask=~np.isnan(raster_index),
@@ -584,6 +601,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
                         log('Passed null test')
                         
+                        # save raster to processing database
                         with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif",'w', **out_meta) as dest:
                             dest.write(raster_fill)
 
@@ -601,6 +619,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
                 except:
                     log(f'Error in iteration {iter_count}')
+                    delete_files_from_folder(tmp_raster_dir)
                     continue
             iter_count = iter_count + 1
                 
