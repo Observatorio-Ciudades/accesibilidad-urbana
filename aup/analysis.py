@@ -22,12 +22,12 @@ def voronoi_cpu(g, weights, seeds):
 	Optimized for computational efficiency
 
 	Args:
-		g (igraph.Graph): graph object with Nodes and Edges
-		weights (numpy.array): array of weights for all edges of length len(V)
-		seeds (numpy.array): generator points as numpy array of indices from the node array
+		g {igraph.Graph}: graph object with Nodes and Edges
+		weights {numpy.array}: array of weights for all edges of length len(V)
+		seeds {numpy.array}: generator points as numpy array of indices from the node array
 
 	Returns:
-		[numpy.array]: numpy.array on len(N) where the location (index) of the node refers to the node, the value is the generator (seed) the respective nodes belongs to.
+		seeds: {numpy.array} numpy.array on len(N) where the location (index) of the node refers to the node, the value is the generator (seed) the respective nodes belongs to.
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
@@ -123,10 +123,10 @@ def socio_polygon_to_points(
 	Args:
 		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
 		gdf_socio {geopandas.GeoDataFrame} -- GeoDataFrame with the sociodemographic attributes of each AGEB
-		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
-		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
-		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
-		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
+		column_start {int, optional}: Column position were sociodemographic data starts in gdf_population. Defaults to 0.
+		column_end {int, optional}: Column position were sociodemographic data ends in gdf_population. Defaults to -1.
+		cve_column {str, optional}: Column name with unique code for identification. Defaults to "CVEGEO".
+		avg_column {list, optional}: Column name lists with data to average and not divide. Defaults to None.
 	Returns:
 		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
 	"""
@@ -164,14 +164,14 @@ def socio_points_to_polygon(
 
 	"""Group sociodemographic point data in polygons
     Args:
-        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
-        gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
-        cve_column (str): Column name with polygon id in gdf_polygon.
-        string_columns (list): List with column names for string data in gdf_socio.
-        column_start (int, optional): Column position were sociodemographic data starts in gdf_socio. Defaults to 0.
-        column_end (int, optional): Column position were sociodemographic data ends in gdf_socio. Defaults to -1.
-        wgt_dict (dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
-        avg_column (list, optional): List with column names with average data. Defaults to None.
+        gdf_polygon {geopandas.GeoDataFrame}: GeoDataFrame polygon where sociodemographic data will be grouped
+        gdf_socio {geopandas.GeoDataFrame}: GeoDataFrame points with sociodemographic data
+        cve_column {str}: Column name with polygon id in gdf_polygon.
+        string_columns {list}: List with column names for string data in gdf_socio.
+        column_start {int, optiona}: Column position were sociodemographic data starts in gdf_socio. Defaults to 0.
+        column_end {int, optional}: Column position were sociodemographic data ends in gdf_socio. Defaults to -1.
+        wgt_dict {dict, optional}: Dictionary with average column names and weight column names for weighted average. Defaults to None.
+        avg_column {list, optional}: List with column names with average data. Defaults to None.
     Returns:
         pandas.DataFrame: DataFrame with group sociodemographic data and polygon id
 
@@ -209,10 +209,10 @@ def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dic
     Aggregate sociodemographic variables from DataFrame.
     Args:
         df_socio {pd.DataFrame}: DataFrame containing sociodemographic variables to be aggregated by sum or mean.
-        column_start (int, optional): Column number were sociodemographic variables start at DataFrame. Defaults to 1.
-        column_end (int, optional): Column number were sociodemographic variables end at DataFrame. Defaults to -1.
-        avg_column (list, optional): List of column names to be averaged and not sum. Defaults to None.
-        avg_dict (dictionary, optional): Dictionary containing column names to average and
+        column_start {int, optional}: Column number were sociodemographic variables start at DataFrame. Defaults to 1.
+        column_end {int, optional}: Column number were sociodemographic variables end at DataFrame. Defaults to -1.
+        avg_column {list, optional}: List of column names to be averaged and not sum. Defaults to None.
+        avg_dict {dictionary, optional}: Dictionary containing column names to average and
                                             column with which a weighted average will be crated. Defaults to None.
     Returns:
         pd.DataFrame: DataFrame with sum and mean values for sociodemographic data
@@ -407,16 +407,18 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 	return full_hex
 
 def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
-    """Calculate the isochrone fom the center_node in graph G.
-    Args:
-        G (networkx.Graph): networkx Graph with travel time (time) attribute.
-        center_node (int): id of the node to use
-        trip_time (int): maximum travel time allowed
-        subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
+        """Function that uses isochrones to calculate distance fom the center_node in graph G,
+		 and uses parameters like distance and time to plot the result.
+    Arguments:
+        G {networkx.Graph}: networkx Graph with travel time (time) attribute.
+        center_node {int}: id of the node to use
+        trip_time {int}: maximum travel time allowed
+        subgraph {bool, optional}: Bool to get the resulting subgraph or only the geometry. Defaults to False.
     Returns:
-        sub_G: (optional) subgraph of the covered area.
-        geometry: geometry with the covered area
+        sub_G: {optional} subgraph of the covered area.
+        geometry: {geometry} with the covered area
     """
+
     sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
     geometry = gpd.GeoSeries([Point((data["x"], data["y"])) for node, data in sub_G.nodes(data=True)]).unary_union.convex_hull
     if subgraph:
@@ -426,11 +428,36 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
 
 
 def sigmoidal_function(x, di, d0):
+	"""
+	The sigmoidal_function function takes in two parameters, x and di.
+	The function returns the value of a sigmoidal function with 
+	parameters d0 and di. The sigmoidal_function is used to calculate 
+	the equilibrium index for each node.
+	Arguments:
+		x: {int} Calculate the sigmoidal function
+		di: {int}Determine the slope of the sigmoid function
+		d0: {int}Set the threshold of the sigmoid function
+	Returns:
+		idx_eq {int} Calculations of the index
+	"""
+	
 	idx_eq = 1 / (1 + math.exp(x * (di - d0)))
 	return idx_eq
 
 
 def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
+	"""
+	The sigmoidal_function_constant function calculates the constant average decay for a sigmoidal funcition with 2 quarter times
+	at 0.25 and 0.75 of the distance between positive_limit_value and mid_limit_value and an input constant at x. 
+	All values collected will be stored inside an index 
+	Arguments:
+		positive_limit_value: {int} Define the upper limit of the sigmoidal function
+		mid_limit_value: {int} Define the midpoint of the sigmoidal function
+	Returns:
+	constant_value_average: {int} Average constant decay value for the two quarter times with optimized values from the index
+
+	"""
+
 	tmp_idx = [] # list that stores constant decay values for 0.25 and 0.75
 
 	# calculate 0.75 quarter time
@@ -439,10 +466,35 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 
 	
 	def sigmoidal_function(x, di=quarter_limit, d0=mid_limit_value):
+		"""
+		The sigmoidal_function function calculates the value at x,
+		taking the 2 predefined values quarter_limit and mid_limit_value calculated earlier 
+			Arguments:
+				x : {int}  Defaults to quarter_limit.
+				di :{int}  Defaults to quarter_limit_value.
+				d0 :{int}  Defaults to mid_limit_value. 
+			Returns:
+		idx_eq: {int}  The sigmoidal function of the independent variable x.
+		"""
 		idx_eq = 1 / (1 + math.exp(x * (di - d0)))
 		return idx_eq
 
 	def sigmoidal_function_condition(x, di=quarter_limit, d0=mid_limit_value, idx_0=idx_objective):
+		"""
+		The sigmoidal_function_condition takes in the following parameters:
+			x - The value of x to be evaluated.
+			di - The upper limit of the sigmoidal function.
+			d0 - The midpoint of the sigmoidal function.  This is also where it crosses 0 on its y-axis, and where it has an index value equal to idx_0.
+			idx_0 - A float between 0 and 1 representing how much we want our index values to be at d0 (the midpoint).
+		Arguments:
+			x: {int}Calculate the value of the sigmoidal function
+			di:{int} Set the value of the sigmoid function at which it reaches its maximum
+			d0: {int}Define the mid-limit value of the sigmoidal function
+			idx_0: {int}Set the objective value of the sigmoid function
+		Returns: The value of the sigmoidal function at a given point x
+		"""
+		
+
 		return (1 / (1 + math.exp(x * (di - d0)))) - idx_0
 
 	# search for constant decay value in 0.75 quarter_time

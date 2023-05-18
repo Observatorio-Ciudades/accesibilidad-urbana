@@ -23,9 +23,11 @@ import scipy.ndimage as ndimage
 from pystac_client import Client
 from pandarallel import pandarallel
 from multiprocessing import Pool
+
+# Flags to ignore division by zero and invalid floating point operations
 np.seterr(divide='ignore', invalid='ignore')
 
-
+# A class is created it receives a message and has a function that returns it as a string
 class AvailableData(Exception):
     def __init__(self, message):
         self.message = message
@@ -37,7 +39,25 @@ class AvailableData(Exception):
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
                                tmp_dir, band_name_list, satellite="sentinel-2-l2a"):
+    """Function that returns a raster with the data provided
 
+    Args:
+        gdf (GeoDataFrame): Area of interest
+        index_analysis (int): Index of analysis
+        city (str): City name
+        freq (str): Frequency
+        start_date (date): First date of data
+        end_date (date): First date of data
+        tmp_dir (str): address of temporary directory
+        band_name_list (list): List with data
+        satellite (str): Defaults to "sentinel-2-l2a".
+
+    Raises:
+        AvailableData: Object with a message
+
+    Returns:
+        df_len (dataframe): Final raster
+    """
     # if GeoDataFrame is not h3 hexagons it creates them
 
     log('Extracting bounding coordinates from hexagons')
@@ -53,6 +73,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     e = coord_val.maxx.max()
     w = coord_val.minx.min()
 
+    # Sets the coordinates for the area of interest
     area_of_interest = {
         "type": "Polygon",
         "coordinates": [
@@ -69,7 +90,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # create time of interest
     log('Defining time of interest')
     time_of_interest = create_time_of_interest(start_date, end_date, freq=freq)
-
+    # gathers items for time and area of interest
     log('Gathering items for time and area of interest')
     items = gather_items(time_of_interest, area_of_interest, satellite=satellite)
     log(f'Fetched {len(items)} items')
@@ -84,44 +105,56 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # assets_hrefs, median_links = filter_links(assets_hrefs, band_name_list)
     # log(f'{median_links} rasters links by time analysis')
 
-    # analyze available data
+    # creates raster and analyzes percentage of missing data points
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq)
     pct_missing = round(missing_months/len(df_len),2)*100
     log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
-
+    # if more than 50% of data is missing, raise error and print message
     if pct_missing >= 50:
         
         raise AvailableData('Missing more than 50 percent of data points')
 
-    # raster cropping
+    # raster cropping with bounding box from earlier 
     bounding_box = gpd.GeoDataFrame(geometry=poly).envelope
     gdf_bb = gpd.GeoDataFrame(gpd.GeoSeries(bounding_box), columns=['geometry'])
     log('Created bounding box for raster cropping')
-
+    # raster creation
     log('Starting raster creation for specified time')
     df_len = create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                                     band_name_list,date_list, gdf_bb, area_of_interest, satellite)
     log('Finished raster creation')
+    # calculates percentage of missing months
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
-
+    # assures that all the values missing are filled with 0
     row_mode = df_len.raster_row.mode().values[0]
     col_mode = df_len.raster_col.mode().values[0]
     df_len.loc[((df_len.raster_row < row_mode)|
             (df_len.raster_col < col_mode)|
             (df_len.raster_col.isna())),'data_id'] = 0
-    
+    # starts raster interpolation by predicting points from existing values and updates missing months percentage
     log('Starting raster interpolation')
     df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
     log('Finished raster interpolation')
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
-
+    # returns final raster
     return df_len
 
 
 
+
 def create_time_of_interest(start_date, end_date, freq='MS'):
+    """
+    Creates the time of interest for the raster
+    Args:
+        start_date (date): First date in data
+        end_date (date): Last date in data
+        freq (str):Defaults to 'MS'.
+
+    Returns:
+        time_of_interest (array): Dates of interest
+    """
     df_tmp_dates = pd.DataFrame() # temporary date dataframe
     df_tmp_dates['date'] = pd.date_range(start = start_date,   
                                 end = end_date,   # there are 30 periods because range from satelite img goes from 01-01-2020 - 30-06-2022
@@ -130,7 +163,8 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
     df_tmp_dates['year'] = df_tmp_dates.apply(lambda row: row['date'].year, axis=1)
 
     time_of_interest = []
-
+    
+    # Fills array with days
     for d in range(len(df_tmp_dates)):
         
         month = df_tmp_dates.loc[df_tmp_dates.index==d].month.values[0]
@@ -143,10 +177,21 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
         time_of_interest.append(f"{year}-{month:02d}-{first_day.day:02d}/{year}"+
                                 f"-{month:02d}-{last_day.day:02d}")
         
+    # Returns array with time of interest
     return time_of_interest
 
 
 def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a"):
+    """ Items gathered in time and area of interest from planetary computer
+
+    Args:
+        time_of_interest (array): days of interest
+        area_of_interest (dict): Polygon, area of interest
+        satellite (str): Defaults to "sentinel-2-l2a".
+
+    Returns:
+        items (array): items intersecting time and area of interest
+    """
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
     items = []
@@ -163,6 +208,18 @@ def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a")
     return items
 
 def find_asset_by_band_common_name(item, common_name):
+    """Filter that receives an item from a list and searches for a band with a common name
+
+    Args:
+        item (object): Belongs to the gathered items
+        common_name (str): Common name of the band  to be searched
+
+    Raises:
+        KeyError: If common_name is not found
+
+    Returns:
+        asset : _description_
+    """
     for asset in item.assets.values():
         asset_bands = eo.ext(asset).bands
         if asset_bands and asset_bands[0].common_name == common_name:
@@ -170,7 +227,16 @@ def find_asset_by_band_common_name(item, common_name):
     raise KeyError(f"{common_name} band not found")
 
 def link_dict(band_name_list, items, date_list):
-    
+    """Creates a dictionary with the links to the assets
+
+    Args:
+        band_name_list (list): List with data
+        items (array): items intersecting time and area of interest
+        date_list (array): dates of interest
+
+    Returns:
+        assets_hrefs (dict): Dictionary with the links to the assets
+    """
     assets_hrefs = {}
 
     for i in items:
@@ -188,6 +254,16 @@ def link_dict(band_name_list, items, date_list):
     return assets_hrefs
 
 def filter_links(assets_hrefs, band_name_list):
+    """filters links to assets, removing those without sufficient data
+
+    Args:
+        assets_hrefs (dict): links to assets
+        band_name_list (list): List with data
+
+    Returns:
+        assets_hrefs (dict): Updated dictionary
+        max_links_len (int): Max number of links
+    """
     max_links_len = st.mode(np.array([len(x[band_name_list[0]]) for x in list(assets_hrefs.values())]))[0][0]
     
     # iterate and remove dates without sufficient data
@@ -204,6 +280,19 @@ def filter_links(assets_hrefs, band_name_list):
 
 
 def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS'):
+    """_summary_
+
+    Args:
+        assets_hrefs (dict): Dictionary with the links to the assets
+        start_date (date): First date in data
+        end_date (date): Last date in data
+        band_name_list (list): List with data
+        freq (str): Defaults to 'MS'.
+
+    Returns:
+        df_complete_dates (dataframe): Dataframe with filtered dates
+        missing_months (int): Number of missing months
+    """
     # dictionary to dataframe
     df_dates = pd.DataFrame.from_dict(assets_hrefs, orient='Index').reset_index().rename(columns={'index':'date'})
     df_dates['date'] = pd.to_datetime(df_dates['date']).dt.date
@@ -250,7 +339,14 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     return df_complete_dates, missing_months
 
 def available_datasets(items):
+    """Filters dates per quantile and finds available ones
 
+    Args:
+        items (array): items intersecting time and area of interest
+
+    Returns:
+        date_list (list): List with available dates with filter
+    """
     date_dict = {}
 
     for i in items:
@@ -300,6 +396,19 @@ def available_datasets(items):
 
 
 def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
+    """_summary_
+
+    Args:
+        raster_asset_list (_type_): _description_
+        tmp_dir (str): Defaults to 'tmp/'.
+        upscale (bool): Defaults to False.
+
+    Returns:
+        _type_: _description_
+        mosaic () 
+        out_trans ()
+        meta ()
+    """
     src_files_to_mosaic = []
 
     for assets in raster_asset_list:
