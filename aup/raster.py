@@ -280,9 +280,9 @@ def filter_links(assets_hrefs, band_name_list):
 
 
 def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS'):
-    """_summary_
-
-    Args:
+    """Function converts the dictionary of assets into a dataframe that contains. date, month and year. It merges the month and year, to then remove the date and extract the data_idand remove columns containing band names.
+    Aditionally it uses a function to count the missing months 
+    Arguments:
         assets_hrefs (dict): Dictionary with the links to the assets
         start_date (date): First date in data
         end_date (date): Last date in data
@@ -396,19 +396,19 @@ def available_datasets(items):
 
 
 def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
-    """_summary_
+    """The mosaic_raster function takes a list of raster assets and merges them together.
+        Arguments:
+            raster_asset_list (list): A list of raster asset paths to be appended together.
+            tmp_dir (str): The directory where temporary files will be stored during processing. Defaults to 'tmp/'.
+            upscale (bool): Whether or not the mosaic is upscaled by 2x  using the formats of the conditional statement
+        Returns:
+            mosaic (list): Transforms the data into a raster object
+            out_trans (list): Mosaic that is upscaled 
+            meta (dictionary): Metadata of the raster object
 
-    Args:
-        raster_asset_list (_type_): _description_
-        tmp_dir (str): Defaults to 'tmp/'.
-        upscale (bool): Defaults to False.
-
-    Returns:
-        _type_: _description_
-        mosaic () 
-        out_trans ()
-        meta ()
+       
     """
+
     src_files_to_mosaic = []
 
     for assets in raster_asset_list:
@@ -453,6 +453,18 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     return mosaic, out_trans, meta
 
 def clean_mask(geom, dataset='', **mask_kw):
+    """
+    The mask in this function is used to extract the values from a raster dataset that fall within a given geometry of interest.
+    Arguments:
+        geom (Geodataframe): Geometric figure that will be used to mask the raster dataset.
+        dataset (rasterio DatasetReader): The raster dataset that will be masked by the inputted geometry. 
+        If no value is provided, then it defaults to an empty string and returns only the masked array of 
+        values from within the inputted geometry without any metadata.
+        mask_kw (dict): A dictionary of arguments passed to create the mask.
+    Returns:
+        masked (array): Returns values from within the inputted geometry.
+    """
+    
     mask_kw.setdefault('crop', True)
     mask_kw.setdefault('all_touched', True)
     mask_kw.setdefault('filled', False)
@@ -462,17 +474,32 @@ def clean_mask(geom, dataset='', **mask_kw):
 
 
 def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
+    """"
+    The function takes a hexagon GeoDataFrame, year, month, city name and index analysis as input.
+    It then opens the raster file for that specific month and year in the tmp_dir directory. It applies a mask to the raster file
+    
+    Arguments:
+        hex_gdf (geodataframe): Creates a copy of the hexagon geodataframe
+        year (int): Specify the year of the raster file that is being opened
+        month (int): Opens the raster file for that specific month and year
+        city (str): Specify the city for which we want to calculate the ndmi
+        index_analysis (array): Specify which index analysis to use
+        tmp_dir (str): Specify the directory where the raster files are stored
+    Returns:
+        hex_raster(): A hexagon raster with the index analysis added as a column
+    """
     hex_raster = hex_gdf.copy()
     # read ndmi file
     raster_file = rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month}_{year}.tif")
 
-    hex_raster = hex_raster.to_crs(raster_file.crs)
+    hex_raster = hex_raster.to_crs(raster_file.crs) 
+    # Using the apply function to apply the clean_mask function to the geometry column of the hex_gdf geodataframe
     try:
 
         hex_raster[index_analysis] = hex_raster.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
     except:
         hex_raster[index_analysis] = np.nan
-
+    #adds month and year columns to the hex_raster geodataframe
     hex_raster['month'] = month
     hex_raster['year'] = year
 
@@ -482,7 +509,23 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
 
 
 def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
+    """
+    The function takes a hexagon geodataframe, the length of the dataframe,
+    the index analysis Normalized Difference Moisture Index, and the city name as inputs. It then creates an empty 
+    geodataframe to save ndmi by date. The function loops through each year in df_len and for each month 
+    in that year it masks all rasters by hexagons.
+    Arguments:
+        hex_gdf: Pass the hexagon geodataframe to the function
+        df_len: Determine the number of years and months that are in the data
+        index_analysis: Select the raster file to be used in the analysis
+        city: Specify the city of interest
+        raster_dir: Specify the directory where the raster files are stored
+    Returns: 
+    hex_raster: A geodataframe with the hexagon id
+    """
+    
     # create empty geodataframe to save ndmi by date
+
     hex_raster = gpd.GeoDataFrame()
 
     years_list = list(df_len.year.unique())

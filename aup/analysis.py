@@ -89,10 +89,10 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
-		hex_bins {geopandas.GeoDataFrame} -- GeoDataFrame with the hexbins
-		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
-		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
+		nodes (geopandas.GeoDataFrame) -- GeoDataFrame with the nodes to group
+		hex_bins (geopandas.GeoDataFrame) -- GeoDataFrame with the hexbins
+		resolution (int) -- resolution of the hexbins, used when doing the group by and to save the column
+		amenity_name (str) -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
 
 	Returns:
 		geopandas.GeoDataFrame -- GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
@@ -121,12 +121,12 @@ def socio_polygon_to_points(
 	"""
 	Assign the proportion of sociodemographic data from polygons to points
 	Args:
-		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with the nodes to group
-		gdf_socio {geopandas.GeoDataFrame} -- GeoDataFrame with the sociodemographic attributes of each AGEB
-		column_start {int, optional}: Column position were sociodemographic data starts in gdf_population. Defaults to 0.
-		column_end {int, optional}: Column position were sociodemographic data ends in gdf_population. Defaults to -1.
-		cve_column {str, optional}: Column name with unique code for identification. Defaults to "CVEGEO".
-		avg_column {list, optional}: Column name lists with data to average and not divide. Defaults to None.
+		nodes (geopandas.GeoDataFrame) -- GeoDataFrame with the nodes to group
+		gdf_socio (geopandas.GeoDataFrame) -- GeoDataFrame with the sociodemographic attributes of each AGEB
+		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
+		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
+		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
+		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
 	Returns:
 		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
 	"""
@@ -164,14 +164,14 @@ def socio_points_to_polygon(
 
 	"""Group sociodemographic point data in polygons
     Args:
-        gdf_polygon {geopandas.GeoDataFrame}: GeoDataFrame polygon where sociodemographic data will be grouped
-        gdf_socio {geopandas.GeoDataFrame}: GeoDataFrame points with sociodemographic data
-        cve_column {str}: Column name with polygon id in gdf_polygon.
-        string_columns {list}: List with column names for string data in gdf_socio.
-        column_start {int, optiona}: Column position were sociodemographic data starts in gdf_socio. Defaults to 0.
-        column_end {int, optional}: Column position were sociodemographic data ends in gdf_socio. Defaults to -1.
-        wgt_dict {dict, optional}: Dictionary with average column names and weight column names for weighted average. Defaults to None.
-        avg_column {list, optional}: List with column names with average data. Defaults to None.
+        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
+        gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
+        cve_column (str): Column name with polygon id in gdf_polygon.
+        string_columns (list): List with column names for string data in gdf_socio.
+        column_start (int, optiona): Column position were sociodemographic data starts in gdf_socio. Defaults to 0.
+        column_end (int, optional): Column position were sociodemographic data ends in gdf_socio. Defaults to -1.
+        wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
+        avg_column (list, optional): List with column names with average data. Defaults to None.
     Returns:
         pandas.DataFrame: DataFrame with group sociodemographic data and polygon id
 
@@ -208,11 +208,11 @@ def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dic
 	"""
     Aggregate sociodemographic variables from DataFrame.
     Args:
-        df_socio {pd.DataFrame}: DataFrame containing sociodemographic variables to be aggregated by sum or mean.
-        column_start {int, optional}: Column number were sociodemographic variables start at DataFrame. Defaults to 1.
-        column_end {int, optional}: Column number were sociodemographic variables end at DataFrame. Defaults to -1.
-        avg_column {list, optional}: List of column names to be averaged and not sum. Defaults to None.
-        avg_dict {dictionary, optional}: Dictionary containing column names to average and
+        df_socio (pd.DataFrame): DataFrame containing sociodemographic variables to be aggregated by sum or mean.
+        column_start (int, optional): Column number were sociodemographic variables start at DataFrame. Defaults to 1.
+        column_end (int, optional): Column number were sociodemographic variables end at DataFrame. Defaults to -1.
+        avg_column (list, optional): List of column names to be averaged and not sum. Defaults to None.
+        avg_dict (dictionary, optional): Dictionary containing column names to average and
                                             column with which a weighted average will be crated. Defaults to None.
     Returns:
         pd.DataFrame: DataFrame with sum and mean values for sociodemographic data
@@ -252,7 +252,7 @@ def walk_speed(edges_elevation):
 	Calculates the Walking speed Using Tobler's Hiking Function and the slope in edges
 
 	Arguments:
-		edges_elevation {geopandas.GeoDataFrame} -- GeoDataFrame with the street edges with slope data
+		edges_elevation (geopandas.GeoDataFrame) -- GeoDataFrame with the street edges with slope data
 		
 
 	Returns:
@@ -271,8 +271,8 @@ def create_network(nodes, edges):
 	Create a network based on nodes and edges without unique ids and to - from attributes.
 
 	Arguments:
-		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with nodes for network in EPSG:4326
-		edges {geopandas.GeoDataFrame} -- GeoDataFrame with edges for network in EPSG:4326
+		nodes (geopandas.GeoDataFrame) -- GeoDataFrame with nodes for network in EPSG:4326
+		edges (geopandas.GeoDataFrame) -- GeoDataFrame with edges for network in EPSG:4326
 
 	Returns:
 		geopandas.GeoDataFrame  -- nodes GeoDataFrame with unique ids based on coordinates named osmid in EPSG:4326
@@ -328,10 +328,10 @@ def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
 	Finds the hexagons that have or do not have a point within
 
 	Arguments:
-		grid {geopandas.GeoDataFrame} -- GeoDataFrame with the full H3 hex grid of the city
-		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
-		gdf {geopandas.GeoDataFrame} -- GeoDataFrame of figures to be overlaid with hexes
-		contain {str} -- True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
+		grid (geopandas.GeoDataFrame) -- GeoDataFrame with the full H3 hex grid of the city
+		resolution (int) -- resolution of the hexbins, used when doing the group by and to save the column
+		gdf (geopandas.GeoDataFrame) -- GeoDataFrame of figures to be overlaid with hexes
+		contain (str) -- True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
 
 		
 	Returns:
@@ -368,10 +368,10 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 	Fills hexagons with no data with the average data of neighbors (note: hex id must be a column not index)
 
 	Arguments:
-		missing_hex {geopandas.GeoDataFrame} -- GeoDataFrame with the hexes that does not have the information due to lack of nodes
-		data_hex {geopandas.GeoDataFrame} -- GeoDataFrame of hexes that do contain the information
-		resolution {int} -- resolution of the hexbins, used when doing the group by and to save the column
-		data_column {str} -- Name of the column with the data to be filled with (ex. distance)
+		missing_hex (geopandas.GeoDataFrame) -- GeoDataFrame with the hexes that does not have the information due to lack of nodes
+		data_hex (geopandas.GeoDataFrame) -- GeoDataFrame of hexes that do contain the information
+		resolution (int) -- resolution of the hexbins, used when doing the group by and to save the column
+		data_column (str) -- Name of the column with the data to be filled with (ex. distance)
 
 		
 	Returns:
@@ -407,16 +407,17 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 	return full_hex
 
 def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
-        """Function that uses isochrones to calculate distance fom the center_node in graph G,
+    """
+		Function that uses isochrones to calculate distance fom the center_node in graph G,
 		 and uses parameters like distance and time to plot the result.
     Arguments:
-        G {networkx.Graph}: networkx Graph with travel time (time) attribute.
-        center_node {int}: id of the node to use
-        trip_time {int}: maximum travel time allowed
-        subgraph {bool, optional}: Bool to get the resulting subgraph or only the geometry. Defaults to False.
+        G (networkx.Graph): networkx Graph with travel time (time) attribute.
+        center_node (int): id of the node to use
+        trip_time (int): maximum travel time allowed
+        subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
     Returns:
-        sub_G: {optional} subgraph of the covered area.
-        geometry: {geometry} with the covered area
+        sub_G: (optional) subgraph of the covered area.
+        geometry: (geometry) with the covered area
     """
 
     sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
@@ -434,11 +435,11 @@ def sigmoidal_function(x, di, d0):
 	parameters d0 and di. The sigmoidal_function is used to calculate 
 	the equilibrium index for each node.
 	Arguments:
-		x: {int} Calculate the sigmoidal function
-		di: {int}Determine the slope of the sigmoid function
-		d0: {int}Set the threshold of the sigmoid function
+		x: (int) Calculate the sigmoidal function
+		di: (int)Determine the slope of the sigmoid function
+		d0: (int)Set the threshold of the sigmoid function
 	Returns:
-		idx_eq {int} Calculations of the index
+		idx_eq (int) Calculations of the index
 	"""
 	
 	idx_eq = 1 / (1 + math.exp(x * (di - d0)))
@@ -447,14 +448,15 @@ def sigmoidal_function(x, di, d0):
 
 def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 	"""
-	The sigmoidal_function_constant function calculates the constant average decay for a sigmoidal funcition with 2 quarter times
-	at 0.25 and 0.75 of the distance between positive_limit_value and mid_limit_value and an input constant at x. 
+	The sigmoidal_function_constant function calculates the constant average decay 
+	for a sigmoidal funcition with 2 quarter values at 0.25 and 0.75 of the distance 
+	between positive_limit_value and mid_limit_value and an input constant at x. 
 	All values collected will be stored inside an index 
 	Arguments:
-		positive_limit_value: {int} Define the upper limit of the sigmoidal function
-		mid_limit_value: {int} Define the midpoint of the sigmoidal function
+		positive_limit_value: (int) Define the upper limit of the sigmoidal function
+		mid_limit_value: (int) Define the midpoint of the sigmoidal function
 	Returns:
-	constant_value_average: {int} Average constant decay value for the two quarter times with optimized values from the index
+	constant_value_average: (int) Average constant decay value for the two quarter times with optimized values from the index
 
 	"""
 
@@ -470,11 +472,11 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 		The sigmoidal_function function calculates the value at x,
 		taking the 2 predefined values quarter_limit and mid_limit_value calculated earlier 
 			Arguments:
-				x : {int}  Defaults to quarter_limit.
-				di :{int}  Defaults to quarter_limit_value.
-				d0 :{int}  Defaults to mid_limit_value. 
+				x : (int)  Defaults to quarter_limit.
+				di :(int)  Defaults to quarter_limit_value.
+				d0 :(int)  Defaults to mid_limit_value. 
 			Returns:
-		idx_eq: {int}  The sigmoidal function of the independent variable x.
+		idx_eq: (int)  The sigmoidal function of the independent variable x.
 		"""
 		idx_eq = 1 / (1 + math.exp(x * (di - d0)))
 		return idx_eq
@@ -487,11 +489,12 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 			d0 - The midpoint of the sigmoidal function.  This is also where it crosses 0 on its y-axis, and where it has an index value equal to idx_0.
 			idx_0 - A float between 0 and 1 representing how much we want our index values to be at d0 (the midpoint).
 		Arguments:
-			x: {int}Calculate the value of the sigmoidal function
-			di:{int} Set the value of the sigmoid function at which it reaches its maximum
-			d0: {int}Define the mid-limit value of the sigmoidal function
-			idx_0: {int}Set the objective value of the sigmoid function
-		Returns: The value of the sigmoidal function at a given point x
+			x: (int) Calculate the value of the sigmoidal function
+			di:(int) Set the value of the sigmoid function at which it reaches its maximum
+			d0: (int) Define the mid-limit value of the sigmoidal function
+			idx_0: (int) Set the objective value of the sigmoid function
+		Returns:
+		The value of the sigmoidal function at a given point x
 		"""
 		
 
