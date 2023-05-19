@@ -310,7 +310,7 @@ def df_from_query(query, index_col=None):
     return df
 
 
-def gdf_from_query(query, geometry_col="geom", index_col=None):
+def gdf_from_query(query, geometry_col="geometry", index_col=None):
     """Load a table from the database into a GeoDataFrame
 
     Args:
@@ -331,7 +331,7 @@ def gdf_from_query(query, geometry_col="geom", index_col=None):
     return df
 
 
-def gdf_from_db(name, schema):
+def gdf_from_db(name, schema,geom_col="geometry"):
     """Load a table from the database into a GeoDataFrame
 
     Args:
@@ -344,7 +344,7 @@ def gdf_from_db(name, schema):
     engine = utils.db_engine()
     utils.log(f"Getting {name} from DB")
     gdf = gpd.read_postgis(
-        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col="geometry"
+        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col=geom_col
     )
     utils.log(f"{name} retrived")
 
@@ -370,6 +370,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
 
     gdf = gdf.to_crs("EPSG:6372")
     gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
+    gdf = gdf.set_geometry("geometry")
     gdf = gdf.to_crs("EPSG:4326")
     poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
     edges_query = f"SELECT * FROM {schema}.{edges_folder} WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
