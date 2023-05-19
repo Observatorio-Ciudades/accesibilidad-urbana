@@ -231,8 +231,8 @@ def link_dict(band_name_list, items, date_list):
 
     Args:
         band_name_list (list): List with data
-        items (array): items intersecting time and area of interest
-        date_list (array): dates of interest
+        items (list): items intersecting time and area of interest
+        date_list (list): dates of interest
 
     Returns:
         assets_hrefs (dict): Dictionary with the links to the assets
@@ -454,12 +454,14 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
 
 def clean_mask(geom, dataset='', **mask_kw):
     """
-    The mask in this function is used to extract the values from a raster dataset that fall within a given geometry of interest.
+    The mask in this function is used to extract the values from a raster dataset that fall 
+    within a given geometry of interest.
     Arguments:
-        geom (Geodataframe): Geometric figure that will be used to mask the raster dataset.
-        dataset (rasterio DatasetReader): The raster dataset that will be masked by the inputted geometry. 
-        If no value is provided, then it defaults to an empty string and returns only the masked array of 
-        values from within the inputted geometry without any metadata.
+        geom (geometry): Geometric figure that will be used to mask the raster dataset.
+        dataset (rasterio DatasetReader): The raster dataset that will be masked by the 
+        inputted geometry. If no value is provided, then it defaults to an empty string 
+        and returns only the masked array of values from within the inputted geometry 
+        without any metadata.
         mask_kw (dict): A dictionary of arguments passed to create the mask.
     Returns:
         masked (array): Returns values from within the inputted geometry.
@@ -480,8 +482,8 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
     
     Arguments:
         hex_gdf (geodataframe): Creates a copy of the hexagon geodataframe
-        year (int): Specify the year of the raster file that is being opened
-        month (int): Opens the raster file for that specific month and year
+        year (int): Specify the year that will be used
+        month (int): Month index that will be used
         city (str): Specify the city for which we want to calculate the ndmi
         index_analysis (array): Specify which index analysis to use
         tmp_dir (str): Specify the directory where the raster files are stored
@@ -511,14 +513,15 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
 def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
     """
     The function takes a hexagon geodataframe, the length of the dataframe,
-    the index analysis Normalized Difference Moisture Index, and the city name as inputs. It then creates an empty 
-    geodataframe to save ndmi by date. The function loops through each year in df_len and for each month 
-    in that year it masks all rasters by hexagons.
+    the index analysis Normalized Difference Moisture Index, and the city name as inputs. 
+    It then creates an empty geodataframe to save ndmi by date. The function loops through 
+    each year in df_len and for each month in that year, to mask each and every raster 
+    to its corresponding hexagon.
     Arguments:
         hex_gdf: Pass the hexagon geodataframe to the function
-        df_len: Determine the number of years and months that are in the data
+        df_len (int): Determine the number of years and months that are in the data
         index_analysis: Select the raster file to be used in the analysis
-        city: Specify the city of interest
+        city(str): Specify the city of interest
         raster_dir: Specify the directory where the raster files are stored
     Returns: 
     hex_raster: A geodataframe with the hexagon id
@@ -544,6 +547,21 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
     return hex_raster
 
 def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
+    """
+    The raster_to_hex function takes a hexagonal grid, a dataframe of dates, and the ndmi index
+    to then return it into a geodataframe a  mean value for each hexagon in a grid for each date
+    to offer a better classification in a csv file.
+    
+        hex_gdf: Pass the hexagonal grid to the function
+        df_len: Iterate through the dataframe containing the dates of each image
+        r: Specify the resolution of the hexagons
+        index_analysis: Select the index to be analyzed
+        city: Specify the city to be analyzed
+        raster_dir: Specify the directory where the raster files are stored
+    :return: A geodataframe with the mean value of each index by hexagon and date
+
+    """
+    
     # create empty geodataframe to save ndmi by date
     hex_raster = gpd.GeoDataFrame()
 
@@ -584,7 +602,25 @@ def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
 
 
 def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
+    """
+    The raster_to_hex_analysis function groups the raster by hexagons and calculates 
+    summary statistics for each one of them.
+    The function returns two dataframes: one with summary statistics for each of the hexagons
+    (hexagon id, mean value of index analysis per year) and another with all values 
+    from the raster assigned to their respective hexagon.
+    
+        hex_gdf: Get the hexagons
+        df_len: Divide the dataframe into chunks to be processed in parallel
+        index_analysis: Specify the column name of the index we want to analyze
+        tmp_dir (str): Store the raster files in a temporary directory
+        city (str): city information from the dataframes
+        res: Filter the hexagons dataframe by resolution
+    Returns:
+    Two dataframes: one with summary statistics for each of the hexagons
+    """
+    
     # group raster by hex
+
     log('Starting raster to hexagons')
     hex_gdf = hex_gdf.loc[hex_gdf.res==res].copy()
     hex_raster = raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, tmp_dir)
