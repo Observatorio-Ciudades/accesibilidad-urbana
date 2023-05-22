@@ -149,17 +149,17 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[False],
-                      'red':[False]}
+    band_name_dict = {'nir':[True],
+                      'swir16':[False]}
     index_analysis = 'ndmi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    res = [8] # 8, 11
+    res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
     end_date = '2022-12-31'
     satellite = "sentinel-2-l2a"
-    save = False # True
-    del_data = False # True
+    save = True # True
+    del_data = True # True
 
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
     if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
@@ -183,18 +183,20 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['ZMVM'] # Guaymas
+    city_analysis = ['Tijuana','Merida','Leon',
+                     'Queretaro','Tuxtla','Puebla','Monterrey',
+                     'Guadalajara','Chihuahua','ZMVM'] # Guaymas
     for city in gdf_mun.city.unique():
 
         # if city not in processed_city_list and city not in skip_list:
-        if city in city_analysis:
+        if city in city_analysis and city not in processed_city_list and city not in skip_list:
 
             aup.log(f'\n Starting city {city}')
 
-            # cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
-            cvegeo_list = ["09002", "09003", "09004", "09005", 
-                           "09006", "09007", "09008", "09009", "09010", 
-                           "09011", "09012", "09013", "09014", "09015", "09016", "09017"]
+            cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
+            cvegeo_list = ["09002", "09003", "09004", "09005", "09006", 
+                           "09007", "09008", "09009", "09010", "09011", 
+                           "09012", "09013", "09014", "09015", "09016", "09017"]
 
             try:
                 main(index_analysis, city, cvegeo_list, band_name_dict, start_date,
