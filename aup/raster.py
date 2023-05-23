@@ -39,9 +39,10 @@ class AvailableData(Exception):
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
                                tmp_dir, band_name_list, satellite="sentinel-2-l2a"):
-    """Function that returns a raster with the data provided
+    """
+    Function that returns a raster with the data provided
 
-    Args:
+    Arguments:
         gdf (GeoDataFrame): Area of interest
         index_analysis (int): Index of analysis
         city (str): City name
@@ -147,7 +148,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
 def create_time_of_interest(start_date, end_date, freq='MS'):
     """
     Creates the time of interest for the raster
-    Args:
+    Arguments:
         start_date (date): First date in data
         end_date (date): Last date in data
         freq (str):Defaults to 'MS'.
@@ -182,9 +183,10 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
 
 
 def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a"):
-    """ Items gathered in time and area of interest from planetary computer
+    """ 
+    Items gathered in time and area of interest from planetary computer
 
-    Args:
+    Arguments:
         time_of_interest (array): days of interest
         area_of_interest (dict): Polygon, area of interest
         satellite (str): Defaults to "sentinel-2-l2a".
@@ -208,9 +210,10 @@ def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a")
     return items
 
 def find_asset_by_band_common_name(item, common_name):
-    """Filter that receives an item from a list and searches for a band with a common name
+    """
+    Filter that receives an item from a list and searches for a band with a common name
 
-    Args:
+    Arguments:
         item (object): Belongs to the gathered items
         common_name (str): Common name of the band  to be searched
 
@@ -218,7 +221,7 @@ def find_asset_by_band_common_name(item, common_name):
         KeyError: If common_name is not found
 
     Returns:
-        asset : _description_
+        asset (str) : Asset with the common name
     """
     for asset in item.assets.values():
         asset_bands = eo.ext(asset).bands
@@ -227,9 +230,10 @@ def find_asset_by_band_common_name(item, common_name):
     raise KeyError(f"{common_name} band not found")
 
 def link_dict(band_name_list, items, date_list):
-    """Creates a dictionary with the links to the assets
+    """
+    The function creates a dictionary with the links to the assets
 
-    Args:
+    Arguments:
         band_name_list (list): List with data
         items (list): items intersecting time and area of interest
         date_list (list): dates of interest
@@ -254,9 +258,10 @@ def link_dict(band_name_list, items, date_list):
     return assets_hrefs
 
 def filter_links(assets_hrefs, band_name_list):
-    """filters links to assets, removing those without sufficient data
+    """
+    The function filters links to assets, removing those without sufficient data.
 
-    Args:
+    Arguments:
         assets_hrefs (dict): links to assets
         band_name_list (list): List with data
 
@@ -396,7 +401,8 @@ def available_datasets(items):
 
 
 def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
-    """The mosaic_raster function takes a list of raster assets and merges them together.
+    """
+    The mosaic_raster function takes a list of raster assets and merges them together.
         Arguments:
             raster_asset_list (list): A list of raster asset paths to be appended together.
             tmp_dir (str): The directory where temporary files will be stored during processing. Defaults to 'tmp/'.
@@ -488,7 +494,7 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
         index_analysis (array): Specify which index analysis to use
         tmp_dir (str): Specify the directory where the raster files are stored
     Returns:
-        hex_raster(): A hexagon raster with the index analysis added as a column
+        hex_raster(ndarray): A hexagon raster with the index analysis added as a column
     """
     hex_raster = hex_gdf.copy()
     # read ndmi file
@@ -518,13 +524,13 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
     each year in df_len and for each month in that year, to mask each and every raster 
     to its corresponding hexagon.
     Arguments:
-        hex_gdf: Pass the hexagon geodataframe to the function
+        hex_gdf (geodata frame): Pass the hexagon geodataframe to the function
         df_len (int): Determine the number of years and months that are in the data
         index_analysis: Select the raster file to be used in the analysis
         city(str): Specify the city of interest
-        raster_dir: Specify the directory where the raster files are stored
+        raster_dir (str): Specify the directory where the raster files are stored
     Returns: 
-    hex_raster: A geodataframe with the hexagon id
+    hex_raster (ndarray): A geodataframe with the hexagon id
     """
     
     # create empty geodataframe to save ndmi by date
@@ -551,14 +557,15 @@ def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
     The raster_to_hex function takes a hexagonal grid, a dataframe of dates, and the ndmi index
     to then return it into a geodataframe a  mean value for each hexagon in a grid for each date
     to offer a better classification in a csv file.
-    
-        hex_gdf: Pass the hexagonal grid to the function
-        df_len: Iterate through the dataframe containing the dates of each image
-        r: Specify the resolution of the hexagons
-        index_analysis: Select the index to be analyzed
+    Arguments:
+        hex_gdf (geodataframe): Pass the hexagonal grid to the function
+        df_len (int): Iterate through the dataframe containing the dates of each image
+        r (int): Specify the resolution of the hexagons
+        index_analysis (list): Select the index to be analyzed
         city: Specify the city to be analyzed
-        raster_dir: Specify the directory where the raster files are stored
-    :return: A geodataframe with the mean value of each index by hexagon and date
+        raster_dir (str): Specify the directory where the raster files are stored
+    Returns:
+        hextmp: A geodataframe with the mean value of each index by hexagon and date
 
     """
     
@@ -608,15 +615,15 @@ def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
     The function returns two dataframes: one with summary statistics for each of the hexagons
     (hexagon id, mean value of index analysis per year) and another with all values 
     from the raster assigned to their respective hexagon.
-    
-        hex_gdf: Get the hexagons
-        df_len: Divide the dataframe into chunks to be processed in parallel
+    Arguments:
+        hex_gdf (geodataframe): Gets the hexagons
+        df_len (dataframe): Divides the dataframe into chunks to be processed in parallel
         index_analysis: Specify the column name of the index we want to analyze
         tmp_dir (str): Store the raster files in a temporary directory
         city (str): city information from the dataframes
-        res: Filter the hexagons dataframe by resolution
+        res: Filters the hexagons dataframe by resolution
     Returns:
-    Two dataframes: one with summary statistics for each of the hexagons
+        hex_raster_analysis: one with summary statistics for each of the hexagons
     """
     
     # group raster by hex
