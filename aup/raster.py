@@ -496,7 +496,7 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
         index_analysis (str): Specify which index analysis to use
         tmp_dir (str): Specify the directory where the raster files are stored
     Returns:
-        hex_raster (matrix): A hexagon raster with the index analysis added as a column
+        hex_raster (geodataframe): A hexagon raster with the index analysis added as a column
     """
     hex_raster = hex_gdf.copy()
     # read ndmi file
@@ -532,7 +532,7 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
         city(str): Specify the city of interest
         raster_dir (str): Specify the directory where the raster files are stored
     Returns: 
-    hex_raster (matrix): A geodataframe with the hexagon id
+    hex_raster (geodataframe): A geodataframe with the hexagon id
     """
     
     # create empty geodataframe to save ndmi by date
