@@ -159,6 +159,7 @@ def create_schema(schema):
     except Exception as e:
         utils.log(e)
         pass
+    
 
 
 def df_to_db(df, table, schema, if_exists="fail"):
@@ -210,6 +211,8 @@ def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
                if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=chunksize)
      utils.log(f'Table {name} in DB')
 
+     engine.dispose()
+
 
 def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
     """Upload a geoPandas.GeoDataFrame to the database
@@ -233,6 +236,8 @@ def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
         schema=schema.lower(),
     )
     utils.log(f"Table {name} in DB")
+
+    engine.dispose()
 
 
 def gdf_to_df_geo(gdf):
@@ -284,6 +289,9 @@ def df_from_db(name, schema):
     utils.log(f"Getting {name} from DB")
     df = pd.read_sql(f"SELECT * FROM {schema.lower()}.{name.lower()}", engine)
     utils.log(f"{name} retrived")
+
+    engine.dispose()
+
     return df
 
 
@@ -303,7 +311,7 @@ def df_from_query(query, index_col=None):
     return df
 
 
-def gdf_from_query(query, geometry_col="geom", index_col=None):
+def gdf_from_query(query, geometry_col="geometry", index_col=None):
     """Load a table from the database into a GeoDataFrame
 
     Args:
@@ -318,10 +326,13 @@ def gdf_from_query(query, geometry_col="geom", index_col=None):
         query, engine, geom_col=geometry_col, index_col=index_col
     )
     utils.log("Data retrived")
+
+    engine.dispose()
+
     return df
 
 
-def gdf_from_db(name, schema):
+def gdf_from_db(name, schema,geom_col="geometry"):
     """Load a table from the database into a GeoDataFrame
 
     Args:
@@ -334,9 +345,12 @@ def gdf_from_db(name, schema):
     engine = utils.db_engine()
     utils.log(f"Getting {name} from DB")
     gdf = gpd.read_postgis(
-        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col="geometry"
+        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col=geom_col
     )
     utils.log(f"{name} retrived")
+
+    engine.dispose()
+
     return gdf
 
 
