@@ -63,7 +63,7 @@ def nearest_nodes(G, nodes, X, Y, return_dist=False):
         # if projected, use k-d tree for euclidean nearest-neighbor search
         if cKDTree is None:  # pragma: no cover
             raise ImportError("scipy must be installed to search a projected graph")
-        dist, pos = cKDTree(nodes).query(np.array([X, Y]).T, k=1)
+        dist, pos = cKDTree(nodes[["x", "y"]]).query(np.array([X, Y]).T, k=1)
         nn = nodes.index[pos]
 
     else:
