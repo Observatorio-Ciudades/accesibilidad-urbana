@@ -19,6 +19,8 @@ import psycopg2
 from geoalchemy2 import WKTElement
 from shapely.geometry import Polygon, MultiLineString, Point, LineString
 
+import shutil
+
 from . import utils
 
  
@@ -160,41 +162,40 @@ def create_schema(schema):
     
 
 
-def df_to_db(df, name, table, schema, if_exists="fail"):
+def df_to_db(df, table, schema, if_exists="fail"):
     """Save a dataframe into the database as a table
 
     Args:
         df (DataFrame): pandas.DataFrame to upload
-        name (str): name of the dataframe to upload (used for logs)
-        table (str): name of the table to create/append to.
+        table (str): name of the dataframe to upload (used for logs)
+        schema (str): name of the schema to that contains the table.
 
     """
-
     create_schema(schema)
     table = table.lower()
     schema = schema.lower()
+    # save dataframe to an in memory buffer
     buffer = StringIO()
-    df.to_csv(buffer, index=False, header=False, quoting=csv.QUOTE_NONNUMERIC, sep=",")
+    df.to_csv(buffer, index=False, header=False)
     buffer.seek(0)
+    
     conn = utils.connect()
     cursor = conn.cursor()
-    utils.log(f"{name} starting upload to: {table}")
     try:
         cursor.copy_expert(
             f"""COPY {schema}.{table} FROM STDIN WITH (FORMAT CSV)""", buffer
         )
         conn.commit()
-        utils.log(f"{name} Copy to {schema}.{table} done.")
+        utils.log(f"Copy to {schema}.{table} done.")
         buffer = 0
     except (Exception, psycopg2.DatabaseError) as error:
-        utils.log(f"{name} Error: {error}")
+        utils.log("Error: %s" % error)
         conn.rollback()
         cursor.close()
         return 1
     cursor.close()
-    conn.close()
 
-def df_to_db_slow(df, name, schema, if_exists='fail'):
+def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      """Upload a Pandas.DataFrame to the database
      Args:
          df (pandas.DataFrame): DataFrame to be uploadead
@@ -207,7 +208,7 @@ def df_to_db_slow(df, name, schema, if_exists='fail'):
      engine = utils.db_engine()
      utils.log(f'Uploading table {name} to database')
      df.to_sql(name=name.lower(), con=engine,
-               if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=50000)
+               if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=chunksize)
      utils.log(f'Table {name} in DB')
 
      engine.dispose()
@@ -351,6 +352,18 @@ def gdf_from_db(name, schema,geom_col="geometry"):
     engine.dispose()
 
     return gdf
+
+
+def delete_files_from_folder(delete_dir):
+    for filename in os.listdir(delete_dir):
+        file_path = os.path.join(delete_dir, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            utils.log('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
 def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
