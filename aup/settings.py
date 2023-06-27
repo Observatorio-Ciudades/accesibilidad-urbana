@@ -1,9 +1,7 @@
 from dotenv import load_dotenv
 import os
 
-env_file = ('.env')
-
-load_dotenv(env_file)
+load_dotenv()
 
 """Global settings, can be configured by user with utils.config()."""
 
