@@ -46,18 +46,20 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         gdf (GeoDataFrame): Area of interest
         index_analysis (str): Index of analysis
         city (str): City name
-        freq (str): Frequency
-        start_date (date): First date of data
-        end_date (date): First date of data
-        tmp_dir (str): address of temporary directory
-        band_name_list (list): List with data
-        satellite (str): Defaults to "sentinel-2-l2a".
+        freq (str): Frequency of raster analysis
+        start_date (date): First date of raster data
+        end_date (date): Last date of raster data
+        tmp_dir (str): address of temporary directory where downloaded and processed 
+        raster for a specific city will be saved. 
+        band_name_list (list): List with multispectral band names for raster analysis
+        satellite (str): satellite used to download imagery
 
     Raises:
         AvailableData: Object with a message
 
     Returns:
-        df_len (dataframe): Final raster
+        df_len (dataframe): Dataframe containing a summary of available and 
+        processed data for city and the specified time range.
     """
     # if GeoDataFrame is not h3 hexagons it creates them
 
@@ -147,14 +149,15 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
 
 def create_time_of_interest(start_date, end_date, freq='MS'):
     """
-    Creates the time of interest for the raster
+    Creates a time range used to download raster data going from start_date to 
+    end_date and a specified frequency
     Arguments:
-        start_date (date): First date in data
-        end_date (date): Last date in data
-        freq (str):Defaults to 'MS'.
+        start_date (date): First date of raster data
+        end_date (date): Last date of raster data
+        freq (str):Frequency of time range between start_date and end_date 
 
     Returns:
-        time_of_interest (array): Dates of interest
+        time_of_interest (list): date range in specified format used by Planetary Computer api
     """
     df_tmp_dates = pd.DataFrame() # temporary date dataframe
     df_tmp_dates['date'] = pd.date_range(start = start_date,   
@@ -187,9 +190,9 @@ def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a")
     Items gathered in time and area of interest from planetary computer
 
     Arguments:
-        time_of_interest (array): days of interest
+        time_of_interest (list): Time range of interest
         area_of_interest (dict): Polygon, area of interest
-        satellite (str): Defaults to "sentinel-2-l2a".
+        satellite (str): satellite used to download imagery
 
     Returns:
         items (array): items intersecting time and area of interest
@@ -234,9 +237,9 @@ def link_dict(band_name_list, items, date_list):
     The function creates a dictionary with the links to the assets
 
     Arguments:
-        band_name_list (list): List with data
+        band_name_list (list): list with multispectral band names for raster analysis
         items (list): items intersecting time and area of interest
-        date_list (list): dates of interest
+        date_list (list): dates with available data
 
     Returns:
         assets_hrefs (dict): Dictionary with the links to the assets
@@ -263,11 +266,10 @@ def filter_links(assets_hrefs, band_name_list):
 
     Arguments:
         assets_hrefs (dict): links to assets
-        band_name_list (list): List with data
-
+        band_name_list (list): list with multispectral band names for raster analysis
     Returns:
-        assets_hrefs (dict): Updated dictionary
-        max_links_len (int): Max number of links
+        assets_hrefs (dict): updated dictionary
+        max_links_len (int): maximum number of links by date
     """
     max_links_len = st.mode(np.array([len(x[band_name_list[0]]) for x in list(assets_hrefs.values())]))[0][0]
     
@@ -285,14 +287,16 @@ def filter_links(assets_hrefs, band_name_list):
 
 
 def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS'):
-    """Function converts the dictionary of assets into a dataframe that contains. date, month and year. It merges the month and year, to then remove the date and extract the data_idand remove columns containing band names.
-    Aditionally it uses a function to count the missing months 
+    """
+    The Function converts the dictionary of assets into a dataframe that contains date, month and year. 
+    It merges the month and year, to then remove the date and extract the data_id 
+    and remove columns containing band names. Aditionally it uses a function to count the missing months 
     Arguments:
         assets_hrefs (dict): Dictionary with the links to the assets
-        start_date (str): First date in data
-        end_date (str): Last date in data
-        band_name_list (list): List with data
-        freq (str): Defaults to 'MS'.
+        start_date (date): First date of raster data
+        end_date (date): Last date of raster data
+        band_name_list (list): list with multispectral band names for raster analysis
+        freq (str): Frequency of time range between start_date and end_date
 
     Returns:
         df_complete_dates (dataframe): Dataframe with filtered dates
@@ -409,8 +413,8 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
             tmp_dir (str): The directory where temporary files will be stored during processing. Defaults to 'tmp/'.
             upscale (bool): Whether or not the mosaic is upscaled by 2x  using the formats of the conditional statement
         Returns:
-            mosaic (list): Transforms the data into a raster object
-            out_trans (list): Mosaic that is upscaled 
+            mosaic (array): merged raster data
+            out_trans (str): transformation information for mosaic raster
             meta (dictionary): Metadata of the raster object
 
        
@@ -496,7 +500,7 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
         index_analysis (str): Specify which index analysis to use
         tmp_dir (str): Specify the directory where the raster files are stored
     Returns:
-        hex_raster (geodataframe): A hexagon raster with the index analysis added as a column
+        hex_raster (np.array): A hexagon raster with the index analysis added as a column
     """
     hex_raster = hex_gdf.copy()
     # read ndmi file
@@ -520,9 +524,9 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
 
 def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
     """
-    The function takes a hexagon geodataframe, the length of the dataframe,
-    the index analysis Normalized Difference Moisture Index, and the city name as inputs. 
-    It then creates an empty geodataframe to save ndmi by date. The function loops through 
+    The function takes a  geodataframe, containing dates for available datasets,
+    the index analysis a specified multispectral band index, and the city name as inputs. 
+    It then creates an empty geodataframe to to save index_analysis by date. The function loops through 
     each year in df_len and for each month in that year, to mask each and every raster 
     to its corresponding hexagon.
     Arguments:
@@ -556,7 +560,7 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
 
 def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
     """
-    The raster_to_hex function takes a hexagonal grid, a dataframe of dates, and the ndmi index
+    The raster_to_hex function takes a hexagonal grid, a dataframe of dates, the name of the satellite imagery index
     to then return it into a geodataframe a  mean value for each hexagon in a grid for each date
     to offer a better classification in a csv file.
     Arguments:
@@ -614,7 +618,7 @@ def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
     """
     The raster_to_hex_analysis function groups the raster by hexagons and calculates 
     summary statistics for each one of them.
-    The function returns two dataframes: one with summary statistics for each of the hexagons
+    The function returns a dataframe and a geodataframe: one with summary statistics for each of the hexagons
     (hexagon id, mean value of index analysis per year) and another with all values 
     from the raster assigned to their respective hexagon.
     Arguments:
@@ -623,7 +627,7 @@ def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
         index_analysis (str): Specify the column name of the index we want to analyze
         tmp_dir (str): Store the raster files in a temporary directory
         city (str): city information from the dataframes
-        res (int): Filters the hexagons dataframe by resolution
+        res (int): hexagon resolution used to filter the dataframe by resolution
     Returns:
         hex_raster_analysis (matrix): Has the summary statistics for each of the hexagons
         hex_raster_df (dataframe): Has all values from the raster assigned to their respective hexagon
@@ -682,8 +686,8 @@ def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
         band_name_list (list): Name the output files
         tmp_dir (str): Specify a temporary directory to store the intermediate files
     Returns: 
-        mosaic_band_1 (array): The mosaic array for band 1
-        mosaic_band_2 (array): The mosaic array for band 2
+        mosaic_band_1 (np.array): The mosaic array for band 1
+        mosaic_band_2 (np.array): The mosaic array for band 2
         out_trans_band_2 (array): The transformation matrix for band 2
         out_meta (object): The metadata for the output file
         
@@ -703,7 +707,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                            band_name_list, date_list, gdf_bb, 
                            aoi, sat, time_exc_limit=600):
     """
-    The create_raster_by_month function is used to create a raster for each month of the year.
+    The create_raster_by_month function is used to create a raster for each month of the year within the time range
     The function takes in a dataframe with the length of years and months, an index analysis, city name, 
     temporary directory path (tmp_dir), band name list (band_name_list), date list (date_list), 
     geodataframe bounding box(gdf_bb) and area of interest(aoi). 
@@ -711,7 +715,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     the raster data, calculates an index, crops the raster, performs interpolation, and 
     saves the processed rasters and corresponding metadata in the specified directory.
     Arguments:
-        df_len (dataframe): Store the results of the analysis
+        df_len (dataframe): Summary dataframe indicating available raster data for each month
         index_analysis (str): Define the index analysis
         city (str): Save the raster files based on the city name
         tmp_dir (str): Save the raster files in a temporary directory
@@ -877,7 +881,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis): 
     """
-    This function analyzes and interpolates the raster data that was downloaded.
+    This function interpolates missing raster data by time windows, filling the gaps in unavailable months.
     The function takes a pandas dataframe with the following columns:
             - month (int)
             - year (int)

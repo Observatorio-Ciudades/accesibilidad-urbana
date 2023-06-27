@@ -21,28 +21,26 @@ def voronoi_cpu(g, weights, seeds):
 	Voronoi diagram calculator for undirected graphs
 	Optimized for computational efficiency
 
-	Args:
-		g {igraph.Graph}: graph object with Nodes and Edges
-		weights {numpy.array}: array of weights for all edges of length len(V)
-		seeds {numpy.array}: generator points as numpy array of indices from the node array
+	Arguments:
+		g (igraph.Graph): graph object with Nodes and Edges
+		weights (numpy.array): array of weights for all edges of length len(V)
+		seeds (numpy.array): generator points as numpy array of indices from the node array
 
 	Returns:
-		seeds: {numpy.array} numpy.array on len(N) where the location (index) of the node refers to the node, the value is the generator (seed) the respective nodes belongs to.
+		seeds (numpy.array): numpy.array on len(N) where the location (index) of the node refers to the node, the value is the generator (seed) the respective nodes belongs to.
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
 def get_distances(g, seeds, weights, voronoi_assignment):
 	"""
-	Distance for the shortest path for each node to the closest seed
-
+	Distance for the shortest path for each node to the closest seed using Dijkstra's algorithm.
 	Arguments:
-		g {[type]} -- [description]
-		seeds {[type]} -- [description]
-		weights {[type]} -- [description]
-		voronoi_assignment {[type]} -- [description]
-
-	Returns:
-		[type] -- [description]
+		g (igraph.Graph): Graph object that calculates the shortest path between two nodes
+		seeds (numpy.array): Find the shortest path from each node to the closest seed
+		weights (numpy.array): Specify the weights of each edge, which is used to calculate the shortest path
+		voronoi_assignment (numpy.array): Assign the nodes to their respective seeds
+	Returns: 
+		The distance for the shortest path for each node to the closest seed
 	"""
 	shortest_paths = np.array(g.shortest_paths_dijkstra(seeds,weights=weights))
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
@@ -55,16 +53,16 @@ wght='length', max_distance=(0,'distance_node')):
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
 	Arguments:
-		gdf_f {geopandas.GeoDataFrame} -- GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
-		nodes {geopandas.GeoDataFrame} -- GeoDataFrame with nodes for network analysis
-		edges {geopandas.GeoDataFrame} -- GeoDataFrame with edges for network analysis
-		amenity_name {str} -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
-		column_name {str} -- column name where the nearest distance index is stored
-		wght {str} -- weights column in edges. Defaults to length
-		max_distance {tuple} -- tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
+		gdf_f (geopandas.GeoDataFrame): GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes for network analysis
+		edges (geopandas.GeoDataFrame): GeoDataFrame with edges for network analysis
+		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
+		column_name (str): column name where the nearest distance index is stored
+		wght (str): weights column in edges. Defaults to length
+		max_distance (tuple): tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
 
 	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame with geometry and distance to the nearest POI
+		geopandas.GeoDataFrame: GeoDataFrame with geometry and distance to the nearest POI
 	"""
 	nodes = nodes.copy()
 	edges = edges.copy()
@@ -89,13 +87,13 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes (geopandas.GeoDataFrame) -- GeoDataFrame with the nodes to group
-		hex_bins (geopandas.GeoDataFrame) -- GeoDataFrame with the hexbins
-		resolution (int) -- resolution of the hexbins, used when doing the group by and to save the column
-		amenity_name (str) -- string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
+		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexbins
+		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
+		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
 
 	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
+		geopandas.GeoDataFrame:  GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
 	"""
 	dist_col = col_name
 	nodes = nodes.copy()
@@ -120,15 +118,15 @@ def socio_polygon_to_points(
 ):
 	"""
 	Assign the proportion of sociodemographic data from polygons to points
-	Args:
-		nodes (geopandas.GeoDataFrame) -- GeoDataFrame with the nodes to group
-		gdf_socio (geopandas.GeoDataFrame) -- GeoDataFrame with the sociodemographic attributes of each AGEB
+	Arguments:
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
+		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each AGEB
 		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
 		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
 		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
 		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
 	Returns:
-		geopandas.GeoDataFrame -- nodes GeoDataFrame with the proportion of population by nodes in the AGEB
+		nodes (GeoDataFrame):  Shows the proportion of population by nodes in the AGEB
 	"""
 
 	if column_end == -1:
@@ -163,7 +161,7 @@ def socio_points_to_polygon(
 	avg_column=None):
 
 	"""Group sociodemographic point data in polygons
-    Args:
+    Arguments:
         gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
         cve_column (str): Column name with polygon id in gdf_polygon.
@@ -173,7 +171,7 @@ def socio_points_to_polygon(
         wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
         avg_column (list, optional): List with column names with average data. Defaults to None.
     Returns:
-        pandas.DataFrame: DataFrame with group sociodemographic data and polygon id
+        pd.DataFrame: DataFrame with group sociodemographic data and polygon id
 
 	"""
 
@@ -207,7 +205,7 @@ def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dic
 	
 	"""
     Aggregate sociodemographic variables from DataFrame.
-    Args:
+    Arguments:
         df_socio (pd.DataFrame): DataFrame containing sociodemographic variables to be aggregated by sum or mean.
         column_start (int, optional): Column number were sociodemographic variables start at DataFrame. Defaults to 1.
         column_end (int, optional): Column number were sociodemographic variables end at DataFrame. Defaults to -1.
@@ -252,11 +250,11 @@ def walk_speed(edges_elevation):
 	Calculates the Walking speed Using Tobler's Hiking Function and the slope in edges
 
 	Arguments:
-		edges_elevation (geopandas.GeoDataFrame) -- GeoDataFrame with the street edges with slope data
+		edges_elevation (geopandas.GeoDataFrame): GeoDataFrame with the street edges with slope data
 		
 
 	Returns:
-		geopandas.GeoDataFrame -- edges_speed GeoDataFrame with the edges with an added column for speed
+		geopandas.GeoDataFrame: edges_speed GeoDataFrame with the edges with an added column for speed
 	"""
 	edges_speed = edges_elevation.copy()
 	edges_speed['walkspeed'] = edges_speed.apply(lambda row : (4*np.exp(-3.5*abs((row['grade'])))), axis=1)
@@ -271,12 +269,12 @@ def create_network(nodes, edges):
 	Create a network based on nodes and edges without unique ids and to - from attributes.
 
 	Arguments:
-		nodes (geopandas.GeoDataFrame) -- GeoDataFrame with nodes for network in EPSG:4326
-		edges (geopandas.GeoDataFrame) -- GeoDataFrame with edges for network in EPSG:4326
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes for network in EPSG:4326
+		edges (geopandas.GeoDataFrame): GeoDataFrame with edges for network in EPSG:4326
 
 	Returns:
-		geopandas.GeoDataFrame  -- nodes GeoDataFrame with unique ids based on coordinates named osmid in EPSG:4326
-		geopandas.GeoDataFrame  -- edges GeoDataFrame with to - from attributes based on nodes ids named u and v respectively in EPSG:4326
+		geopandas.GeoDataFrame: nodes GeoDataFrame with unique ids based on coordinates named osmid in EPSG:4326
+		geopandas.GeoDataFrame: edges GeoDataFrame with to - from attributes based on nodes ids named u and v respectively in EPSG:4326
 	"""
 
 	#Copy edges and nodes to avoid editing original GeoDataFrames
@@ -328,14 +326,14 @@ def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
 	Finds the hexagons that have or do not have a point within
 
 	Arguments:
-		grid (geopandas.GeoDataFrame) -- GeoDataFrame with the full H3 hex grid of the city
-		resolution (int) -- resolution of the hexbins, used when doing the group by and to save the column
-		gdf (geopandas.GeoDataFrame) -- GeoDataFrame of figures to be overlaid with hexes
-		contain (str) -- True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
+		grid (geopandas.GeoDataFrame): GeoDataFrame with the full H3 hex grid of the city
+		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
+		gdf (geopandas.GeoDataFrame): GeoDataFrame of figures to be overlaid with hexes
+		contain (str): True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
 
 		
 	Returns:
-		geopandas.GeoDataFrame -- gdf_in_hex -- hexes that contain or do not contain a gdf within
+		geopandas.GeoDataFrame: gdf_in_hex: hexes that contain or do not contain a gdf within
 	"""
 	#PIP (Point in Polygon). Overlays gdf with hexes to find hexes that have the gdf in them and those that do not
 	pip = gpd.overlay(grid, gdf, how='intersection', keep_geom_type=False)
@@ -368,14 +366,14 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 	Fills hexagons with no data with the average data of neighbors (note: hex id must be a column not index)
 
 	Arguments:
-		missing_hex (geopandas.GeoDataFrame) -- GeoDataFrame with the hexes that does not have the information due to lack of nodes
-		data_hex (geopandas.GeoDataFrame) -- GeoDataFrame of hexes that do contain the information
-		resolution (int) -- resolution of the hexbins, used when doing the group by and to save the column
-		data_column (str) -- Name of the column with the data to be filled with (ex. distance)
+		missing_hex (geopandas.GeoDataFrame): GeoDataFrame with the hexes that does not have the information due to lack of nodes
+		data_hex (geopandas.GeoDataFrame): GeoDataFrame of hexes that do contain the information
+		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
+		data_column (str): Name of the column with the data to be filled with (ex. distance)
 
 		
 	Returns:
-		geopandas.GeoDataFrame -- full_hex -- hexgrid filled with relevant data
+		geopandas.GeoDataFrame - full_hex: hexgrid filled with relevant data
 	"""
 	missing_hex[[f'{data_column}']] = np.nan
 	urb_hex = gpd.GeoDataFrame()
@@ -408,7 +406,7 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 
 def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
     """
-		Function that uses isochrones to calculate distance fom the center_node in graph G,
+		Function that that creates a isochrone from a center_node in graph G,
 		 and uses parameters like distance and time to plot the result.
     Arguments:
         G (networkx.Graph): networkx Graph with travel time (time) attribute.
@@ -417,8 +415,8 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
 		dist_column (int): column name with weight for calculation
         subgraph (bool, optional): Bool to get the resulting subgraph or only the geometry. Defaults to False.
     Returns:
-        sub_G: (optional) subgraph of the covered area.
-        geometry: (geometry) with the covered area
+        sub_G (optional): subgraph of the covered area.
+        geometry (geometry): with the covered area
     """
 
     sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
@@ -432,15 +430,13 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
 def sigmoidal_function(x, di, d0):
 	"""
 	The sigmoidal_function function takes in two parameters, x and di.
-	The function returns the value of a sigmoidal function with 
-	parameters d0 and di. The sigmoidal_function is used to calculate 
-	the equilibrium index for each node.
+	It is used to calculate the equilibrium index for each node.
 	Arguments:
-		x: (int) Calculate the sigmoidal function
-		di: (int)Determine the slope of the sigmoid function
-		d0: (int)Set the threshold of the sigmoid function
+		x (int): Calculate the sigmoidal function
+		di (int): Determine the slope of the sigmoid function
+		d0 (int): Set the threshold of the sigmoid function
 	Returns:
-		idx_eq (int) Calculations of the index
+		idx_eq (int): Calculations of the index
 	"""
 	
 	idx_eq = 1 / (1 + math.exp(x * (di - d0)))
@@ -473,11 +469,11 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 		The sigmoidal_function function calculates the value at x,
 		taking the 2 predefined values quarter_limit and mid_limit_value calculated earlier 
 			Arguments:
-				x : (int)  Defaults to quarter_limit.
-				di :(int)  Defaults to quarter_limit_value.
-				d0 :(int)  Defaults to mid_limit_value. 
+				x (int):  Defaults to quarter_limit.
+				di (int):  Defaults to quarter_limit_value.
+				d0 (int):  Defaults to mid_limit_value. 
 			Returns:
-		idx_eq: (int)  The sigmoidal function of the independent variable x.
+		idx_eq (int):  The sigmoidal function of the independent variable x.
 		"""
 		idx_eq = 1 / (1 + math.exp(x * (di - d0)))
 		return idx_eq
@@ -490,10 +486,10 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 			d0 - The midpoint of the sigmoidal function.  This is also where it crosses 0 on its y-axis, and where it has an index value equal to idx_0.
 			idx_0 - A float between 0 and 1 representing how much we want our index values to be at d0 (the midpoint).
 		Arguments:
-			x: (int) Calculate the value of the sigmoidal function
-			di:(int) Set the value of the sigmoid function at which it reaches its maximum
-			d0: (int) Define the mid-limit value of the sigmoidal function
-			idx_0: (int) Set the objective value of the sigmoid function
+			x (int): Calculate the value of the sigmoidal function
+			di (int): Set the value of the sigmoid function at which it reaches its maximum
+			d0 (int): Define the mid-limit value of the sigmoidal function
+			idx_0 (int): Set the objective value of the sigmoid function
 		Returns:
 		The value of the sigmoidal function at a given point x
 		"""
