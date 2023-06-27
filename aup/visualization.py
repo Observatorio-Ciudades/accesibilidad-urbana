@@ -49,12 +49,13 @@ def hex_config():
 	"""
 
 	config = {'version': 'v1', 'config': 
-	{'visState': {'filters': [], 'layers': [{'id': 'jsx1yd', 'type': 'geojson', 'config': 
+	{'visState': {'filters': [], 'layers': [
+		{'id': 'jsx1yd', 'type': 'geojson', 'config': 
 	{'dataId': 'Análisis de hexágono', 'label': 'Análisis de hexágono', 'color': [231, 159, 213], 
 	'columns': {'geojson': 'geometry'}, 'isVisible': True, 
 	'visConfig': {'opacity': 0.35, 'strokeOpacity': 0.05, 'thickness': 0.5, 'strokeColor': [28, 27, 27], 
 	'colorRange': {'name': 'Custom Palette', 'type': 'custom', 'category': 'Custom', 
-	'colors': ['#fcd999','#ffa669','#ed5f8f','#8a3668','#221c5a']}, 
+	'colors': ['#00939c','#85c4c8','#feeee8','#ec9370','#c22e00']}, 
 	'strokeColorRange': {'name': 'Global Warming', 'type': 'sequential', 'category': 'Uber', 
 	'colors': ['#5A1846', '#900C3F', '#C70039', '#E3611C', '#F1920E', '#FFC300']}, 
 	'radius': 10, 'sizeRange': [0, 10], 'radiusRange': [0, 50], 'heightRange': [0, 500], 
@@ -62,7 +63,8 @@ def hex_config():
 	'hidden': False, 'textLabel': [{'field': None, 'color': [255, 255, 255], 'size': 18, 'offset': [0, 0], 'anchor': 'start', 'alignment': 'center'}]}, 
 	'visualChannels': {'colorField': {'name': 'dist_farmacia', 'type': 'real'}, 'colorScale': 'quantile',
     'sizeField': None, 'sizeScale': 'linear', 'strokeColorField': None, 'strokeColorScale': 'quantile', 
-	'heightField': {'name': 'dist_farmacia', 'type': 'real'}, 'heightScale': 'linear', 'radiusField': None, 'radiusScale': 'linear'}}], 
+	'heightField': {'name': 'dist_farmacia', 'type': 'real'}, 'heightScale': 'linear', 'radiusField': None, 'radiusScale': 'linear'}},
+	], 
 	'interactionConfig': {'tooltip': {'fieldsToShow': {'Análisis de hexágono': []}, 
 	'compareMode': False, 'compareType': 'absolute', 'enabled': True}, 'brush': {'size': 0.5, 'enabled': False}, 
 	'geocoder': {'enabled': False}, 'coordinate': {'enabled': False}}, 'layerBlending': 'normal', 'splitMaps': [], 

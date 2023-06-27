@@ -35,6 +35,9 @@ class AvailableData(Exception):
     def __str__(self):
         return self.message
 
+class NanValues(Exception):
+    def __init__(self, message):
+        self.message = message
 
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
@@ -63,6 +66,11 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     """
     # if GeoDataFrame is not h3 hexagons it creates them
 
+
+def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
+                               tmp_dir, band_name_dict, satellite="sentinel-2-l2a"):
+
+    # create area of interest coordinates from hexagons to download raster data    
     log('Extracting bounding coordinates from hexagons')
     # Create buffer around hexagons
     poly = gdf.to_crs("EPSG:6372").buffer(500)
@@ -101,12 +109,12 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     date_list = available_datasets(items)
 
     # create dictionary from links
-    assets_hrefs = link_dict(band_name_list, items, date_list)
+    assets_hrefs = link_dict(list(band_name_dict.keys()), items, date_list)
     log('Created dictionary from items')
 
-    # filter for dates with requiered links for area_of_interest
-    # assets_hrefs, median_links = filter_links(assets_hrefs, band_name_list)
-    # log(f'{median_links} rasters links by time analysis')
+    # analyze available data according to raster properties
+    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, list(band_name_dict.keys()), freq)
+    available_data_check(df_len, missing_months) # test for missing months
 
     # creates raster and analyzes percentage of missing data points
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq)
@@ -123,8 +131,12 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     log('Created bounding box for raster cropping')
     # raster creation
     log('Starting raster creation for specified time')
-    df_len = create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
-                                    band_name_list,date_list, gdf_bb, area_of_interest, satellite)
+
+    # download raster data by month
+    df_len = create_raster_by_month(
+        df_len, index_analysis, city, tmp_dir,
+        band_name_dict,date_list, gdf_raster_test,
+        gdf_bb, area_of_interest, satellite)
     log('Finished raster creation')
     # calculates percentage of missing months
     missing_months = len(df_len.loc[df_len.data_id==0])
@@ -161,8 +173,9 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
     """
     df_tmp_dates = pd.DataFrame() # temporary date dataframe
     df_tmp_dates['date'] = pd.date_range(start = start_date,   
-                                end = end_date,   # there are 30 periods because range from satelite img goes from 01-01-2020 - 30-06-2022
+                                end = end_date, 
                                 freq = freq)
+    # extract month and year from date
     df_tmp_dates['month'] = df_tmp_dates.apply(lambda row: row['date'].month, axis=1)
     df_tmp_dates['year'] = df_tmp_dates.apply(lambda row: row['date'].year, axis=1)
 
@@ -175,9 +188,10 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
         year = df_tmp_dates.loc[df_tmp_dates.index==d].year.values[0]
 
         sample_date = datetime(year, month, 1)
-        first_day = sample_date + relativedelta(day=1)
-        last_day = sample_date + relativedelta(day=31)
+        first_day = sample_date + relativedelta(day=1) # first day of the month
+        last_day = sample_date + relativedelta(day=31) # last day of the month
 
+        # append time range to time of interest list with planetary computer format
         time_of_interest.append(f"{year}-{month:02d}-{first_day.day:02d}/{year}"+
                                 f"-{month:02d}-{last_day.day:02d}")
         
@@ -201,6 +215,7 @@ def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a")
 
     items = []
 
+    # iterate over dates and gather items
     for t in time_of_interest:
         search = catalog.search(
             collections=[satellite],
@@ -247,11 +262,14 @@ def link_dict(band_name_list, items, date_list):
     assets_hrefs = {}
 
     for i in items:
+        # only takes into account dates that are in the date list
         if i.datetime.date() not in date_list:
             continue
+        # if date already in dictionary, append link to list
         if i.datetime.date() in list(assets_hrefs.keys()):
             for b in band_name_list:
                 assets_hrefs[i.datetime.date()][b].append(pc.sign(find_asset_by_band_common_name(i,b).href))
+        # if date not in dictionary, create new dictionary entry
         else:
             assets_hrefs[i.datetime.date()] = {}
             for b in band_name_list:
@@ -321,9 +339,9 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     # create full range time dataframe
     df_tmp_dates = pd.DataFrame() # temporary date dataframe
     df_tmp_dates['date'] = pd.date_range(start = start_date,   
-                               end = end_date,   # there are 30 periods because range from satelite img goes from 01-01-2020 - 30-06-2022
+                               end = end_date, 
                                freq = freq) # create date range
-    # extract year and month
+    # extract year and month from date
     df_tmp_dates['year'] = df_tmp_dates.apply(lambda row: row['date'].year, axis=1)
     df_tmp_dates['month'] = df_tmp_dates.apply(lambda row: row['date'].month, axis=1)
 
@@ -337,12 +355,14 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     df_complete_dates.drop(columns='date', inplace=True)
     df_complete_dates.sort_values(by=['year','month'], inplace=True)
     
+    # create binary column for available (1) or missing data (0)
     idx = df_complete_dates[band_name_list[0]].isna()
     df_complete_dates['data_id'] = 0
     df_complete_dates.loc[~idx,'data_id'] = 1
     
     df_complete_dates.drop(columns=band_name_list, inplace=True)
-    
+
+    # calculate missing months
     missing_months = len(df_complete_dates.loc[df_complete_dates.data_id==0])
     
     return df_complete_dates, missing_months
@@ -359,8 +379,14 @@ def available_datasets(items):
     """
     date_dict = {}
 
+    date_dict = {}
+    # iterate over raster tiles by date
     for i in items:
+        # check and add raster properties to dictionary by tile and date
+        # if date is within dictionary append properties from item to list
         if i.datetime.date() in list(date_dict.keys()):
+            # gather cloud percentage, high_proba_clouds_percentage, no_data values and nodata_pixel_percentage
+            # check if properties are within dictionary date keys
             if i.properties['s2:mgrs_tile']+'_cloud' in list(date_dict[i.datetime.date()].keys()):
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_cloud':
@@ -368,6 +394,7 @@ def available_datasets(items):
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_nodata':
                      i.properties['s2:nodata_pixel_percentage']})
+            
             else:
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_cloud':
@@ -375,6 +402,7 @@ def available_datasets(items):
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_nodata':
                      i.properties['s2:nodata_pixel_percentage']})
+        # create new date key and add properties to it
         else:
             date_dict[i.datetime.date()] = {}
             date_dict[i.datetime.date()].update(
@@ -383,7 +411,8 @@ def available_datasets(items):
             date_dict[i.datetime.date()].update(
                 {i.properties['s2:mgrs_tile']+'_nodata':
                  i.properties['s2:nodata_pixel_percentage']})
-            
+    
+    # determine third quartile for each tile
     df_tile = pd.DataFrame.from_dict(date_dict, orient='index')
     q3 = [np.percentile(df_tile[c].dropna(), 
                         [75]) for c in df_tile.columns.to_list()]
@@ -393,8 +422,11 @@ def available_datasets(items):
 
     column_list = df_tile.columns.to_list()
 
+    # filter dates by missing values or outliers according to cloud and no_data values
     for c in range(len(column_list)):
         df_tile.loc[df_tile[column_list[c]]>q3[c],column_list[c]] = np.nan
+    
+    # create list of dates within normal distribution and without missing values
     date_list = df_tile.dropna().index.to_list()
 
     log(f'Available dates: {len(date_list)}')
@@ -457,6 +489,17 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
                         ),
                         resampling=Resampling.bilinear
                     )
+            out_trans = ds.transform * ds.transform.scale(
+                                (ds.width / mosaic.shape[-1]),
+                                (ds.height / mosaic.shape[-2])
+                            )
+            meta = ds.meta
+
+            meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic.shape[1],
+                            "width": mosaic.shape[2],
+                            "transform": out_trans})
 
         ds.close()
     src.close()
@@ -485,6 +528,11 @@ def clean_mask(geom, dataset='', **mask_kw):
                                   **mask_kw)
     return masked
 
+def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir=''):
+    log(f'Starting mosaic for {list(band_name_dict.keys())[0]}')
+    mosaic_band_1, out_trans_band_1, out_meta_1= mosaic_raster(links_band_1, tmp_dir, 
+                                                               upscale=band_name_dict[list(band_name_dict.keys())[0]][0])
+    mosaic_band_1 = mosaic_band_1.astype('float16')
 
 def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
     """"
@@ -543,20 +591,12 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
 
     hex_raster = gpd.GeoDataFrame()
 
-    years_list = list(df_len.year.unique())
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **out_meta) as dest:
+        dest.write(mosaic_band_1)
 
-    for i in tqdm(range(len(years_list)),position=0,leave=True):
-        y = years_list[i]
-        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.month.unique())]
-        pbar = tqdm(total=len(input_list))
-        pool = Pool()
-        hex_res = pd.concat(pool.starmap(mask_by_hexagon,input_list))
-        pool.close()
-        hex_raster = pd.concat([hex_raster, hex_res], 
-            ignore_index = True, axis = 0)
-        del hex_res
-        
-    return hex_raster
+        dest.close()
+
+    mosaic_band_1 = mosaic_band_1.astype('float16')
 
 def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
     """
@@ -578,40 +618,53 @@ def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
     # create empty geodataframe to save ndmi by date
     hex_raster = gpd.GeoDataFrame()
 
-    for d in tqdm(range(len(df_len)),position=0,leave=True):
+    log(f'Finished processing {list(band_name_dict.keys())[0]}')
 
-        month_ = df_len.loc[df_len.index==d].month.values[0]
-        year_ = df_len.loc[df_len.index==d].year.values[0]
+    log(f'Starting mosaic for {list(band_name_dict.keys())[1]}')
+    mosaic_band_2, out_trans_band_2, out_meta_2 = mosaic_raster(links_band_2, tmp_dir, 
+                                                               upscale=band_name_dict[list(band_name_dict.keys())[1]][0])
+    log(f'Finished processing {list(band_name_dict.keys())[1]}')
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+    log('Transformed band arrays to float16')
 
-        hex_tmp = hex_gdf.loc[hex_gdf.res==r].copy()
+    out_meta_2.update({"driver": "GTiff",
+                    "dtype": 'float32',
+                    "height": mosaic_band_2.shape[1],
+                    "width": mosaic_band_2.shape[2],
+                    "transform": out_trans_band_2})
 
-        if df_len.iloc[d].data_id==1:
+    log(f'Starting save: {list(band_name_dict.keys())[1]}')
 
-            # read ndmi file
-            raster_file = rasterio.open(f"{raster_dir}{city}_{index_analysis}_{month_}_{year_}.tif")
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif", "w", **out_meta_2) as dest:
+        dest.write(mosaic_band_2)
 
-            hex_tmp = hex_tmp.to_crs(raster_file.crs)
-
-            try:
-                hex_tmp[index_analysis] = hex_tmp.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
-            except:
-                hex_tmp[index_analysis] = np.nan
-
-        else:
-            hex_tmp[index_analysis] = np.nan
-
-        hex_tmp['month'] = month_
-        hex_tmp['year'] = year_
-
-        hex_tmp = hex_tmp.to_crs("EPSG:4326")
-
-        # concatenate into single geodataframe
-        hex_raster = pd.concat([hex_raster, hex_tmp], 
-            ignore_index = True, axis = 0)
-
-        del hex_tmp
+        dest.close()
         
-    return hex_raster
+    del mosaic_band_2
+    log('Finished saving complete dataset')
+    
+    log('Starting crop')
+    
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif") as src:
+        gdf_bb = gdf_bb.to_crs(src.crs)
+        shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
+        mosaic_band_2, out_transform = rasterio.mask.mask(src, shapes, crop=True)
+        out_meta = src.meta
+        out_meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic_band_2.shape[1],
+                            "width": mosaic_band_2.shape[2],
+                            "transform": out_transform})
+        src.close()
+
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif", "w", **out_meta) as dest:
+        dest.write(mosaic_band_2)
+
+        dest.close()
+
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+
+    log(f'Finished croping: {list(band_name_dict.keys())[1]}')
 
 
 def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
@@ -649,26 +702,16 @@ def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
     hex_raster_minmax = hex_raster_minmax[['hex_id','ndvi_max','ndvi_min']].groupby(['hex_id']).mean()
     hex_raster_minmax = hex_raster_minmax.reset_index()
 
-    hex_group_data = hex_raster[['hex_id',index_analysis]].groupby('hex_id').agg(['mean','std',
-                                                                                'median',mk.sens_slope])
-    hex_group_data.columns = ['_'.join(col) for col in hex_group_data.columns]
-    hex_group_data = hex_group_data.reset_index().merge(hex_raster_minmax, on='hex_id')
-    
-    hex_raster_analysis = hex_raster_analysis.merge(hex_group_data, on='hex_id')
-    hex_raster_analysis[index_analysis+'_diff'] = hex_raster_analysis[index_analysis+'_max'] - hex_raster_analysis[index_analysis+'_min']
-    hex_raster_analysis[index_analysis+'_tend'] = hex_raster_analysis[f'{index_analysis}_sens_slope'].apply(lambda x: x[0])
-    hex_raster_analysis = hex_raster_analysis.drop(columns=[f'{index_analysis}_sens_slope'])
-    
-    # remove geometry information
-    hex_raster_df = hex_raster.drop(columns=['geometry'])
-    
-    # add city information
-    hex_raster_df['city'] = city
-    hex_raster_analysis['city'] = city
 
-    log(f'df nan values: {hex_raster_df[index_analysis].isna().sum()}')
+def raster_nan_test(gdf, raster_file):
+    
+    gdf['test'] = gdf.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+    
+    log(f'There are {gdf.test.isna().sum()} null data values')
 
-    return hex_raster_analysis, hex_raster_df
+    if gdf['test'].isna().sum() > 0:
+        raise NanValues('NaN values are still present after processing')
+
 
 def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
     """
@@ -701,7 +744,6 @@ def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
     log('Transformed band arrays to float32')
     log(f'array datatype: {mosaic_band_1.dtype}')
     return mosaic_band_1, mosaic_band_2, out_trans_band_2,out_meta
-
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_list, date_list, gdf_bb, 
@@ -741,12 +783,16 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
     if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
         df_len.to_csv(df_file_dir)
+    # create folder to store temporary raster files by iteration
+    tmp_raster_dir = tmp_dir+'temporary_files/'
+    if os.path.exists(tmp_raster_dir) == False: # Or folder, will return true or false
+        os.mkdir(tmp_raster_dir)
 
     for i in tqdm(range(len(df_len)), position=0, leave=True):
         
         df_raster = pd.read_csv(df_file_dir, index_col=False)
 
-        
+        # binary id - checks if month could be processed
         checker = 0
 
         if df_raster.iloc[i].data_id==0:
@@ -765,14 +811,15 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         sample_date = datetime(year_, month_, 1)
         first_day = sample_date + relativedelta(day=1)
         last_day = sample_date + relativedelta(day=31)
-        
+
+        # creates time range for a specific month
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
-        
+        # gather links for the date range
         items = gather_items(time_of_interest, aoi, sat)
-        
-        assets_hrefs = link_dict(band_name_list,items,date_list)
-        
+        # gather links from dates that are within date_list
+        assets_hrefs = link_dict(list(band_name_dict.keys()), items, date_list)
+        # create dataframe
         df_links = pd.DataFrame.from_dict(assets_hrefs, 
                                         orient='Index').reset_index().rename(columns={'index':'date'})
         
@@ -782,22 +829,78 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         
         while iter_count <= 5:
 
+            # create skip date list used to analyze null values in raster
+            skip_date_list = []
+
             for data_link in range(len(df_links)):
                 log(f'Mosaic date {df_links.iloc[data_link].date.day}'+
                             f'/{df_links.iloc[data_link].date.month}'+
                             f'/{df_links.iloc[data_link].date.year} - iteration:{iter_count}')
-                try:
-                    links_band_1 = df_links.iloc[data_link][band_name_list[0]]
-                    links_band_2 = df_links.iloc[data_link][band_name_list[1]]
-                    # band_links = [df_links.iloc[data_link][band_name_list[band]] for band in band_name_list]
+                
+                # check if date contains null values within study area
+                if df_links.iloc[data_link]['date'] in skip_date_list:
+                    continue
 
-                    mosaic_band_1, mosaic_band_2, out_trans_band_2,out_meta = func_timeout(time_exc_limit, mosaic_process,
-                                                                                args=(links_band_1,links_band_2,band_name_list,tmp_dir))          
-                    checker = 1
-                    iter_count = 6
-                    break
+                try:
+                    links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
+                    links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
+
+                    mosaic_band_1, mosaic_band_2, _,out_meta = func_timeout(time_exc_limit, mosaic_process,
+                                                                                args=(links_band_1,links_band_2,
+                                                                                      band_name_dict,gdf_bb, tmp_raster_dir))
+
+                    # calculate raster index
+                    raster_index = (mosaic_band_1-mosaic_band_2)/(mosaic_band_1+mosaic_band_2)
+                    log(f'Calculated {index_analysis}')
+                    del mosaic_band_1
+                    del mosaic_band_2
+
+                    log(f'Starting interpolation')
+
+                    raster_index[raster_index == 0 ] = np.nan # change zero values to nan
+                    raster_index = raster_index.astype('float32') # change data type to float32 to avoid fillnodata error
+
+                    log(f'Interpolating {np.isnan(raster_index).sum()} nan values')
+                    raster_fill = fillnodata(raster_index, mask=~np.isnan(raster_index),
+                                        max_search_distance=50, smoothing_iterations=0)
+                    log(f'Finished interpolation to fill na - {np.isnan(raster_fill).sum()} nan')
+
+                    with rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif",'w', **out_meta) as dest:
+                            dest.write(raster_fill)
+
+                            dest.close()
+
+                    log('Starting null test')
+
+                    raster_file = rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif")
+
+                    gdf_raster_test = gdf_raster_test.to_crs(raster_file.crs)
+
+                    try:
+                        # test for nan values within study area
+                        raster_nan_test(gdf_raster_test,raster_file)
+
+                        log('Passed null test')
+                        
+                        # save raster to processing database
+                        with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif",'w', **out_meta) as dest:
+                            dest.write(raster_fill)
+
+                            dest.close()
+                        log(f'Finished saving {index_analysis} raster')
+
+                        checker = 1
+                        iter_count = 6
+                        delete_files_from_folder(tmp_raster_dir)
+                        break
+                    except:
+                        log('Failed null test')
+                        skip_date_list.append(df_links.iloc[data_link]['date'])
+                        delete_files_from_folder(tmp_raster_dir)
+
                 except:
                     log(f'Error in iteration {iter_count}')
+                    delete_files_from_folder(tmp_raster_dir)
                     continue
             iter_count = iter_count + 1
                 
@@ -806,75 +909,6 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.loc[df_raster.index==i,'able_to_download']=0
             df_raster.to_csv(df_file_dir, index=False)
             continue
-
-        raster_index = (mosaic_band_1-mosaic_band_2)/(mosaic_band_1+mosaic_band_2)
-        log(f'Calculated {index_analysis}')
-        del mosaic_band_1
-        del mosaic_band_2
-
-        out_meta.update({"driver": "GTiff",
-                    "dtype": 'float32',
-                    "height": raster_index.shape[1],
-                    "width": raster_index.shape[2],
-                    "transform": out_trans_band_2})
-
-        log('Starting save')
-
-        with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif", "w", **out_meta) as dest:
-            dest.write(raster_index)
-
-            dest.close()
-            
-        del raster_index
-        log('Finished saving complete dataset')
-        
-        log('Starting crop')
-        
-        with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif") as src:
-            gdf_bb = gdf_bb.to_crs(src.crs)
-            shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
-            out_image, out_transform = rasterio.mask.mask(src, shapes, crop=True)
-            out_meta = src.meta
-            out_meta.update({"driver": "GTiff",
-                                "dtype": 'float32',
-                                "height": out_image.shape[1],
-                                "width": out_image.shape[2],
-                                "transform": out_transform})
-            src.close()
-        log('Finished croping')
-        
-        df_raster.loc[((df_raster['year']==year_)&
-                (df_raster['month']==month_)),'raster_row'] = out_image.shape[1]
-        df_raster.loc[((df_len['year']==year_)&
-                (df_raster['month']==month_)),'raster_col'] = out_image.shape[2]
-        df_raster.loc[((df_len['year']==year_)&
-                (df_raster['month']==month_)),'able_to_download'] = 1
-        
-        log(f'Starting interpolation')
-
-        out_image[out_image == 0 ] = np.nan # change zero values to nan
-        
-        df_raster.loc[((df_len['year']==year_)&
-                (df_raster['month']==month_)),'no_data_values'] = np.isnan(out_image).sum()
-
-        log(f'Interpolating {np.isnan(out_image).sum()} nan values')
-        raster_fill = fillnodata(out_image, mask=~np.isnan(out_image),
-                            max_search_distance=50, smoothing_iterations=0)
-        log(f'Finished interpolation to fill na - {np.isnan(raster_fill).sum()} nan')
-        
-        log('Starting to save croped raster')
-            
-        with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif",'w', **out_meta) as dest:
-            dest.write(raster_fill)
-
-            dest.close()
-        log('Finished saving croped raster')
-        
-        df_raster.to_csv(df_file_dir, index=False)
-        
-        del out_image
-
-    df_len = pd.read_csv(df_file_dir)[['year','month','data_id','raster_row','raster_col','no_data_values','able_to_download']]
 
     return df_len
 
@@ -906,20 +940,18 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
     
     log(f'Mean no-data:{mean_no_data}, Std no-data{stddev_no_data}, Rows: {row_mode}, Columns: {col_mode}')
 
-    df_len.loc[(((df_len.raster_row < row_mode)|
-            (df_len.raster_col < col_mode)|
-            (df_len.no_data_values > mean_no_data+stddev_no_data))&
-            (df_len.raster_col.notna())),'data_id'] = 0
- 
+        available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0]))
+
+    df_len = pd.read_csv(df_file_dir)[['year','month','data_id','able_to_download']]
+
+    return df_len
+
+
+def raster_interpolation(df_len, city, tmp_dir, index_analysis):
 
     log(f'Interpolating {len(df_len.loc[df_len.data_id==0])}')
 
-    pct_missing = len(df_len.loc[df_len.data_id==0]) / len(df_len)
-    pct_missing = round(pct_missing,2)*100
-    
-    if pct_missing > 50:
-        
-        raise AvailableData('Missing more than 50 percent of data points')
+    available_data_check(df_len, len(df_len.loc[df_len.data_id==0]))
 
     df_len['interpolate'] = 0
     
@@ -961,8 +993,6 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                         
                         log('Finished creating raster')
                         df_len.loc[df_len.index==start+cont,'data_id'] = 1
-                        df_len.loc[df_len.index==start+cont,'raster_row'] = row_mode
-                        df_len.loc[df_len.index==start+cont,'raster_col'] = col_mode
                         df_len.loc[df_len.index==start+cont,'interpolate'] = 1
                     
                     cont += 1
@@ -990,8 +1020,6 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                         
                         log('Finished creating raster')
                         df_len.loc[df_len.index==start+cont,'data_id'] = 1
-                        df_len.loc[df_len.index==start+cont,'raster_row'] = row_mode
-                        df_len.loc[df_len.index==start+cont,'raster_col'] = col_mode
                         df_len.loc[df_len.index==start+cont,'interpolate'] = 1
                     
                     cont += 1
@@ -1046,8 +1074,6 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                         log(f'Finished creating raster')
                         
                         df_len.loc[df_len.index==start+cont,'data_id'] = 1
-                        df_len.loc[df_len.index==start+cont,'raster_row'] = dim_row
-                        df_len.loc[df_len.index==start+cont,'raster_col'] = dim_col
                         df_len.loc[df_len.index==start+cont,'interpolate'] = 1
                     
                     cont += 1
@@ -1057,3 +1083,129 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
     df_len.to_csv(df_file_dir)
 
     return df_len
+
+
+def clean_mask(geom, dataset='', **mask_kw):
+    mask_kw.setdefault('crop', True)
+    mask_kw.setdefault('all_touched', True)
+    mask_kw.setdefault('filled', False)
+    masked, _ = rasterio.mask.mask(dataset=dataset, shapes=(geom,),
+                                  **mask_kw)
+    return masked
+
+
+def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
+    hex_raster = hex_gdf.copy()
+    # read ndmi file
+    raster_file = rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month}_{year}.tif")
+
+    hex_raster = hex_raster.to_crs(raster_file.crs)
+    try:
+
+        hex_raster[index_analysis] = hex_raster.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+    except:
+        hex_raster[index_analysis] = np.nan
+
+    hex_raster['month'] = month
+    hex_raster['year'] = year
+
+    hex_raster = hex_raster.to_crs("EPSG:4326")
+
+    return hex_raster
+
+
+def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
+    # create empty geodataframe to save ndmi by date
+    hex_raster = gpd.GeoDataFrame()
+
+    years_list = list(df_len.year.unique())
+
+    for i in tqdm(range(len(years_list)),position=0,leave=True):
+        y = years_list[i]
+        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.month.unique())]
+        pbar = tqdm(total=len(input_list))
+        pool = Pool()
+        hex_res = pd.concat(pool.starmap(mask_by_hexagon,input_list))
+        pool.close()
+        hex_raster = pd.concat([hex_raster, hex_res], 
+            ignore_index = True, axis = 0)
+        del hex_res
+        
+    return hex_raster
+
+def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
+    # create empty geodataframe to save index_analysis by date
+    hex_raster = gpd.GeoDataFrame()
+
+    for d in tqdm(range(len(df_len)),position=0,leave=True):
+
+        month_ = df_len.loc[df_len.index==d].month.values[0]
+        year_ = df_len.loc[df_len.index==d].year.values[0]
+
+        hex_tmp = hex_gdf.copy()
+
+        if df_len.iloc[d].data_id==1:
+
+            # read index_analysis file
+            raster_file = rasterio.open(f"{raster_dir}{city}_{index_analysis}_{month_}_{year_}.tif")
+
+            hex_tmp = hex_tmp.to_crs(raster_file.crs)
+
+            try:
+                hex_tmp[index_analysis] = hex_tmp.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+            except:
+                hex_tmp[index_analysis] = np.nan
+
+        else:
+            hex_tmp[index_analysis] = np.nan
+
+        hex_tmp['month'] = month_
+        hex_tmp['year'] = year_
+
+        hex_tmp = hex_tmp.to_crs("EPSG:4326")
+
+        # concatenate into single geodataframe
+        hex_raster = pd.concat([hex_raster, hex_tmp], 
+            ignore_index = True, axis = 0)
+
+        del hex_tmp
+        
+    return hex_raster
+
+
+def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
+    # group raster by hex
+    log('Starting raster to hexagons')
+    hex_gdf = hex_gdf.copy()
+    hex_raster = raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, tmp_dir)
+    log('Assigned raster data to hexagons')
+    
+    # summary statistics
+    hex_raster_analysis = hex_gdf[['hex_id','geometry','res']].drop_duplicates().copy()
+    
+    hex_raster_minmax = hex_raster[['hex_id',index_analysis,'year']].groupby(['hex_id','year']).agg(['max','min'])
+    hex_raster_minmax.columns = ['_'.join(col) for col in hex_raster_minmax.columns]
+    hex_raster_minmax = hex_raster_minmax.reset_index()
+    hex_raster_minmax = hex_raster_minmax[['hex_id',f'{index_analysis}_max',f'{index_analysis}_min']].groupby(['hex_id']).mean()
+    hex_raster_minmax = hex_raster_minmax.reset_index()
+
+    hex_group_data = hex_raster[['hex_id',index_analysis]].groupby('hex_id').agg(['mean','std',
+                                                                                'median',mk.sens_slope])
+    hex_group_data.columns = ['_'.join(col) for col in hex_group_data.columns]
+    hex_group_data = hex_group_data.reset_index().merge(hex_raster_minmax, on='hex_id')
+    
+    hex_raster_analysis = hex_raster_analysis.merge(hex_group_data, on='hex_id')
+    hex_raster_analysis[index_analysis+'_diff'] = hex_raster_analysis[index_analysis+'_max'] - hex_raster_analysis[index_analysis+'_min']
+    hex_raster_analysis[index_analysis+'_tend'] = hex_raster_analysis[f'{index_analysis}_sens_slope'].apply(lambda x: x[0])
+    hex_raster_analysis = hex_raster_analysis.drop(columns=[f'{index_analysis}_sens_slope'])
+    
+    # remove geometry information
+    hex_raster_df = hex_raster.drop(columns=['geometry'])
+    
+    # add city information
+    hex_raster_df['city'] = city
+    hex_raster_analysis['city'] = city
+
+    log(f'df nan values: {hex_raster_df[index_analysis].isna().sum()}')
+
+    return hex_raster_analysis, hex_raster_df
