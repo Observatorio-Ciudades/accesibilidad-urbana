@@ -405,8 +405,6 @@ def available_datasets(items):
     return date_list
 
 
-
-
 def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     """
     The mosaic_raster function takes a list of raster assets and merges them together.
@@ -477,6 +475,14 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     return mosaic, out_trans, meta
 
 def raster_nan_test(gdf, raster_file):
+    """
+    The function performs a test to check for Not-a-Number values in a raster file.
+    Arguments:
+        gdf (geodataframe): Pass in the geodataframe containing geometries that we want to check for nan values
+        raster_file: Specify the raster file to be used in the function
+    Raises:
+        An exception if needed
+    """
     
     gdf['test'] = gdf.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
     
