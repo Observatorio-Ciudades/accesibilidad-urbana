@@ -24,10 +24,8 @@ from pystac_client import Client
 from pandarallel import pandarallel
 from multiprocessing import Pool
 
-# Flags to ignore division by zero and invalid floating point operations
 np.seterr(divide='ignore', invalid='ignore')
 
-# A class is created it receives a message and has a function that returns it as a string
 class AvailableData(Exception):
     def __init__(self, message):
         self.message = message
@@ -39,9 +37,23 @@ class NanValues(Exception):
     def __init__(self, message):
         self.message = message
 
+    def __str__(self):
+        return self.message
+
+
+def available_data_check(df_len, missing_months, pct_limit=50, window_limit=5):
+    pct_missing = round(missing_months/len(df_len),2)*100
+    log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
+    if pct_missing >= pct_limit: 
+        raise AvailableData('Missing more than 50 percent of data points')
+    df_rol = df_len.rolling(window_limit).sum()
+    if len(df_rol.loc[df_rol.data_id==0])>0:
+        raise AvailableData('Multiple missing months together')
+    del df_rol
+
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
-                               tmp_dir, band_name_list, satellite="sentinel-2-l2a"):
+                               tmp_dir, band_name_dict, satellite="sentinel-2-l2a"):
     """
     Function that returns a raster with the data provided.
 
@@ -64,12 +76,6 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         df_len (dataframe): Dataframe containing a summary of available and 
         processed data for city and the specified time range.
     """
-    # if GeoDataFrame is not h3 hexagons it creates them
-
-
-def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
-                               tmp_dir, band_name_dict, satellite="sentinel-2-l2a"):
-
     # create area of interest coordinates from hexagons to download raster data    
     log('Extracting bounding coordinates from hexagons')
     # Create buffer around hexagons
@@ -84,7 +90,6 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     e = coord_val.maxx.max()
     w = coord_val.minx.min()
 
-    # Sets the coordinates for the area of interest
     area_of_interest = {
         "type": "Polygon",
         "coordinates": [
@@ -101,7 +106,6 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # create time of interest
     log('Defining time of interest')
     time_of_interest = create_time_of_interest(start_date, end_date, freq=freq)
-    # gathers items for time and area of interest
     log('Gathering items for time and area of interest')
     items = gather_items(time_of_interest, area_of_interest, satellite=satellite)
     log(f'Fetched {len(items)} items')
@@ -116,20 +120,15 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, list(band_name_dict.keys()), freq)
     available_data_check(df_len, missing_months) # test for missing months
 
-    # creates raster and analyzes percentage of missing data points
-    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq)
-    pct_missing = round(missing_months/len(df_len),2)*100
-    log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
-    # if more than 50% of data is missing, raise error and print message
-    if pct_missing >= 50:
-        
-        raise AvailableData('Missing more than 50 percent of data points')
-
-    # raster cropping with bounding box from earlier 
+     # create GeoDataFrame for cropping
     bounding_box = gpd.GeoDataFrame(geometry=poly).envelope
     gdf_bb = gpd.GeoDataFrame(gpd.GeoSeries(bounding_box), columns=['geometry'])
     log('Created bounding box for raster cropping')
-    # raster creation
+
+    # create GeoDataFrame to test nan values in raster
+    gdf_raster_test = gdf.to_crs("EPSG:6372").buffer(1)
+    gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
+    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test).dissolve()
     log('Starting raster creation for specified time')
 
     # download raster data by month
@@ -138,25 +137,17 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         band_name_dict,date_list, gdf_raster_test,
         gdf_bb, area_of_interest, satellite)
     log('Finished raster creation')
-    # calculates percentage of missing months
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
-    # assures that all the values missing are filled with 0
-    row_mode = df_len.raster_row.mode().values[0]
-    col_mode = df_len.raster_col.mode().values[0]
-    df_len.loc[((df_len.raster_row < row_mode)|
-            (df_len.raster_col < col_mode)|
-            (df_len.raster_col.isna())),'data_id'] = 0
-    # starts raster interpolation by predicting points from existing values and updates missing months percentage
+    
+    # interpolate rasters over time for missing months
     log('Starting raster interpolation')
     df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
     log('Finished raster interpolation')
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
-    # returns final raster
+
     return df_len
-
-
 
 
 def create_time_of_interest(start_date, end_date, freq='MS'):
@@ -172,6 +163,7 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
     Returns:
         time_of_interest (list): date range in specified format used by Planetary Computer api
     """
+    # create dataframe with dates
     df_tmp_dates = pd.DataFrame() # temporary date dataframe
     df_tmp_dates['date'] = pd.date_range(start = start_date,   
                                 end = end_date, 
@@ -182,7 +174,7 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
 
     time_of_interest = []
     
-    # Fills array with days
+    # create a time range by month
     for d in range(len(df_tmp_dates)):
         
         month = df_tmp_dates.loc[df_tmp_dates.index==d].month.values[0]
@@ -196,7 +188,6 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
         time_of_interest.append(f"{year}-{month:02d}-{first_day.day:02d}/{year}"+
                                 f"-{month:02d}-{last_day.day:02d}")
         
-    # Returns array with time of interest
     return time_of_interest
 
 
@@ -212,6 +203,7 @@ def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a")
     Returns:
         items (array): items intersecting time and area of interest
     """
+    # gather items from planetary computer by date and area of interest
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
     items = []
@@ -242,6 +234,7 @@ def find_asset_by_band_common_name(item, common_name):
     Returns:
         asset (str) : Asset with the common name
     """
+    # gather links for each band
     for asset in item.assets.values():
         asset_bands = eo.ext(asset).bands
         if asset_bands and asset_bands[0].common_name == common_name:
@@ -278,32 +271,6 @@ def link_dict(band_name_list, items, date_list):
                 assets_hrefs[i.datetime.date()][b].append(pc.sign(find_asset_by_band_common_name(i,b).href))
                 
     return assets_hrefs
-
-def filter_links(assets_hrefs, band_name_list):
-    """
-    The function filters links to assets, removing those without sufficient data.
-
-    Arguments:
-        assets_hrefs (dict): links to assets
-        band_name_list (list): list with multispectral band names for raster analysis
-    Returns:
-        assets_hrefs (dict): updated dictionary
-        max_links_len (int): maximum number of links by date
-    """
-    max_links_len = st.mode(np.array([len(x[band_name_list[0]]) for x in list(assets_hrefs.values())]))[0][0]
-    
-    # iterate and remove dates without sufficient data
-    for k_date in list(assets_hrefs.keys()):
-        # gather data from first band in dictionary - the max value should be the same in all bands
-        k_band = list(assets_hrefs[k_date].keys())[0]
-        # compare len of that band to max
-        if len(assets_hrefs[k_date][k_band]) != max_links_len:
-            # if len is less it indicates that is missing data
-            # remove date with missing data
-            assets_hrefs.pop(k_date)
-    
-    return assets_hrefs, max_links_len
-
 
 def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS'):
     """
@@ -379,6 +346,7 @@ def available_datasets(items):
     Returns:
         date_list (list): List with available dates with filter
     """
+    # test raster outliers by date    
     date_dict = {}
 
     date_dict = {}
@@ -508,223 +476,6 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     
     return mosaic, out_trans, meta
 
-def clean_mask(geom, dataset='', **mask_kw):
-    """
-    The mask in this function is used to extract the values from a raster dataset that fall 
-    within a given geometry of interest.
-
-    Arguments:
-        geom (geometry): Geometric figure that will be used to mask the raster dataset.
-        dataset (rasterio DatasetReader): The raster dataset that will be masked by the 
-        inputted geometry. If no value is provided, then it defaults to an empty string 
-        and returns only the masked array of values from within the inputted geometry 
-        without any metadata.
-        mask_kw (dict): A dictionary of arguments passed to create the mask.
-
-    Returns:
-        masked (array): Returns values from within the inputted geometry.
-    """
-    
-    mask_kw.setdefault('crop', True)
-    mask_kw.setdefault('all_touched', True)
-    mask_kw.setdefault('filled', False)
-    masked, _ = rasterio.mask.mask(dataset=dataset, shapes=(geom,),
-                                  **mask_kw)
-    return masked
-
-def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir=''):
-    """
-    The mosaic_process function takes in a list of links to raster files, and returns a mosaic of the rasters.
-    
-    Arguments:
-        links_band_1 (list): Pass the list of links for band 1
-        links_band_2 (list): Pass the list of links to the band 2 images
-        band_name_dict (dictionary): Pass the band name and upscaling factor to the mosaic_raster function
-        gdf_bb (geodataframe): Crop the mosaic to the bounding box of the shapefile
-        tmp_dir (str): Specify a directory to store temporary files
-
-    """
-    
-    log(f'Starting mosaic for {list(band_name_dict.keys())[0]}')
-    mosaic_band_1, out_trans_band_1, out_meta_1= mosaic_raster(links_band_1, tmp_dir, 
-                                                               upscale=band_name_dict[list(band_name_dict.keys())[0]][0])
-    mosaic_band_1 = mosaic_band_1.astype('float16')
-
-def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
-    """"
-    The function takes a hexagon GeoDataFrame, year, month, city name and index analysis as input.
-    It then opens the raster file for that specific month and year in the tmp_dir directory. 
-    It applies a mask to the raster file
-    
-    Arguments:
-        hex_gdf (geodataframe): Creates a copy of the hexagon geodataframe
-        year (int): Specify the year that will be used
-        month (int): Month index that will be used
-        city (str): Specify the city for which we want to calculate the ndmi
-        index_analysis (str): Specify which index analysis to use
-        tmp_dir (str): Specify the directory where the raster files are stored
-    Returns:
-        hex_raster (np.array): A hexagon raster with the index analysis added as a column
-    """
-    hex_raster = hex_gdf.copy()
-    # read ndmi file
-    raster_file = rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month}_{year}.tif")
-
-    hex_raster = hex_raster.to_crs(raster_file.crs) 
-    # Using the apply function to apply the clean_mask function to the geometry column of the hex_gdf geodataframe
-    try:
-
-        hex_raster[index_analysis] = hex_raster.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
-    except:
-        hex_raster[index_analysis] = np.nan
-    #adds month and year columns to the hex_raster geodataframe
-    hex_raster['month'] = month
-    hex_raster['year'] = year
-
-    hex_raster = hex_raster.to_crs("EPSG:4326")
-
-    return hex_raster
-
-
-def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
-    """
-    The function takes a  geodataframe, containing dates for available datasets,
-    the index analysis a specified multispectral band index, and the city name as inputs. 
-    It then creates an empty geodataframe to to save index_analysis by date. The function loops through 
-    each year in df_len and for each month in that year, to mask each and every raster 
-    to its corresponding hexagon.
-
-    Arguments:
-        hex_gdf (geodata frame): Pass the hexagon geodataframe to the function
-        df_len (int): Determine the number of years and months that are in the data
-        index_analysis (str): Specify which index analysis to use
-        city(str): Specify the city of interest
-        raster_dir (str): Specify the directory where the raster files are stored
-
-    Returns: 
-    hex_raster (geodataframe): A geodataframe with the hexagon id
-    """
-    
-    # create empty geodataframe to save ndmi by date
-
-    hex_raster = gpd.GeoDataFrame()
-
-    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **out_meta) as dest:
-        dest.write(mosaic_band_1)
-
-        dest.close()
-
-    mosaic_band_1 = mosaic_band_1.astype('float16')
-
-def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
-    """
-    The raster_to_hex function takes a hexagonal grid, a dataframe of dates, the name of the satellite imagery index
-    to then return it into a geodataframe a  mean value for each hexagon in a grid for each date
-    to offer a better classification in a csv file.
-
-    Arguments:
-        hex_gdf (geodataframe): Pass the hexagonal grid to the function
-        df_len (int): Iterate through the dataframe containing the dates of each image
-        r (int): Specify the resolution of the hexagons
-        index_analysis (str): Select the index to be analyzed
-        city (str): Specify the city to be analyzed
-        raster_dir (str): Specify the directory where the raster files are stored
-
-    Returns:
-        hextmp (geodataframe): A geodataframe with the mean value of each index by hexagon and date
-
-    """
-    
-    # create empty geodataframe to save ndmi by date
-    hex_raster = gpd.GeoDataFrame()
-
-    log(f'Finished processing {list(band_name_dict.keys())[0]}')
-
-    log(f'Starting mosaic for {list(band_name_dict.keys())[1]}')
-    mosaic_band_2, out_trans_band_2, out_meta_2 = mosaic_raster(links_band_2, tmp_dir, 
-                                                               upscale=band_name_dict[list(band_name_dict.keys())[1]][0])
-    log(f'Finished processing {list(band_name_dict.keys())[1]}')
-    mosaic_band_2 = mosaic_band_2.astype('float16')
-    log('Transformed band arrays to float16')
-
-    out_meta_2.update({"driver": "GTiff",
-                    "dtype": 'float32',
-                    "height": mosaic_band_2.shape[1],
-                    "width": mosaic_band_2.shape[2],
-                    "transform": out_trans_band_2})
-
-    log(f'Starting save: {list(band_name_dict.keys())[1]}')
-
-    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif", "w", **out_meta_2) as dest:
-        dest.write(mosaic_band_2)
-
-        dest.close()
-        
-    del mosaic_band_2
-    log('Finished saving complete dataset')
-    
-    log('Starting crop')
-    
-    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif") as src:
-        gdf_bb = gdf_bb.to_crs(src.crs)
-        shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
-        mosaic_band_2, out_transform = rasterio.mask.mask(src, shapes, crop=True)
-        out_meta = src.meta
-        out_meta.update({"driver": "GTiff",
-                            "dtype": 'float32',
-                            "height": mosaic_band_2.shape[1],
-                            "width": mosaic_band_2.shape[2],
-                            "transform": out_transform})
-        src.close()
-
-    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif", "w", **out_meta) as dest:
-        dest.write(mosaic_band_2)
-
-        dest.close()
-
-    mosaic_band_2 = mosaic_band_2.astype('float16')
-
-    log(f'Finished croping: {list(band_name_dict.keys())[1]}')
-
-
-def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
-    """
-    The raster_to_hex_analysis function groups the raster by hexagons and calculates 
-    summary statistics for each one of them.
-    The function returns a dataframe and a geodataframe: one with summary statistics for each of the hexagons
-    (hexagon id, mean value of index analysis per year) and another with all values 
-    from the raster assigned to their respective hexagon.
-
-    Arguments:
-        hex_gdf (geodataframe): Gets the hexagons
-        df_len (dataframe): Divides the dataframe into chunks to be processed in parallel
-        index_analysis (str): Specify the column name of the index we want to analyze
-        tmp_dir (str): Store the raster files in a temporary directory
-        city (str): city information from the dataframes
-        res (int): hexagon resolution used to filter the dataframe by resolution
-
-    Returns:
-        hex_raster_analysis (matrix): Has the summary statistics for each of the hexagons
-        hex_raster_df (dataframe): Has all values from the raster assigned to their respective hexagon
-    """
-    
-    # group raster by hex
-
-    log('Starting raster to hexagons')
-    hex_gdf = hex_gdf.loc[hex_gdf.res==res].copy()
-    hex_raster = raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, tmp_dir)
-    log('Assigned raster data to hexagons')
-    
-    # summary statistics
-    hex_raster_analysis = hex_gdf[['hex_id','geometry','res']].drop_duplicates().copy()
-    
-    hex_raster_minmax = hex_raster[['hex_id',index_analysis,'year']].groupby(['hex_id','year']).agg(['max','min'])
-    hex_raster_minmax.columns = ['_'.join(col) for col in hex_raster_minmax.columns]
-    hex_raster_minmax = hex_raster_minmax.reset_index()
-    hex_raster_minmax = hex_raster_minmax[['hex_id','ndvi_max','ndvi_min']].groupby(['hex_id']).mean()
-    hex_raster_minmax = hex_raster_minmax.reset_index()
-
-
 def raster_nan_test(gdf, raster_file):
     
     gdf['test'] = gdf.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
@@ -734,44 +485,9 @@ def raster_nan_test(gdf, raster_file):
     if gdf['test'].isna().sum() > 0:
         raise NanValues('NaN values are still present after processing')
 
-
-def mosaic_process(links_band_1, links_band_2, band_name_list, tmp_dir=''):
-    """
-    The function takes in two lists of links to raster files, and a list of band names.
-    It then mosaics the first list of links into one large array, and does the same for the second list.
-    The function returns four objects: 
-        1) The mosaic_band_array for band 1 (mosaic_band_2), 
-        2) The mosaic_band array for band 2 (mosaic_band2), 
-        3) A transformation matrix that can be used to transform coordinates from
-        pixel space to map space (outtrans)  
-        4) An object containing the metadata for the output file (out_meta)
-
-    Arguments: 
-        links_band_1 (list): Pass in the links for band 1
-        links_band_2 (list): Get the output_transform and output_meta
-        band_name_list (list): Name the output files
-        tmp_dir (str): Specify a temporary directory to store the intermediate files
-
-    Returns: 
-        mosaic_band_1 (np.array): The mosaic array for band 1
-        mosaic_band_2 (np.array): The mosaic array for band 2
-        out_trans_band_2 (array): The transformation matrix for band 2
-        out_meta (object): The metadata for the output file
-        
-    """
-    mosaic_band_1, _,_ = mosaic_raster(links_band_1, tmp_dir, upscale=False)
-    mosaic_band_1 = mosaic_band_1.astype('float32')
-    log(f'Finished processing {band_name_list[0]}')
-    mosaic_band_2, out_trans_band_2, out_meta = mosaic_raster(links_band_2)
-    log(f'Finished processing {band_name_list[1]}')
-    mosaic_band_2 = mosaic_band_2.astype('float32')
-    log('Transformed band arrays to float32')
-    log(f'array datatype: {mosaic_band_1.dtype}')
-    return mosaic_band_1, mosaic_band_2, out_trans_band_2,out_meta
-
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
-                           band_name_list, date_list, gdf_bb, 
-                           aoi, sat, time_exc_limit=600):
+                           band_name_dict, date_list, gdf_raster_test, gdf_bb, 
+                           aoi, sat, time_exc_limit=900):
     """
     The create_raster_by_month function is used to create a raster for each month of the year within the time range
     The function takes in a dataframe with the length of years and months, an index analysis, city name, 
@@ -797,10 +513,6 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         df_len (dataframe): Store the results of the analysis
     
     """
-    
-    df_len['raster_row'] = np.nan
-    df_len['raster_col'] = np.nan
-    df_len['no_data_values'] = np.nan
     df_len['able_to_download'] = np.nan
 
     log('\n Starting raster analysis')
@@ -936,42 +648,21 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.to_csv(df_file_dir, index=False)
             continue
 
-    return df_len
-
-
-def raster_interpolation(df_len, city, tmp_dir, index_analysis): 
-    """
-    This function interpolates missing raster data by time windows, filling the gaps in unavailable months.
-    The function takes a pandas dataframe with the following columns:
-            - month (int)
-            - year (int)
-            - raster_row (int)  # number of rows in raster file for that month/year combination, if available. If not available, NaN value will be present. 
-            - raster_col (int)  # number of columns in raster file for that month/year combination, if available. If not available, NaN value will be present.  
-
-    Arguments:
-        df_len (dataframe): Pass the dataframe containing the information of each raster file
-        city (str): Name the raster files
-        tmp_dir (str): Specify the directory where the raster files are stored
-        index_analysis (str) : Select the index to be analyzed
+        df_raster.loc[((df_len['year']==year_)&
+                (df_raster['month']==month_)),'able_to_download'] = 1
         
-    Returns:
-        df_len (dataframe): Returns the updated dataframe from the cvs document that arranged
-        all the information of the raster files
-    """
-    row_mode = df_len.raster_row.mode().values[0]
-    col_mode = df_len.raster_col.mode().values[0]
-    mean_no_data = df_len[((df_len.raster_row == row_mode)|
-            (df_len.raster_col == col_mode))].no_data_values.mean()
-    stddev_no_data = df_len[((df_len.raster_row == row_mode)|
-            (df_len.raster_col == col_mode))].no_data_values.std()
-    
-    log(f'Mean no-data:{mean_no_data}, Std no-data{stddev_no_data}, Rows: {row_mode}, Columns: {col_mode}')
+        df_raster.loc[((df_len['year']==year_)&
+                            (df_raster['month']==month_)),'no_data_values'] = np.isnan(raster_fill).sum()
+        
+        df_raster.to_csv(df_file_dir, index=False)
+        
+        del raster_fill
 
         available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0]))
+
     df_len = pd.read_csv(df_file_dir)[['year','month','data_id','able_to_download']]
 
     return df_len
-
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis):
     """"
@@ -1123,23 +814,21 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
 
     return df_len
 
-
 def clean_mask(geom, dataset='', **mask_kw):
     """
-    The clean_mask function is used to mask a raster dataset with a geometry.
-    The function takes in the following arguments:
-        geom (shapely.geometry): The geometry that will be used to mask the raster dataset.
-        dataset (rasterio DatasetReader): The raster dataset that will be masked by the inputted geometry.  If no value is provided, then it defaults to an empty string and returns only the masked array of values from within the inputted geometry without any metadata or other information about how those values were extracted from their original location in space and time.
-    
+    The mask in this function is used to extract the values from a raster dataset that fall 
+    within a given geometry of interest.
+
     Arguments:
-        geom (geometry): Geometry that respresents the mask area.
-        dataset (optional): raster dataset on which the mask will be performed,if no value is provided it returns an empty string 
-        without values nor metadata indicating space nor time.
-        **mask_kw (dictionary): Pass keyword arguments to the mask function, controlling the behaviour of the mask.
-    
-    Returns: 
-    masked (np.array): A masked numpy array
-    
+        geom (geometry): Geometric figure that will be used to mask the raster dataset.
+        dataset (rasterio DatasetReader): The raster dataset that will be masked by the 
+        inputted geometry. If no value is provided, then it defaults to an empty string 
+        and returns only the masked array of values from within the inputted geometry 
+        without any metadata.
+        mask_kw (dict): A dictionary of arguments passed to create the mask.
+
+    Returns:
+        masked (array): Returns values from within the inputted geometry.
     """
     
     mask_kw.setdefault('crop', True)
@@ -1149,19 +838,155 @@ def clean_mask(geom, dataset='', **mask_kw):
                                   **mask_kw)
     return masked
 
+def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir=''):
+    """
+    The function takes in two lists of links to raster files, and a list of band names.
+    It then mosaics the first list of links into one large array, and does the same for the second list.
+    The function returns four objects: 
+        1) The mosaic_band_array for band 1 (mosaic_band_2), 
+        2) The mosaic_band array for band 2 (mosaic_band2), 
+        3) A transformation matrix that can be used to transform coordinates from
+        pixel space to map space (outtrans)  
+        4) An object containing the metadata for the output file (out_meta)
+
+    Arguments: 
+        links_band_1 (list): Pass in the links for band 1
+        links_band_2 (list): Get the output_transform and output_meta
+        band_name_list (list): Name the output files
+        tmp_dir (str): Specify a temporary directory to store the intermediate files
+
+    Returns: 
+        mosaic_band_1 (np.array): The mosaic array for band 1
+        mosaic_band_2 (np.array): The mosaic array for band 2
+        out_trans_band_2 (array): The transformation matrix for band 2
+        out_meta (object): The metadata for the output file.      
+    """
+    log(f'Starting mosaic for {list(band_name_dict.keys())[0]}')
+    mosaic_band_1, out_trans_band_1, out_meta_1= mosaic_raster(links_band_1, tmp_dir, 
+                                                               upscale=band_name_dict[list(band_name_dict.keys())[0]][0])
+    mosaic_band_1 = mosaic_band_1.astype('float16')
+
+    out_meta_1.update({"driver": "GTiff",
+                    "dtype": 'float32',
+                    "height": mosaic_band_1.shape[1],
+                    "width": mosaic_band_1.shape[2],
+                    "transform": out_trans_band_1})
+
+    log(f'Starting save: {list(band_name_dict.keys())[0]}')
+
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **out_meta_1) as dest:
+        dest.write(mosaic_band_1)
+
+        dest.close()
+        
+    del mosaic_band_1
+    log('Finished saving complete dataset')
+    
+    log('Starting crop')
+    
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif") as src:
+        gdf_bb = gdf_bb.to_crs(src.crs)
+        shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
+        mosaic_band_1, out_transform = rasterio.mask.mask(src, shapes, crop=True)
+        out_meta = src.meta
+        out_meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic_band_1.shape[1],
+                            "width": mosaic_band_1.shape[2],
+                            "transform": out_transform})
+        src.close()
+
+
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **out_meta) as dest:
+        dest.write(mosaic_band_1)
+
+        dest.close()
+
+    mosaic_band_1 = mosaic_band_1.astype('float16')
+
+    log(f'Finished croping: {list(band_name_dict.keys())[0]}')
+
+    log(f'Finished processing {list(band_name_dict.keys())[0]}')
+
+    log(f'Starting mosaic for {list(band_name_dict.keys())[1]}')
+    mosaic_band_2, out_trans_band_2, out_meta_2 = mosaic_raster(links_band_2, tmp_dir, 
+                                                               upscale=band_name_dict[list(band_name_dict.keys())[1]][0])
+    log(f'Finished processing {list(band_name_dict.keys())[1]}')
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+    log('Transformed band arrays to float16')
+
+    out_meta_2.update({"driver": "GTiff",
+                    "dtype": 'float32',
+                    "height": mosaic_band_2.shape[1],
+                    "width": mosaic_band_2.shape[2],
+                    "transform": out_trans_band_2})
+
+    log(f'Starting save: {list(band_name_dict.keys())[1]}')
+
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif", "w", **out_meta_2) as dest:
+        dest.write(mosaic_band_2)
+
+        dest.close()
+        
+    del mosaic_band_2
+    log('Finished saving complete dataset')
+    
+    log('Starting crop')
+    
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif") as src:
+        gdf_bb = gdf_bb.to_crs(src.crs)
+        shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
+        mosaic_band_2, out_transform = rasterio.mask.mask(src, shapes, crop=True)
+        out_meta = src.meta
+        out_meta.update({"driver": "GTiff",
+                            "dtype": 'float32',
+                            "height": mosaic_band_2.shape[1],
+                            "width": mosaic_band_2.shape[2],
+                            "transform": out_transform})
+        src.close()
+
+    with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[1]}.tif", "w", **out_meta) as dest:
+        dest.write(mosaic_band_2)
+
+        dest.close()
+
+    mosaic_band_2 = mosaic_band_2.astype('float16')
+
+    log(f'Finished croping: {list(band_name_dict.keys())[1]}')
+
+    log(f'Finished processing {list(band_name_dict.keys())[1]}')
+    
+
+    return mosaic_band_1, mosaic_band_2, out_transform, out_meta
 
 def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
+    """"
+    The function takes a hexagon GeoDataFrame, year, month, city name and index analysis as input.
+    It then opens the raster file for that specific month and year in the tmp_dir directory. 
+    It applies a mask to the raster file
+    
+    Arguments:
+        hex_gdf (geodataframe): Creates a copy of the hexagon geodataframe
+        year (int): Specify the year that will be used
+        month (int): Month index that will be used
+        city (str): Specify the city for which we want to calculate the ndmi
+        index_analysis (str): Specify which index analysis to use
+        tmp_dir (str): Specify the directory where the raster files are stored
+    Returns:
+        hex_raster (np.array): A hexagon raster with the index analysis added as a column
+    """
     hex_raster = hex_gdf.copy()
     # read ndmi file
     raster_file = rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month}_{year}.tif")
 
-    hex_raster = hex_raster.to_crs(raster_file.crs)
+    hex_raster = hex_raster.to_crs(raster_file.crs) 
+    # Using the apply function to apply the clean_mask function to the geometry column of the hex_gdf geodataframe
     try:
 
         hex_raster[index_analysis] = hex_raster.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
     except:
         hex_raster[index_analysis] = np.nan
-
+    #adds month and year columns to the hex_raster geodataframe
     hex_raster['month'] = month
     hex_raster['year'] = year
 
@@ -1171,7 +996,26 @@ def mask_by_hexagon(hex_gdf,year,month,city,index_analysis,tmp_dir):
 
 
 def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
+    """
+    The function takes a  geodataframe, containing dates for available datasets,
+    the index analysis a specified multispectral band index, and the city name as inputs. 
+    It then creates an empty geodataframe to to save index_analysis by date. The function loops through 
+    each year in df_len and for each month in that year, to mask each and every raster 
+    to its corresponding hexagon.
+
+    Arguments:
+        hex_gdf (geodata frame): Pass the hexagon geodataframe to the function
+        df_len (int): Determine the number of years and months that are in the data
+        index_analysis (str): Specify which index analysis to use
+        city(str): Specify the city of interest
+        raster_dir (str): Specify the directory where the raster files are stored
+
+    Returns: 
+    hex_raster (geodataframe): A geodataframe with the hexagon id
+    """
+    
     # create empty geodataframe to save ndmi by date
+
     hex_raster = gpd.GeoDataFrame()
 
     years_list = list(df_len.year.unique())
@@ -1190,7 +1034,25 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
     return hex_raster
 
 def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
-    # create empty geodataframe to save index_analysis by date
+    """
+    The raster_to_hex function takes a hexagonal grid, a dataframe of dates, the name of the satellite imagery index
+    to then return it into a geodataframe a  mean value for each hexagon in a grid for each date
+    to offer a better classification in a csv file.
+
+    Arguments:
+        hex_gdf (geodataframe): Pass the hexagonal grid to the function
+        df_len (int): Iterate through the dataframe containing the dates of each image
+        r (int): Specify the resolution of the hexagons
+        index_analysis (str): Select the index to be analyzed
+        city (str): Specify the city to be analyzed
+        raster_dir (str): Specify the directory where the raster files are stored
+
+    Returns:
+        hextmp (geodataframe): A geodataframe with the mean value of each index by hexagon and date
+
+    """
+    
+    # create empty geodataframe to save ndmi by date
     hex_raster = gpd.GeoDataFrame()
 
     for d in tqdm(range(len(df_len)),position=0,leave=True):
@@ -1230,7 +1092,28 @@ def raster_to_hex(hex_gdf, df_len, r, index_analysis, city, raster_dir):
 
 
 def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
+    """
+    The raster_to_hex_analysis function groups the raster by hexagons and calculates 
+    summary statistics for each one of them.
+    The function returns a dataframe and a geodataframe: one with summary statistics for each of the hexagons
+    (hexagon id, mean value of index analysis per year) and another with all values 
+    from the raster assigned to their respective hexagon.
+
+    Arguments:
+        hex_gdf (geodataframe): Gets the hexagons
+        df_len (dataframe): Divides the dataframe into chunks to be processed in parallel
+        index_analysis (str): Specify the column name of the index we want to analyze
+        tmp_dir (str): Store the raster files in a temporary directory
+        city (str): city information from the dataframes
+        res (int): hexagon resolution used to filter the dataframe by resolution
+
+    Returns:
+        hex_raster_analysis (matrix): Has the summary statistics for each of the hexagons
+        hex_raster_df (dataframe): Has all values from the raster assigned to their respective hexagon
+    """
+    
     # group raster by hex
+
     log('Starting raster to hexagons')
     hex_gdf = hex_gdf.copy()
     hex_raster = raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, tmp_dir)
