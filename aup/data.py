@@ -198,7 +198,6 @@ def df_to_db(df, table, schema, if_exists="fail"):
 def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      """
      Upload a Pandas.DataFrame to the database
-
      Arguments:
          df (pandas.DataFrame): DataFrame to be uploadead
          name (str): Name of the table to be created
@@ -366,7 +365,6 @@ def gdf_from_db(name, schema,geom_col="geometry"):
 def delete_files_from_folder(delete_dir):
     """
     The delete_files_from_folder function deletes all files from a given directory.
-    
     Arguments:
     delete_dir (str): Specify the directory where the files are to be deleted
 
