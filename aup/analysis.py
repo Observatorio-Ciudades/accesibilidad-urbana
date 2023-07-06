@@ -15,6 +15,7 @@ import math
 from scipy import optimize
 
 
+
 def voronoi_cpu(g, weights, seeds):
 	"""
 	Voronoi diagram calculator for undirected graphs
