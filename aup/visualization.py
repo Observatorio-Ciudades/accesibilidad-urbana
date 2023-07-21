@@ -41,7 +41,7 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 		plt.show()
 
 
-def hex_config():
+def kepler_config():
 	"""Create configuration dictionary data for kepler maps
 
 	Returns:
@@ -52,9 +52,9 @@ def hex_config():
 	{'visState': {'filters': [], 'layers': [{'id': 'jsx1yd', 'type': 'geojson', 'config': 
 	{'dataId': 'Análisis de hexágono', 'label': 'Análisis de hexágono', 'color': [231, 159, 213], 
 	'columns': {'geojson': 'geometry'}, 'isVisible': True, 
-	'visConfig': {'opacity': 0.35, 'strokeOpacity': 0.05, 'thickness': 0.5, 'strokeColor': [28, 27, 27], 
+	'visConfig': {'opacity': 0.85, 'strokeOpacity': 0.05, 'thickness': 0.5, 'strokeColor': [28, 27, 27], 
 	'colorRange': {'name': 'Custom Palette', 'type': 'custom', 'category': 'Custom', 
-	'colors': ['#fcd999','#ffa669','#ed5f8f','#8a3668','#221c5a']}, 
+	'colors': ['#00939c','#85c4c8','#feeee8','#ec9370','#c22e00']}, 
 	'strokeColorRange': {'name': 'Global Warming', 'type': 'sequential', 'category': 'Uber', 
 	'colors': ['#5A1846', '#900C3F', '#C70039', '#E3611C', '#F1920E', '#FFC300']}, 
 	'radius': 10, 'sizeRange': [0, 10], 'radiusRange': [0, 50], 'heightRange': [0, 500], 
@@ -72,7 +72,6 @@ def hex_config():
 	'visibleLayerGroups': {'label': True, 'road': True, 'border': False, 'building': True, 'water': True, 'land': True, '3d building': False}, 
 	'threeDBuildingColor': [9.665468314072013, 17.18305478057247, 31.1442867897876], 'mapStyles': {}},
 	}}
-	
 
 	config_idx = {
 		"version": "v1",
