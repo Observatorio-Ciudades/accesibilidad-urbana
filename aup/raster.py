@@ -52,8 +52,8 @@ def available_data_check(df_len, missing_months, pct_limit=50, window_limit=5):
     del df_rol
 
 
-def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
-                               tmp_dir, band_name_dict, satellite="sentinel-2-l2a"):
+def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date,  
+                               tmp_dir, band_name_dict, query={},satellite="sentinel-2-l2a"):
 
     # create area of interest coordinates from hexagons to download raster data    
     log('Extracting bounding coordinates from hexagons')
@@ -87,10 +87,10 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     time_of_interest = create_time_of_interest(start_date, end_date, freq=freq)
 
     log('Gathering items for time and area of interest')
-    items = gather_items(time_of_interest, area_of_interest, satellite=satellite)
+    items = gather_items(time_of_interest, area_of_interest, query=query, satellite=satellite)
     log(f'Fetched {len(items)} items')
 
-    date_list = available_datasets(items)
+    date_list = available_datasets(items, satellite)
 
     # create dictionary from links
     assets_hrefs = link_dict(list(band_name_dict.keys()), items, date_list)
@@ -161,23 +161,26 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
     return time_of_interest
 
 
-def gather_items(time_of_interest, area_of_interest, satellite="sentinel-2-l2a"):
+def gather_items(time_of_interest, area_of_interest, query = {}, satellite="sentinel-2-l2a"):
 
     # gather items from planetary computer by date and area of interest
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
     items = []
-
-    # iterate over dates and gather items
     for t in time_of_interest:
-        search = catalog.search(
-            collections=[satellite],
-            intersects=area_of_interest,
-            datetime=t,
-        )
+        try:
+            search = catalog.search(
+                collections=[satellite],
+                intersects=area_of_interest,
+                datetime=t,
+                query = query
+            )
 
-        # Check how many items were returned
-        items.extend(list(search.get_items()))
+            # Check how many items were returned
+            items.extend(list(search.get_items()))
+        except:
+            log('No items found')
+            continue
     return items
 
 def find_asset_by_band_common_name(item, common_name):
@@ -260,42 +263,64 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     
     return df_complete_dates, missing_months
 
-def available_datasets(items):
+def available_datasets(items, satellite="sentinel-2-l2a"):
 
     # test raster outliers by date
 
     date_dict = {}
     # iterate over raster tiles by date
     for i in items:
-        # check and add raster properties to dictionary by tile and date
-        # if date is within dictionary append properties from item to list
-        if i.datetime.date() in list(date_dict.keys()):
-            # gather cloud percentage, high_proba_clouds_percentage, no_data values and nodata_pixel_percentage
-            # check if properties are within dictionary date keys
-            if i.properties['s2:mgrs_tile']+'_cloud' in list(date_dict[i.datetime.date()].keys()):
-                date_dict[i.datetime.date()].update(
-                    {i.properties['s2:mgrs_tile']+'_cloud':
-                     i.properties['s2:high_proba_clouds_percentage']})
-                date_dict[i.datetime.date()].update(
-                    {i.properties['s2:mgrs_tile']+'_nodata':
-                     i.properties['s2:nodata_pixel_percentage']})
-            
+        if satellite == "sentinel-2-l2a":
+            # check and add raster properties to dictionary by tile and date
+            # if date is within dictionary append properties from item to list
+            if i.datetime.date() in list(date_dict.keys()):
+                # gather cloud percentage, high_proba_clouds_percentage, no_data values and nodata_pixel_percentage
+                # check if properties are within dictionary date keys
+                if i.properties['s2:mgrs_tile']+'_cloud' in list(date_dict[i.datetime.date()].keys()):
+                    date_dict[i.datetime.date()].update(
+                        {i.properties['s2:mgrs_tile']+'_cloud':
+                        i.properties['s2:high_proba_clouds_percentage']})
+                    date_dict[i.datetime.date()].update(
+                        {i.properties['s2:mgrs_tile']+'_nodata':
+                        i.properties['s2:nodata_pixel_percentage']})
+                
+                else:
+                    date_dict[i.datetime.date()].update(
+                        {i.properties['s2:mgrs_tile']+'_cloud':
+                        i.properties['s2:high_proba_clouds_percentage']})
+                    date_dict[i.datetime.date()].update(
+                        {i.properties['s2:mgrs_tile']+'_nodata':
+                        i.properties['s2:nodata_pixel_percentage']})
+            # create new date key and add properties to it
             else:
+                date_dict[i.datetime.date()] = {}
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_cloud':
-                     i.properties['s2:high_proba_clouds_percentage']})
+                    i.properties['s2:high_proba_clouds_percentage']})
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_nodata':
-                     i.properties['s2:nodata_pixel_percentage']})
-        # create new date key and add properties to it
-        else:
-            date_dict[i.datetime.date()] = {}
-            date_dict[i.datetime.date()].update(
-                {i.properties['s2:mgrs_tile']+'_cloud':
-                 i.properties['s2:high_proba_clouds_percentage']})
-            date_dict[i.datetime.date()].update(
-                {i.properties['s2:mgrs_tile']+'_nodata':
-                 i.properties['s2:nodata_pixel_percentage']})
+                    i.properties['s2:nodata_pixel_percentage']})
+        elif satellite == "landsat-c2-l2":
+            # check and add raster properties to dictionary by tile and date
+            # if date is within dictionary append properties from item to list
+            if i.datetime.date() in list(date_dict.keys()):
+                # gather cloud percentage, high_proba_clouds_percentage, no_data values and nodata_pixel_percentage
+                # check if properties are within dictionary date keys
+                if i.properties['landsat:wrs_row']+'_cloud' in list(date_dict[i.datetime.date()].keys()):
+                    date_dict[i.datetime.date()].update(
+                        {i.properties['llandsat:wrs_row']+'_cloud':
+                        i.properties['landsat:cloud_cover_land']})
+                
+                else:
+                    date_dict[i.datetime.date()].update(
+                        {i.properties['landsat:wrs_row']+'_cloud':
+                        i.properties['landsat:cloud_cover_land']})
+            # create new date key and add properties to it
+            else:
+                date_dict[i.datetime.date()] = {}
+                date_dict[i.datetime.date()].update(
+                    {i.properties['landsat:wrs_row']+'_cloud':
+                    i.properties['landsat:cloud_cover_land']})
     
     # determine third quartile for each tile
     df_tile = pd.DataFrame.from_dict(date_dict, orient='index')
@@ -488,7 +513,61 @@ def raster_nan_test(gdf, raster_file):
     if gdf['test'].isna().sum() > 0:
         raise NanValues('NaN values are still present after processing')
 
+def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
+    
+    raster_array = {}
+    
+    for b in band_name_dict.keys():
 
+        log(f'Starting mosaic for {b}')
+        raster_array[b]= [mosaic_raster(raster_bands[b], tmp_dir, 
+                                       upscale=band_name_dict[b][0])]
+        raster_array[b][0] = raster_array[b][0].astype('float16')
+        # return mosaic, out_trans, meta
+
+        raster_array[b][2].update({"driver": "GTiff",
+                        "dtype": 'float32',
+                        "height": raster_array[b][0].shape[1],
+                        "width": raster_array[b][0].shape[2],
+                        "transform": raster_array[b][1]})
+
+        log(f'Starting save: {b}')
+
+        with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **raster_array[b][2]) as dest:
+            dest.write(raster_array[b][0])
+
+            dest.close()
+            
+        raster_array[b][0] = [np.nan]
+        log('Finished saving complete dataset')
+        
+        log('Starting crop')
+        
+        with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif") as src:
+            gdf_bb = gdf_bb.to_crs(src.crs)
+            shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
+            raster_array[b][0], raster_array[b][1] = rasterio.mask.mask(src, shapes, crop=True)
+            raster_array[b][2] = src.meta
+            raster_array[b][2].update({"driver": "GTiff",
+                                "dtype": 'float32',
+                                "height": raster_array[b][0].shape[1],
+                                "width": raster_array[b][0].shape[2],
+                                "transform": raster_array[b][1]})
+            src.close()
+
+
+        with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **raster_array[b][2]) as dest:
+            dest.write(raster_array[b][0])
+
+            dest.close()
+
+        raster_array[b][0] = raster_array[b][0].astype('float16')
+
+        log(f'Finished croping: {list(band_name_dict.keys())[0]}')
+
+        log(f'Finished processing {list(band_name_dict.keys())[0]}')
+
+    return raster_array
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_dict, date_list, gdf_raster_test, gdf_bb, 
@@ -539,8 +618,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # gather links from dates that are within date_list
         assets_hrefs = link_dict(list(band_name_dict.keys()), items, date_list)
         # create dataframe
-        df_links = pd.DataFrame.from_dict(assets_hrefs, 
-                                        orient='Index').reset_index().rename(columns={'index':'date'})
+        #df_links = pd.DataFrame.from_dict(assets_hrefs, 
+        #                                orient='Index').reset_index().rename(columns={'index':'date'})
         
         # mosaic raster
         
@@ -551,21 +630,24 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             # create skip date list used to analyze null values in raster
             skip_date_list = []
 
-            for data_link in range(len(df_links)):
-                log(f'Mosaic date {df_links.iloc[data_link].date.day}'+
-                            f'/{df_links.iloc[data_link].date.month}'+
-                            f'/{df_links.iloc[data_link].date.year} - iteration:{iter_count}')
+            #for data_link in range(len(df_links)):
+            for data_link in range(len(assets_hrefs.keys())):
+                log(f'Mosaic date {list(assets_hrefs.keys())[data_link].day}'+
+                            f'/{list(assets_hrefs.keys())[data_link].month}'+
+                            f'/{list(assets_hrefs.keys())[data_link].year} - iteration:{iter_count}')
                 
                 # check if date contains null values within study area
-                if df_links.iloc[data_link]['date'] in skip_date_list:
+                #if df_links.iloc[data_link]['date'] in skip_date_list:
+                if list(assets_hrefs.keys())[data_link] in skip_date_list:
                     continue
 
                 try:
-                    links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
-                    links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
+                    #links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
+                    #links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
+                    bands_links = assets_hrefs[list(assets_hrefs.keys())[data_link]]
 
-                    mosaic_band_1, mosaic_band_2, _,out_meta = func_timeout(time_exc_limit, mosaic_process,
-                                                                                args=(links_band_1,links_band_2,
+                    rasters_arrays, _,out_meta = func_timeout(time_exc_limit, mosaic_process,
+                                                                                args=(bands_links,
                                                                                       band_name_dict,gdf_bb, tmp_raster_dir))
 
                     # calculate raster index
