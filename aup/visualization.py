@@ -41,20 +41,18 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 		plt.show()
 
 
-def hex_config():
-	"""
-	Create configuration dictionary data for kepler maps
+def kepler_config():
+	"""Create configuration dictionary data for kepler maps
 
 	Returns:
 		config, config_index (dict): dictionaries with to types of configurations depending on request	
 	"""
 
 	config = {'version': 'v1', 'config': 
-	{'visState': {'filters': [], 'layers': [
-		{'id': 'jsx1yd', 'type': 'geojson', 'config': 
+	{'visState': {'filters': [], 'layers': [{'id': 'jsx1yd', 'type': 'geojson', 'config': 
 	{'dataId': 'Análisis de hexágono', 'label': 'Análisis de hexágono', 'color': [231, 159, 213], 
 	'columns': {'geojson': 'geometry'}, 'isVisible': True, 
-	'visConfig': {'opacity': 0.35, 'strokeOpacity': 0.05, 'thickness': 0.5, 'strokeColor': [28, 27, 27], 
+	'visConfig': {'opacity': 0.85, 'strokeOpacity': 0.05, 'thickness': 0.5, 'strokeColor': [28, 27, 27], 
 	'colorRange': {'name': 'Custom Palette', 'type': 'custom', 'category': 'Custom', 
 	'colors': ['#00939c','#85c4c8','#feeee8','#ec9370','#c22e00']}, 
 	'strokeColorRange': {'name': 'Global Warming', 'type': 'sequential', 'category': 'Uber', 
@@ -64,8 +62,7 @@ def hex_config():
 	'hidden': False, 'textLabel': [{'field': None, 'color': [255, 255, 255], 'size': 18, 'offset': [0, 0], 'anchor': 'start', 'alignment': 'center'}]}, 
 	'visualChannels': {'colorField': {'name': 'dist_farmacia', 'type': 'real'}, 'colorScale': 'quantile',
     'sizeField': None, 'sizeScale': 'linear', 'strokeColorField': None, 'strokeColorScale': 'quantile', 
-	'heightField': {'name': 'dist_farmacia', 'type': 'real'}, 'heightScale': 'linear', 'radiusField': None, 'radiusScale': 'linear'}},
-	], 
+	'heightField': {'name': 'dist_farmacia', 'type': 'real'}, 'heightScale': 'linear', 'radiusField': None, 'radiusScale': 'linear'}}], 
 	'interactionConfig': {'tooltip': {'fieldsToShow': {'Análisis de hexágono': []}, 
 	'compareMode': False, 'compareType': 'absolute', 'enabled': True}, 'brush': {'size': 0.5, 'enabled': False}, 
 	'geocoder': {'enabled': False}, 'coordinate': {'enabled': False}}, 'layerBlending': 'normal', 'splitMaps': [], 
@@ -75,7 +72,6 @@ def hex_config():
 	'visibleLayerGroups': {'label': True, 'road': True, 'border': False, 'building': True, 'water': True, 'land': True, '3d building': False}, 
 	'threeDBuildingColor': [9.665468314072013, 17.18305478057247, 31.1442867897876], 'mapStyles': {}},
 	}}
-	
 
 	config_idx = {
 		"version": "v1",
