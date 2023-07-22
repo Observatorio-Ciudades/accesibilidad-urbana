@@ -40,7 +40,7 @@ def create_polygon(bbox, city, save=True):
             save (bool): boolean to save or not the polygon to a file as a GeoJSON (default: {True})
 
     Returns:
-            polygon -- GoeDataFrame with the geometry of the polygon to be used to download the data
+            polygon: GeoDataFrame with the geometry of the polygon to be used to download the data
     """
     n_w = bbox[3], bbox[0]
     n_e = bbox[2], bbox[0]
@@ -93,14 +93,13 @@ def download_graph(polygon, city, network_type="walk", save=True):
 
 
 def df_to_geodf(df, x, y, crs):
-    """Create a GeoDataFrame from a pandas DataFrame
-
+    """
+    Create a GeoDataFrame from a pandas DataFrame
     Arguments:
             df (pandas.DataFrame): pandas data frame with lat, lon or x, y, columns
             x (str): Name of the column that contains the x or Longitud values
             y (str): Name of the column that contains the y or Latitud values
             crs (dict): Coordinate reference system to use
-
     Returns:
             geopandas.GeoDataFrame: GeoDataFrame with Points as geometry
     """
@@ -113,9 +112,8 @@ def df_to_geodf(df, x, y, crs):
 def load_study_areas():
     """
     Load the study areas json as dict
-
     Returns:
-            dict (dictionary): Contains the study areas and attributes
+            dict (dict): Contains the study areas and attributes
     """
     with open("areas.json", "r") as f:
         distros_dict = json.load(f)
@@ -123,15 +121,16 @@ def load_study_areas():
 
 
 def convert_type(df, data_dict):
-    """Converts columns from DataFrame to specified data type
+    """
+    Converts columns from DataFrame to specified data type
 
     Arguments:
         df (pandas.DataFrame): DataFrame containing all columns
-        data_dict (dictionary): Dictionary with the desiered data type as a
+        data_dict (dict): Dictionary with the desiered data type as a
                                 key {string, integer, float} and a list of columns.
                                 For example: {'string':[column1,column2],'integer':[column3,column4]}
     Returns:
-        pandas.DataFrame: DataFrame with converted data types for columns
+        df (pandas.DataFrame): DataFrame with converted data types for columns
     """
     for d in data_dict:
         if d == "string":
@@ -147,7 +146,6 @@ def create_schema(schema):
     """
     Create schema in the database if it does not exists already,
     otherwise log if the schema already in the DB.
-
     Arguments:
         schema (str): String with the name of the schema to create.
     """
@@ -164,12 +162,10 @@ def create_schema(schema):
 def df_to_db(df, table, schema, if_exists="fail"):
     """
     Save a dataframe into the database as a table
-
     Arguments:
         df (DataFrame): pandas.DataFrame to upload
         table (str): name of the dataframe to upload (used for logs)
         schema (str): name of the schema to that contains the table.
-
     """
     create_schema(schema)
     table = table.lower()
@@ -201,7 +197,7 @@ def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      Arguments:
          df (pandas.DataFrame): DataFrame to be uploadead
          name (str): Name of the table to be created
-         schema (str): Name of the folder in which to save the geoDataFrame
+         schema (str): Name of the folder in which to save the GeoDataFrame
          if_exists (str): Behaivor if the table already exists in the database ('fail', 'replace', 'append') 'fail' by default.
      """
      create_schema(schema)
@@ -250,8 +246,9 @@ def gdf_to_df_geo(gdf):
         gdf (geopandas.GeoDataFrame): GeoDataFrame to be converted
 
     Returns:
-        pandas.DataFrame: DataFrame with the geometry as text
+        gdf(pandas.DataFrame): DataFrame with the geometry as text
     """
+    
     utils.log("Converting GeoDataFrame to DF with wkt")
     gdf["geom"] = gdf["geometry"].apply(lambda x: WKTElement(x.wkt, srid=4326))
     # drop the geometry column as it is now duplicative
@@ -267,7 +264,7 @@ def gdf_to_db(gdf, name, schema, if_exists="fail"):
     Arguments:
         gdf (geopandas.GeoDataFrame): GeoDataFrame to be uploadead
         name (str): Name of the table to be created
-        schema (str): Name of the folder in which to save the geoDataFrame
+        schema (str): Name of the folder in which to save the GeoDataFrame
         if_exists (str): String of what to do if the table already exists in the database
         ('fail','append','replace')
     """
@@ -288,7 +285,7 @@ def df_from_db(name, schema):
         schema (str): Name of the folder from where to load the geoDataFrame
 
     Returns:
-        pandas.DataFrame: GeoDataFrame with the table from the database.
+        df (pandas.DataFrame): DataFrame with the table from the database.
     """
     engine = utils.db_engine()
     utils.log(f"Getting {name} from DB")
@@ -308,7 +305,7 @@ def df_from_query(query, index_col=None):
         query (str): SQL query to get the data
 
     Returns:
-        pandas.DataFrame: GeoDataFrame with the table from the database.
+        df(pandas.DataFrame): DataFrame with the table from the database.
     """
     engine = utils.db_engine()
     utils.log("Getting data from DB")
@@ -325,7 +322,7 @@ def gdf_from_query(query, geometry_col="geometry", index_col=None):
         query (str): SQL query to get the data
 
     Returns:
-        geopandas.GeoDataFrame: GeoDataFrame with the table from the database.
+        df (geoPandas.GeoDataFrame): GeoDataFrame with the table from the database.
     """
     engine = utils.db_engine()
     utils.log("Getting data from DB")
@@ -339,7 +336,7 @@ def gdf_from_query(query, geometry_col="geometry", index_col=None):
     return df
 
 
-def gdf_from_db(name, schema,geom_col="geometry"):
+def gdf_from_db(name, schema,geom_col="geometry"):    
     """
     Load a table from the database into a GeoDataFrame
 
@@ -348,7 +345,7 @@ def gdf_from_db(name, schema,geom_col="geometry"):
         schema (str): Name of the folder from where to load the geoDataFrame
 
     Returns:
-        geopandas.GeoDataFrame: GeoDataFrame with the table from the database.
+        gdf (geopandas.GeoDataFrame): GeoDataFrame with the table from the database.
     """
     engine = utils.db_engine()
     utils.log(f"Getting {name} from DB")
@@ -367,7 +364,6 @@ def delete_files_from_folder(delete_dir):
     The delete_files_from_folder function deletes all files from a given directory.
     Arguments:
     delete_dir (str): Specify the directory where the files are to be deleted
-
     """
     
     for filename in os.listdir(delete_dir):
@@ -392,9 +388,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
         nodes_folder (str): folder name whithin schema where nodes stored. Defaults to nodes
 
     Returns:
-        networkx.MultiDiGraph: Graph with edges and nodes from DataBase
-		gpd.GeoDataFrame: GeoDataFrame for nodes within boundaries
-		gpd.GeoDataFrame: GeoDataFrame for edges within boundaries
+        G (networkx.MultiDiGraph): Graph with edges and nodes from DataBase
+		nodes (geopandas.GeoDataFrame): GeoDataFrame for nodes within boundaries
+		edges (geopandas.GeoDataFrame): GeoDataFrame for edges within boundaries
     """
 
     gdf = gdf.to_crs("EPSG:6372")

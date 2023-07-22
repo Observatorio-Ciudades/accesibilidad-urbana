@@ -210,7 +210,7 @@ def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dic
         column_start (int, optional): Column number were sociodemographic variables start at DataFrame. Defaults to 1.
         column_end (int, optional): Column number were sociodemographic variables end at DataFrame. Defaults to -1.
         avg_column (list, optional): List of column names to be averaged and not sum. Defaults to None.
-        avg_dict (dictionary, optional): Dictionary containing column names to average and
+        avg_dict (dict, optional): Dictionary containing column names to average and
                                             column with which a weighted average will be crated. Defaults to None.
     Returns:
         pd.DataFrame: DataFrame with sum and mean values for sociodemographic data
