@@ -7,20 +7,20 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 	Plot hexbin geoDataFrames to create the accesibility plots.
 
 	Arguments:
-		ax {matplotlib.axes} -- ax to use in the plot
-		gdf_data {geopandas.GeoDataFrame} -- geoDataFrame with the data to be plotted
-		gdf_boundary {geopandas.GeoDataFrame} -- geoDataFrame with the boundary to use 
-		gdf_edges {geopandas.GeoDataFrame} -- geoDataFrame with the edges (streets)
-		column {geopandas.GeoDataFrame} -- column to plot from the gdf_data geoDataFrame
-		title {str} -- string with the title to use in the plot
+		ax (matplotlib.axes): ax to use in the plot
+		gdf_data (geopandas.GeoDataFrame): geoDataFrame with the data to be plotted
+		gdf_boundary (geopandas.GeoDataFrame): geoDataFrame with the boundary to use 
+		gdf_edges (geopandas.GeoDataFrame): geoDataFrame with the edges (streets)
+		column (geopandas.GeoDataFrame) column to plot from the gdf_data geoDataFrame
+		title (str): string with the title to use in the plot
 
 	Keyword Arguments:
-		save_png {bool} -- save the plot in png or not (default: {False})
-		save_pdf {bool} -- save the plot in pdf or not (default: {False})
-		show {bool} -- show the plot or not (default: {False})
-		name {str} -- name for the plot to be saved if save=True (default: {plot})
-		dpi {int} -- resolution to use (default: {300})
-		transparent {bool} -- save with transparency or not (default: {True})
+		save_png (bool): save the plot in png or not (default: {False})
+		save_pdf (bool): save the plot in pdf or not (default: {False})
+		show (bool): show the plot or not (default: {False})
+		name (str): name for the plot to be saved if save=True (default: {plot})
+		dpi (int) resolution to use (default: {300})
+		transparent (bool): save with transparency or not (default: {True})
 	"""
 	divider = make_axes_locatable(ax)
 	cax = divider.append_axes("bottom", size="5%", pad=0.1)
@@ -42,10 +42,11 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 
 
 def hex_config():
-	"""Create configuration dictionary data for kepler maps
+	"""
+	Create configuration dictionary data for kepler maps
 
 	Returns:
-		config, config_index: dictionaries with to types of configurations depending on request	
+		config, config_index (dict): dictionaries with to types of configurations depending on request	
 	"""
 
 	config = {'version': 'v1', 'config': 
