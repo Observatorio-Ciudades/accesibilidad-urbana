@@ -42,7 +42,8 @@ def hex_plot(ax, gdf_data, gdf_boundary, gdf_edges, column , title,save_png=Fals
 
 
 def kepler_config():
-	"""Create configuration dictionary data for kepler maps
+	"""
+	Create configuration dictionary data for kepler maps
 
 	Returns:
 		config, config_index (dict): dictionaries with to types of configurations depending on request	
