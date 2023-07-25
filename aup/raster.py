@@ -110,15 +110,18 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     date_list = available_datasets(items, satellite)
 
     # create dictionary from links
-    assets_hrefs = link_dict(list(band_name_dict.keys()), items, date_list)
+    band_name_list = list(band_name_dict.keys())[:-1]
+    assets_hrefs = link_dict(band_name_list, items, date_list)
     log('Created dictionary from items')
 
     # analyze available data according to raster properties
-    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, list(band_name_dict.keys()), freq)
+    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
+                                           band_name_list, freq)
     available_data_check(df_len, missing_months) # test for missing months
 
     # creates raster and analyzes percentage of missing data points
-    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq)
+    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
+                                           band_name_list, freq)
     pct_missing = round(missing_months/len(df_len),2)*100
     log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
     # if more than 50% of data is missing, raise error and print message
@@ -209,7 +212,6 @@ def create_time_of_interest(start_date, end_date, freq='MS'):
 def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentinel-2-l2a"):
     """ 
     Items gathered in time and area of interest from planetary computer.
->>>>>>> main
 
     Arguments:
         time_of_interest (list): Time range of interest
@@ -666,6 +668,10 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
         log(f'Starting mosaic for {b}')
         raster_array[b]= [mosaic_raster(raster_bands[b], tmp_dir, 
                                        upscale=band_name_dict[b][0])]
+        # mosaic_raster creates a tuple which has to be unpacked
+        raster_array[b] = [raster_array[b][0][0],
+                  raster_array[b][0][1],
+                  raster_array[b][0][2]]
         raster_array[b][0] = raster_array[b][0].astype('float16')
         # return mosaic, out_trans, meta
 
@@ -677,7 +683,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
         log(f'Starting save: {b}')
 
-        with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **raster_array[b][2]) as dest:
+        with rasterio.open(f"{tmp_dir}{b}.tif", "w", **raster_array[b][2]) as dest:
             dest.write(raster_array[b][0])
 
             dest.close()
@@ -687,7 +693,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
         
         log('Starting crop')
         
-        with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif") as src:
+        with rasterio.open(f"{tmp_dir}{b}.tif") as src:
             gdf_bb = gdf_bb.to_crs(src.crs)
             shapes = [gdf_bb.iloc[feature].geometry for feature in range(len(gdf_bb))]
             raster_array[b][0], raster_array[b][1] = rasterio.mask.mask(src, shapes, crop=True)
@@ -700,16 +706,16 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
             src.close()
 
 
-        with rasterio.open(f"{tmp_dir}{list(band_name_dict.keys())[0]}.tif", "w", **raster_array[b][2]) as dest:
+        with rasterio.open(f"{tmp_dir}{b}.tif", "w", **raster_array[b][2]) as dest:
             dest.write(raster_array[b][0])
 
             dest.close()
 
         raster_array[b][0] = raster_array[b][0].astype('float16')
 
-        log(f'Finished croping: {list(band_name_dict.keys())[0]}')
+        log(f'Finished croping: {b}')
 
-        log(f'Finished processing {list(band_name_dict.keys())[0]}')
+        log(f'Finished processing {b}')
 
     return raster_array
 
@@ -901,7 +907,7 @@ def calculate_raster_index(band_name_dict, raster_arrays):
 
     # calculate raster index according to user equation
     for rb in raster_arrays.keys():
-        band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"raster_arrays['{rb}']")
+        band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"raster_arrays['{rb}'][0]")
 
     raster_index = 0
     exec(f"raster_index={band_name_dict['eq'][0]}")
