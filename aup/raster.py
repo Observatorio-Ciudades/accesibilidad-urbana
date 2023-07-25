@@ -658,8 +658,10 @@ def raster_nan_test(gdf, raster_file):
 def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
     
     raster_array = {}
+
+    band_names_list = list(band_name_dict.keys())[:-1]
     
-    for b in band_name_dict.keys():
+    for b in band_names_list:
 
         log(f'Starting mosaic for {b}')
         raster_array[b]= [mosaic_raster(raster_bands[b], tmp_dir, 
