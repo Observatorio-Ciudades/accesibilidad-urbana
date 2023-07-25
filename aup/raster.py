@@ -17,11 +17,10 @@ from scipy import stats as st
 from rasterio.merge import merge
 import pandas as pd
 import numpy as np
-from func_timeout import func_timeout, FunctionTimedOut
+from func_timeout import func_timeout
 import pymannkendall as mk
 import scipy.ndimage as ndimage
 from pystac_client import Client
-from pandarallel import pandarallel
 from multiprocessing import Pool
 
 # Flags to ignore division by zero and invalid floating point operations
@@ -53,8 +52,6 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
                                tmp_dir, band_name_dict, query={}, satellite="sentinel-2-l2a"):
     """
     Function that returns a raster with the data provided.
->>>>>>> main
-
     Arguments:
         gdf (geopandas.GeoDataFrame): Area of interest
         index_analysis (str): Index of analysis
@@ -133,6 +130,13 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     bounding_box = gpd.GeoDataFrame(geometry=poly).envelope
     gdf_bb = gpd.GeoDataFrame(gpd.GeoSeries(bounding_box), columns=['geometry'])
     log('Created bounding box for raster cropping')
+
+    # create GeoDataFrame to test nan values in raster
+    gdf_raster_test = gdf.to_crs("EPSG:6372").buffer(1)
+    gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
+    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test).dissolve()
+    log('Starting raster creation for specified time')
+
     # raster creation
     log('Starting raster creation for specified time')
 
@@ -354,7 +358,6 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
 def available_datasets(items, satellite="sentinel-2-l2a"):
     """
     Filters dates per quantile and finds available ones.
->>>>>>> main
 
     Arguments:
         items (np.array): items intersecting time and area of interest
@@ -809,15 +812,15 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     #links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
                     bands_links = assets_hrefs[list(assets_hrefs.keys())[data_link]]
 
-                    rasters_arrays, _,out_meta = func_timeout(time_exc_limit, mosaic_process,
+                    rasters_arrays = func_timeout(time_exc_limit, mosaic_process_v2,
                                                                                 args=(bands_links,
-                                                                                      band_name_dict,gdf_bb, tmp_raster_dir))
+                                                                                      band_name_dict, gdf_bb, tmp_raster_dir))
+                    out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
 
                     # calculate raster index
-                    raster_index = (mosaic_band_1-mosaic_band_2)/(mosaic_band_1+mosaic_band_2)
+                    raster_index = calculate_raster_index(band_name_dict, rasters_arrays)
                     log(f'Calculated {index_analysis}')
-                    del mosaic_band_1
-                    del mosaic_band_2
+                    del raster_arrays
 
                     log(f'Starting interpolation')
 
@@ -859,7 +862,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                         break
                     except:
                         log('Failed null test')
-                        skip_date_list.append(df_links.iloc[data_link]['date'])
+                        skip_date_list.append(assets_hrefs[list(assets_hrefs.keys())[data_link]])
                         delete_files_from_folder(tmp_raster_dir)
 
                 except:
@@ -876,6 +879,32 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
     return df_len
 
+def calculate_raster_index(band_name_dict, raster_arrays):
+    """
+    The function calculates the raster index according to a user equation. 
+    If no equation is provided, the raster_array is returned.
+
+    Args:
+        band_name_dict (dict): dictionary containing the band names and the equation to be used
+        raster_arrays (dict): dictionary containing the rasters numpy arrays
+
+    Returns:
+        np.array: resulting numpy array for the raster index
+    """
+
+    if len(band_name_dict['eq']) == 0:
+        # if there is no equation the raster array is the result
+        raster_index = raster_arrays[list(raster_arrays.keys())[0]]
+        return raster_index
+
+    # calculate raster index according to user equation
+    for rb in raster_arrays.keys():
+        band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"raster_arrays['{rb}']")
+
+    raster_index = 0
+    exec(f"raster_index={band_name_dict['eq'][0]}")
+
+    return raster_index
 
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis):
