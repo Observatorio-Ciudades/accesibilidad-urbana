@@ -9,14 +9,12 @@ def is_projected(crs):
     """
     Determine if a coordinate reference system is projected or not.
     This is a convenience wrapper around the pyproj.CRS.is_projected function.
-    Parameters
-    ----------
-    crs : string or pyproj.CRS
-        the coordinate reference system
-    Returns
-    -------
-    projected : bool
-        True if crs is projected, otherwise False
+    
+    Arguments:
+    crs (string or pyproj.CRS): the coordinate reference system
+
+    Returns:
+    projected (bool) True if crs is projected, otherwise False
     """
     return CRS.from_user_input(crs).is_projected
 
@@ -31,22 +29,13 @@ def nearest_nodes(G, nodes, X, Y, return_dist=False):
     dependency. If it is unprojected, this uses a ball tree for haversine
     nearest neighbor search, which requires that scikit-learn is installed as
     an optional dependency.
-    Parameters
-    ----------
-    G : networkx.MultiDiGraph
-        graph in which to find nearest nodes
-    X : float or list
-        points' x (longitude) coordinates, in same CRS/units as graph and
-        containing no nulls
-    Y : float or list
-        points' y (latitude) coordinates, in same CRS/units as graph and
-        containing no nulls
-    return_dist : bool
-        optionally also return distance between points and nearest nodes
-    Returns
-    -------
-    nn or (nn, dist) : int/list or tuple
-        nearest node IDs or optionally a tuple where `dist` contains distances
+    Arguments:
+        G (networkx.MultiDiGraph) graph in which to find nearest nodes
+        X (float or list) points' x (longitude) coordinates, in same CRS/units as graph and containing no nulls
+        Y (float or list): Points' y (latitude) coordinates, in same CRS/units as graph and containing no nulls
+        return_dist (bool): Optionally also return distance between points and nearest nodes
+    Returns:
+        nn (int/list or tuple): Nearest node IDs or optionally a tuple where `dist` contains distances 
         between the points and their nearest nodes
     """
     is_scalar = False

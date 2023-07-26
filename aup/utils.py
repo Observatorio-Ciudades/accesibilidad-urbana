@@ -57,11 +57,12 @@ def ts(style="datetime", template=None):
 
 # Logger functions taken from OSMnx
 def log(message, level=None, name=None, filename=None):
-    """Write a message to the logger.
+    """
+    Write a message to the logger.
     This logs to file and/or prints to the console (terminal), depending on
     the current configuration of settings.log_file and settings.log_console.
 
-    Args:
+    Arguments:
         message (str): The message to log
         level (int): One of the logger.level constants
         name (str): Name of the logger
@@ -89,9 +90,10 @@ def log(message, level=None, name=None, filename=None):
 
 
 def _get_logger(level=None, name=None, filename=None):
-    """Create a logger or return the current one if already instantiated.
+    """
+    Create a logger or return the current one if already instantiated.
 
-    Args:
+    Arguments:
         level (int): One of the logger.level constants
         name (str): Name of the logger
         filename (str): Name of the log file
@@ -130,7 +132,8 @@ def _get_logger(level=None, name=None, filename=None):
 
 
 def db_engine():
-    """Function to create an engine with Ada
+    """
+    Function to create an engine with Ada
 
     Returns:
         database engine: sqlalchemy engine
@@ -144,7 +147,8 @@ def db_engine():
 
 
 def connect():
-    """Get data base connection
+    """
+    Get data base connection
 
     Returns:
         psycopg2 connect: connection to data base
@@ -165,7 +169,8 @@ def connect():
 
 
 def get_cursor():
-    """Creates a SQL cursor
+    """
+    Creates a SQL cursor
 
     Returns:
         psycopg2 cursor: Cursor to interact with the database
@@ -185,13 +190,13 @@ def find_nearest(G, nodes, gdf, return_distance=False):
 	Find the nearest graph nodes to the points in a GeoDataFrame
 
 	Arguments:
-		G {networkx.Graph} -- Graph created with OSMnx that contains CRS information
-        nodes {geopandas.GeoDataFrame} -- OSMnx nodes with osmid index
-		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with the points to locate
-		return_distance {bool} -- If True, returns distance to nearest node. Defaults to False
+		G (networkx.Graph): Graph created with OSMnx that contains CRS information
+        nodes (geopandas.GeoDataFrame): OSMnx nodes with osmid index
+		gdf (geopandas.GeoDataFrame): GeoDataFrame with the points to locate
+		return_distance (bool): If True, returns distance to nearest node. Defaults to False
 
 	Returns:
-		geopandas.GeoDataFrame -- GeoDataFrame original dataframe with a new column call 'nearest' with the node id closser to the point
+		gdf (geopandas.GeoDataFrame): original dataframe with a new column call 'nearest' with the node id closser to the point
 	"""
 
     gdf = gdf.copy()
@@ -210,14 +215,14 @@ def to_igraph(nodes, edges, wght='lenght'):
     Convert a graph from networkx to igraph
 
 	Arguments:
-		nodes {geopandas.GeoDataFrame} -- OSMnx nodes with osmid index
-        edges {geopandas.GeoDataFrame} -- OSMnx edges with u and v indexes
-        wght {string} -- weights column in edges. Defaults to length
+		nodes (geopandas.GeoDataFrame): OSMnx nodes with osmid index
+        edges (geopandas.GeoDataFrame): OSMnx edges with u and v indexes
+        wght (str): weights column in edges. Defaults to length
 
 	Returns:
-		igraph.Graph -- Graph with the same number of nodes and edges as the original one
-		np.array  -- Array of weights, defined according to weight variable
-		dict -- With the node mapping, index is the node in networkx.Graph, value is the node in igraph.Graph
+		g (graph): Graph with the same number of nodes and edges as the original one
+		weights (np.array) Array of weights, defined according to weight variable
+		dict (dict): With the node mapping, index is the node in networkx.Graph, value is the node in igraph.Graph
     """
 
     nodes.reset_index(inplace=True)
@@ -238,12 +243,12 @@ def get_seeds(gdf, node_mapping, column_name):
 	Generate the seed to be used to calculate shortest paths for the Voronoi's
 
 	Arguments:
-		gdf {geopandas.GeoDataFrame} -- GeoDataFrame with 'nearest' column
-		node_mapping {dict} -- dictionary containing the node mapping from networkx.Graph to igraph.Graph
-        column_name {string} -- column name where the nearest distance index is stored
+		gdf (geopandas.GeoDataFrame): GeoDataFrame with 'nearest' column
+		node_mapping (dict): dictionary containing the node mapping from networkx.Graph to igraph.Graph
+        column_name (str): column name where the nearest distance index is stored
 
 	Returns:
-		np.array -- numpy.array with the set of seeds
+		np.array: numpy.array with the set of seeds
 	"""
 	# Get the seed to calculate shortest paths
 	return np.array(list(set([node_mapping[i] for i in gdf[column_name]])))
@@ -253,11 +258,11 @@ def haversine(coord1, coord2):
 	Calculate distance between two coordinates in meters with the Haversine formula
 
 	Arguments:
-		coord1 {tuple} -- tuple with coordinates in decimal degrees (e.g. 43.60, -79.49)
-		coord2 {tuple} -- tuple with coordinates in decimal degrees (e.g. 43.60, -79.49)
+		coord1 (tuple): tuple with coordinates in decimal degrees (e.g. 43.60, -79.49)
+		coord2 (tuple): tuple with coordinates in decimal degrees (e.g. 43.60, -79.49)
 
 	Returns:
-		float -- distance between coord1 and coord2 in meters
+		meters (float): distance between coord1 and coord2 in meters
 	"""
 	# Coordinates in decimal degrees (e.g. 43.60, -79.49)
 	lon1, lat1 = coord1
@@ -278,14 +283,14 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
 	Takes in a geopandas geodataframe, the desired resolution, the specified geometry column and some map parameters to create a hexagon grid (and potentially plot the hexgrid
 
 	Arguments:
-		polygon {geopandas.geoDataFrame} -- geoDataFrame to be used
-		hex_res {int} -- Resolution to use
+		polygon (geopandas.GeoDataFrame): geoDataFrame to be used
+		hex_res (int): Resolution to use
 
 	Keyword Arguments:
-		geometry_col {str} -- column in the geoDataFrame that contains the geometry (default: {'geometry'})
+		geometry_col (str): column in the geoDataFrame that contains the geometry (default: {'geometry'})
 
 	Returns:
-		geopandas.geoDataFrame -- geoDataFrame with the hexbins according to resolution and EPSG:4326
+		all_polys (geopandas.GeoDataFrame): geoDataFrame with the hexbins according to resolution and EPSG:4326
 	"""
 	
     #multiploygon to polygon
