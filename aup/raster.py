@@ -826,17 +826,18 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
 
                     # calculate raster index
-                    raster_index = calculate_raster_index(band_name_dict, rasters_arrays)
+                    raster_idx = 0
+                    raster_idx = calculate_raster_index(band_name_dict, rasters_arrays, raster_idx)
                     log(f'Calculated {index_analysis}')
                     del raster_arrays
 
                     log(f'Starting interpolation')
 
-                    raster_index[raster_index == 0 ] = np.nan # change zero values to nan
-                    raster_index = raster_index.astype('float32') # change data type to float32 to avoid fillnodata error
+                    raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
+                    raster_idx = raster_idx.astype('float32') # change data type to float32 to avoid fillnodata error
 
-                    log(f'Interpolating {np.isnan(raster_index).sum()} nan values')
-                    raster_fill = fillnodata(raster_index, mask=~np.isnan(raster_index),
+                    log(f'Interpolating {np.isnan(raster_idx).sum()} nan values')
+                    raster_fill = fillnodata(raster_idx, mask=~np.isnan(raster_idx),
                                         max_search_distance=50, smoothing_iterations=0)
                     log(f'Finished interpolation to fill na - {np.isnan(raster_fill).sum()} nan')
 
@@ -902,17 +903,16 @@ def calculate_raster_index(band_name_dict, raster_arrays):
 
     if len(band_name_dict['eq']) == 0:
         # if there is no equation the raster array is the result
-        raster_index = raster_arrays[list(raster_arrays.keys())[0]]
-        return raster_index
+        raster_idx = raster_arrays[list(raster_arrays.keys())[0]]
+        return raster_idx
 
     # calculate raster index according to user equation
     for rb in raster_arrays.keys():
         band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"raster_arrays['{rb}'][0]")
 
-    raster_index = 0
-    exec(f"raster_index={band_name_dict['eq'][0]}")
+    exec(f"raster_idx={band_name_dict['eq'][0]}",globals())
 
-    return raster_index
+    return raster_idx
 
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis):
