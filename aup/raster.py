@@ -906,13 +906,16 @@ def calculate_raster_index(band_name_dict, raster_arrays):
         raster_idx = raster_arrays[list(raster_arrays.keys())[0]]
         return raster_idx
 
-    # calculate raster index according to user equation
     for rb in raster_arrays.keys():
-        band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"raster_arrays['{rb}'][0]")
+        band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"ra['{rb}'][0]")
+    # create global variable in order to use it in exec as global
+    global ra
+    ra = raster_arrays
+    exec(f"raster_index = {band_name_dict['eq'][0]}", globals())
+    
+    del ra
 
-    exec(f"raster_idx={band_name_dict['eq'][0]}",globals())
-
-    return raster_idx
+    return raster_index
 
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis):
