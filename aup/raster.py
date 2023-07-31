@@ -722,7 +722,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_dict, date_list, gdf_raster_test, gdf_bb, 
-                           aoi, sat, time_exc_limit=900):
+                           aoi, sat, query={}, time_exc_limit=900):
     """
     The function is used to create a raster for each month of the year within the time range
     The function takes in a dataframe with the length of years and months, an index analysis, city name, 
@@ -748,6 +748,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month.  
     """
     df_len['able_to_download'] = np.nan
+    band_name_list = list(band_name_dict.keys())[:-1]
 
     log('\n Starting raster analysis')
 
@@ -788,9 +789,9 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
         # gather links for the date range
-        items = gather_items(time_of_interest, aoi, sat)
+        items = gather_items(time_of_interest, aoi,query=query, satellite=sat)
         # gather links from dates that are within date_list
-        assets_hrefs = link_dict(list(band_name_dict.keys()), items, date_list)
+        assets_hrefs = link_dict(band_name_list, items, date_list)
         # create dataframe
         #df_links = pd.DataFrame.from_dict(assets_hrefs, 
         #                                orient='Index').reset_index().rename(columns={'index':'date'})
@@ -826,10 +827,9 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
 
                     # calculate raster index
-                    raster_idx = 0
-                    raster_idx = calculate_raster_index(band_name_dict, rasters_arrays, raster_idx)
+                    raster_idx = calculate_raster_index(band_name_dict, rasters_arrays)
                     log(f'Calculated {index_analysis}')
-                    del raster_arrays
+                    del rasters_arrays
 
                     log(f'Starting interpolation')
 
