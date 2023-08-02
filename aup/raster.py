@@ -152,12 +152,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # calculates percentage of missing months
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
-    # assures that all the values missing are filled with 0
-    row_mode = df_len.raster_row.mode().values[0]
-    col_mode = df_len.raster_col.mode().values[0]
-    df_len.loc[((df_len.raster_row < row_mode)|
-            (df_len.raster_col < col_mode)|
-            (df_len.raster_col.isna())),'data_id'] = 0
+    
     # starts raster interpolation by predicting points from existing values and updates missing months percentage
     log('Starting raster interpolation')
     df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
