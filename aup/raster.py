@@ -900,6 +900,7 @@ def calculate_raster_index(band_name_dict, raster_arrays):
     Returns:
         np.array: resulting numpy array for the raster index
     """
+    raster_equation = band_name_dict['eq'][0]
 
     if len(band_name_dict['eq']) == 0:
         # if there is no equation the raster array is the result
@@ -907,11 +908,11 @@ def calculate_raster_index(band_name_dict, raster_arrays):
         return raster_idx
 
     for rb in raster_arrays.keys():
-        band_name_dict['eq'][0] = band_name_dict['eq'][0].replace(rb,f"ra['{rb}'][0]")
+        raster_equation = raster_equation.replace(rb,f"ra['{rb}'][0]")
     # create global variable in order to use it in exec as global
     global ra
     ra = raster_arrays
-    exec(f"raster_index = {band_name_dict['eq'][0]}", globals())
+    exec(f"raster_index = {raster_equation}", globals())
     
     del ra
 
