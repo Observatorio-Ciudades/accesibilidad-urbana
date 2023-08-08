@@ -123,7 +123,6 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
                                            band_name_list, freq)
     pct_missing = round(missing_months/len(df_len),2)*100
-    log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
     # if more than 50% of data is missing, raise error and print message
     if pct_missing >= 50:
         
@@ -138,7 +137,6 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     gdf_raster_test = gdf.to_crs("EPSG:6372").buffer(1)
     gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
     gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test).dissolve()
-    log('Starting raster creation for specified time')
 
     # raster creation
     log('Starting raster creation for specified time')
@@ -147,7 +145,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     df_len = create_raster_by_month(
         df_len, index_analysis, city, tmp_dir,
         band_name_dict,date_list, gdf_raster_test,
-        gdf_bb, area_of_interest, satellite)
+        gdf_bb, area_of_interest, satellite, query=query)
     log('Finished raster creation')
     # calculates percentage of missing months
     missing_months = len(df_len.loc[df_len.data_id==0])
@@ -426,19 +424,33 @@ def available_datasets(items, satellite="sentinel-2-l2a"):
                         [75]) for c in df_tile.columns.to_list()]
     q3 = [v[0] for v in q3]
 
-    log(f'Quantile filter dictionary by column: {dict(zip(df_tile.columns, q3))}')
+    # check if q3 analysis is necessary
+    q3_test = [True if test>20 else False for test in q3]
+    if sum(q3_test)>0:
+        log(f'Quantile filter dictionary by column: {dict(zip(df_tile.columns, q3))}')
 
-    column_list = df_tile.columns.to_list()
+        column_list = df_tile.columns.to_list()
 
-    # filter dates by missing values or outliers according to cloud and no_data values
-    for c in range(len(column_list)):
-        df_tile.loc[df_tile[column_list[c]]>q3[c],column_list[c]] = np.nan
-    
+        # filter dates by missing values or outliers according to cloud and no_data values
+        for c in range(len(column_list)):
+            df_tile.loc[df_tile[column_list[c]]>q3[c],column_list[c]] = np.nan
+    else:
+        log('Fixed filter applied')
+        column_list = df_tile.columns.to_list()
+
+        # filter dates by missing values or outliers according to cloud and no_data values
+        for c in range(len(column_list)):
+            df_tile.loc[df_tile[column_list[c]]>20,column_list[c]] = np.nan
+
+    # arrange by cloud coverage average
+    df_tile['avg_cloud'] = df_tile.mean(axis=1)
+    df_tile = df_tile.sort_values(by='avg_cloud')
+
     # create list of dates within normal distribution and without missing values
     date_list = df_tile.dropna().index.to_list()
 
     log(f'Available dates: {len(date_list)}')
-    log(f'Raster tiles per date: {len(df_tile.columns.to_list())/2}')
+    log(f'Raster tiles per date: {len(df_tile.columns.to_list())}')
 
     return date_list
 
@@ -784,12 +796,19 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
         # gather links for the date range
-        items = gather_items(time_of_interest, aoi,query=query, satellite=sat)
+        items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
+
         # gather links from dates that are within date_list
         assets_hrefs = link_dict(band_name_list, items, date_list)
         # create dataframe
         #df_links = pd.DataFrame.from_dict(assets_hrefs, 
         #                                orient='Index').reset_index().rename(columns={'index':'date'})
+
+        # dates according to cloud coverage
+        date_order = [True if (d.month == month_) and (d.year == year_) else False for d in date_list]
+        date_array = np.array(date_list)
+        date_filter = np.array(date_order)
+        dates_ordered = date_array[date_filter]
         
         # mosaic raster
         
@@ -801,20 +820,20 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             skip_date_list = []
 
             #for data_link in range(len(df_links)):
-            for data_link in range(len(assets_hrefs.keys())):
-                log(f'Mosaic date {list(assets_hrefs.keys())[data_link].day}'+
-                            f'/{list(assets_hrefs.keys())[data_link].month}'+
-                            f'/{list(assets_hrefs.keys())[data_link].year} - iteration:{iter_count}')
+            for data_link in range(len(dates_ordered)):
+                log(f'Mosaic date {dates_ordered[data_link].day}'+
+                            f'/{dates_ordered[data_link].month}'+
+                            f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
                 
                 # check if date contains null values within study area
                 #if df_links.iloc[data_link]['date'] in skip_date_list:
-                if list(assets_hrefs.keys())[data_link] in skip_date_list:
+                if dates_ordered[data_link] in skip_date_list:
                     continue
 
                 try:
                     #links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
                     #links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
-                    bands_links = assets_hrefs[list(assets_hrefs.keys())[data_link]]
+                    bands_links = assets_hrefs[dates_ordered[data_link]]
 
                     rasters_arrays = func_timeout(time_exc_limit, mosaic_process_v2,
                                                                                 args=(bands_links,
