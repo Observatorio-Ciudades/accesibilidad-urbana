@@ -13,6 +13,8 @@ from .utils import *
 from .data import *
 import math
 from scipy import optimize
+from math import sqrt
+
 
 
 
@@ -515,3 +517,60 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 	constant_value_average = sum(tmp_idx) / len(tmp_idx)
 
 	return constant_value_average
+
+
+def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
+	"""Calculate inverse distance weighted (IDW) interpolation at a single point.
+
+	Args:
+		x0 (np.array): numpy array with x coordinates of observed points
+		y0 (np.array): numpy array with y coordinates of observed points
+		z0 (np.array): numpy array with z values at observed points
+		xi (float): x coordinate for interpolation point
+		yi (float): y coordinate for interpolation point
+		power (int, optional): Exponential constant for distance decay function. Defaults to 2.
+		search_radius (int, optional): Distance limit for IDW analysis. Defaults to None.
+
+	Returns:
+		np.array: numpy array with calculated z values at xi, yi
+	"""
+	# filter analysis by search radius
+	if search_radius:
+		id_x = (x0 <= xi + search_radius) & (x0 >= xi - search_radius)
+		id_y = (y0 <= yi + search_radius) & (y0 >= yi - search_radius)
+		id_xy = id_x + id_y
+		z0 = z0[np.squeeze(id_xy)].copy()
+		obs = np.vstack((x0[id_xy], y0[id_xy])).T
+	else:
+		# format observed points data
+		obs = np.vstack((x0, y0)).T
+
+	# format interpolation point data
+	interp = np.vstack((xi, yi)).T
+
+	# calculate euclidean distance in x and y between obs and interp
+	d0 = np.substract.outer(obs[:,0], interp[:,0])
+	d1 = np.substract.outer(obs[:,1], interp[:,1])
+
+	# calculate hypotenuse for distances
+	dist = np.hypot(d0, d1)
+
+	# filter distances by search radius
+	if search_radius:
+		idx = dist <= search_radius
+		dist = dist[idx]
+		z0 = z0[np.squeeze(idx)]
+
+	# calculate weights
+	weights = 1.0 (dist + 1e-12)**power
+	# weights sum to 1 by row
+	weights /= weights.sum(axis=0)
+
+	# check if no observation points are within limit distance
+	if weights.shape[0] == 0:
+		ones = np.ones((z.shape[1],), dtype=float)
+		ones[ones == 1] = -1 # return -1 vector
+		return ones
+	# calculate dot product of weight matrix and z value matrix
+	int_value = np.dot(weights.T, z0)
+	return int_value
