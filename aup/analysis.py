@@ -518,6 +518,28 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 
 	return constant_value_average
 
+def interpolate_to_gdf(gdf, x, y, z, power=2, search_radius=None):
+	"""
+	Interpolate z values at x, y coordinates for a GeoDataFrame using inverse distance weighting (IDW).
+
+	Args:
+		gdf (geopandas.GeoDataFrame): GeoDataFrame containing points to which z values will be interpolated
+		x (np.array): numpy array with x coordinates of observed points
+		y (np.array): numpy array with y coordinates of observed points
+		z (np.array): numpy array with z values at observed points
+		power (int, optional): Exponential constant for distance decay function. Defaults to 2.
+		search_radius (_type_, optional): Distance limit for IDW analysis. Defaults to None.
+
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with interpolated values in interpolated_value column
+	"""
+	
+	gdf_int = gdf.copy()
+	xi = np.array(gdf_int.geometry.x)
+	yi = np.array(gdf_int.geometry.y)
+	gdf_int['interpolated_value'] = idw_at_point(x, y, z, xi, yi, power, search_radius)
+	return gdf_int
+
 
 def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
 	"""Calculate inverse distance weighted (IDW) interpolation at a single point.
@@ -568,9 +590,54 @@ def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
 
 	# check if no observation points are within limit distance
 	if weights.shape[0] == 0:
-		ones = np.ones((z.shape[1],), dtype=float)
+		ones = np.ones((z0.shape[1],), dtype=float)
 		ones[ones == 1] = -1 # return -1 vector
 		return ones
 	# calculate dot product of weight matrix and z value matrix
 	int_value = np.dot(weights.T, z0)
+	return int_value
+
+def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
+	"""Interpolate z values at a set of xi, yi coordinates using inverse distance weighting (IDW).
+
+	Args:
+		x0 (np.array): numpy array with x coordinates of observed points
+		y0 (np.array): numpy array with y coordinates of observed points
+		z0 (np.array): numpy array with z values at observed points
+		xi (np.array): numpy array with x coordinates of interpolation points
+		yi (np.array): numpy array with y coordinates of interpolation points
+		power (int, optional): Exponential constant for distance decay function. Defaults to 2.
+		search_radius (int, optional): Distance limit for IDW analysis. Defaults to None.
+
+	Returns:
+		np.array: numpy array with calculated z values at a series of x, y
+	"""
+    # format observed points data
+	obs = np.vstack((x0, y0)).T
+
+	# format interpolation points data
+	interp = np.vstack((xi, yi)).T
+
+	# calculate linear distance in x and y
+	d0 = np.subtract.outer(obs[:,0], interp[:,0])
+	d1 = np.subtract.outer(obs[:,1], interp[:,1])
+	
+	# calculate linear distance from observations to interpolation points
+	dist = np.hypot(d0, d1)
+	
+	# filter data by search radius
+	if search_radius:
+		idx = dist<=search_radius
+		idx_num = idx * 1
+		idx_num = idx_num.astype('float32')
+		idx_num[idx_num == 0] = np.nan
+		dist = dist*idx_num
+	
+	# calculate weights
+	weights = 1.0/(dist+1e-12)**power
+	weights /= np.nansum(weights, axis=0)
+
+	# caculate dot product of weight matrix and z value matrix
+	int_value = np.where(np.isnan(weights.T),0,weights.T).dot(np.where(np.isnan(z0),0,z0))
+
 	return int_value
