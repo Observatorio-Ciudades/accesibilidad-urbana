@@ -1172,7 +1172,7 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
 
     for i in tqdm(range(len(years_list)),position=0,leave=True):
         y = years_list[i]
-        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.month.unique())]
+        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.loc[df_len.year==y].month.unique())]
         pbar = tqdm(total=len(input_list))
         pool = Pool()
         hex_res = pd.concat(pool.starmap(mask_by_hexagon,input_list))
