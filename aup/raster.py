@@ -729,7 +729,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_dict, date_list, gdf_raster_test, gdf_bb, 
-                           aoi, sat, query={}, time_exc_limit=900):
+                           aoi, sat, query={}, time_exc_limit=1500):
     """
     The function is used to create a raster for each month of the year within the time range
     The function takes in a dataframe with the length of years and months, an index analysis, city name, 
@@ -762,7 +762,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     # check if file exists, for example in case of code crash
     df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
     if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
-        df_len.to_csv(df_file_dir)
+        df_len.to_csv(df_file_dir, index=False)
     # create folder to store temporary raster files by iteration
     tmp_raster_dir = tmp_dir+'temporary_files/'
     if os.path.exists(tmp_raster_dir) == False: # Or folder, will return true or false
@@ -778,7 +778,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         if df_raster.iloc[i].data_id==0:
             continue
             
-        # gather month and year from df to save ndmi
+        # gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
         
@@ -899,6 +899,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.loc[df_raster.index==i,'able_to_download']=0
             df_raster.to_csv(df_file_dir, index=False)
             continue
+
+    df_len = pd.read_csv(df_file_dir, index_col=False)
 
     return df_len
 
@@ -1079,7 +1081,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                     slope = slope + slope_increment
 
     df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
-    df_len.to_csv(df_file_dir)
+    df_len.to_csv(df_file_dir,index=False)
 
     return df_len
 
@@ -1172,7 +1174,7 @@ def raster_to_hex_multi(hex_gdf, df_len, index_analysis, city, raster_dir):
 
     for i in tqdm(range(len(years_list)),position=0,leave=True):
         y = years_list[i]
-        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.month.unique())]
+        input_list = [[hex_gdf,y,month,city,index_analysis,raster_dir] for month in list(df_len.loc[df_len.year==y].month.unique())]
         pbar = tqdm(total=len(input_list))
         pool = Pool()
         hex_res = pd.concat(pool.starmap(mask_by_hexagon,input_list))
