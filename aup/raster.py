@@ -404,7 +404,7 @@ def available_datasets(items, satellite="sentinel-2-l2a"):
                 # check if properties are within dictionary date keys
                 if i.properties['landsat:wrs_row']+'_cloud' in list(date_dict[i.datetime.date()].keys()):
                     date_dict[i.datetime.date()].update(
-                        {i.properties['llandsat:wrs_row']+'_cloud':
+                        {i.properties['landsat:wrs_row']+'_cloud':
                         i.properties['landsat:cloud_cover_land']})
                 
                 else:
