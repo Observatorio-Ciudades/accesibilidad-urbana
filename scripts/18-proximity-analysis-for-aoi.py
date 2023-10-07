@@ -233,7 +233,7 @@ def main(save = False, save_space = False):
     # STEP 3: Calculate distance from each node to nearest source amenity (Based on Script 02_distance_amenities)
     #-----------------------------------------------------------------------------------------------------------------------------------------------------
     
-    # Create sources - code dictionary out of main parameters dictionary
+    # Create sources - code dictionary out of main parameters dictionary (previously, dictionary "amenities")
     sources = {}
     for eje in parameters.keys():
         for amenity in parameters[eje]:
@@ -391,7 +391,7 @@ def main(save = False, save_space = False):
 
     aup.log("Transformed nodes data.")
 
-    # Prepare data 3/4 - Create definitions dictionary out of main parameters dictionary:
+    # Prepare data 3/4 - Create definitions dictionary out of main parameters dictionary (previously, idx_15_min dictionary)
     # This step creates a dictionary containing eje-amenity-sources for the analysis
     definitions = {}
     for eje in parameters.keys():
@@ -510,7 +510,7 @@ def main(save = False, save_space = False):
 
             aup.log(f"Created hexgrid of resolution {res}")
             
-        #/////////////////////////////////////////////// HEXGRID DEPENDS ON POP DATA BEING CALCULATED OR NOT ///////////////////////////////////////////////
+        #///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         
         # group data by hex
         hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
@@ -525,7 +525,7 @@ def main(save = False, save_space = False):
             hex_res_pop = pd.merge(hex_res_idx, hex_pop[pop_list], on=f'hex_id_{res}')
         else:
             hex_res_pop = hex_res_idx.copy()
-        #////////////////////////////////////////////////////// ADD POP DATA IF POP DATA IS CONSIDERED /////////////////////////////////////////////////////    
+        #///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
         
         # After funtion group_by_hex_mean we can remove res from ID and set as a column
         hex_res_pop.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
