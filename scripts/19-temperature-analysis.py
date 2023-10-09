@@ -163,7 +163,7 @@ if __name__ == "__main__":
     end_date = '2022-12-31'
     satellite = 'landsat-c2-l2'
     save = True # True
-    del_data = True # True
+    del_data = False # True
 
     # check if a skip city csv exists
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
@@ -189,9 +189,7 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Tijuana','Merida','Leon',
-                     'Queretaro','Tuxtla','Puebla','Monterrey',
-                     'Guadalajara','Chihuahua','ZMVM'] # Guaymas
+    city_analysis = ['Monterrey'] # Guaymas
     for city in gdf_mun.city.unique():
 
         # if city not in processed_city_list and city not in skip_list:
