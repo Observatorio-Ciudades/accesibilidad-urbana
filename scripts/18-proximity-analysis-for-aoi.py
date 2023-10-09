@@ -14,7 +14,7 @@ if module_path not in sys.path:
     import aup
 
 
-def download_osmnx(aoi, save_space = True):
+def download_osmnx(aoi):
     #Read area of interest as a polygon
     poly = aoi.geometry
 
@@ -100,14 +100,6 @@ def download_osmnx(aoi, save_space = True):
 
             aup.log(f"Column: {col} in nodes gdf, has a list in it, the column data was converted to string.")
     
-    # Saves space in disk if instructed
-    if save_space:
-        del nodes_columns
-        del edges_columns
-        del c
-
-        aup.log("Saved space by deleting used data.")
-    
     return G,nodes,edges
 
 
@@ -117,6 +109,8 @@ def create_popdata_hexgrid(aoi,pop_dir,pop_column,pop_index_column,res_list):
     
     # Format and isolate data of interest
     pop_gdf = pop_gdf.to_crs("EPSG:4326")
+    pop_index_column = pop_index_column.lower()
+    pop_column = pop_column.lower()
     pop_gdf.columns = pop_gdf.columns.str.lower()
     block_pop = pop_gdf[[pop_index_column,pop_column,'geometry']]
 
@@ -136,7 +130,7 @@ def create_popdata_hexgrid(aoi,pop_dir,pop_column,pop_index_column,res_list):
     centroid_block_pop = centroid_block_pop.reset_index()
     centroid_block_pop.rename(columns={pop_column:'pobtot'},inplace=True)
 
-    aup.log(f"Converted to centroids with {centroid_block_pop.pobtot.sum()} " + f"pop vs {block_pop.pobtot.sum()} pop in original gdf.")
+    aup.log(f"Converted to centroids with {centroid_block_pop.pobtot.sum()} " + f"pop vs {block_pop[pob_column].sum()} pop in original gdf.")
     
     # create buffer for aoi to include outer blocks when creating hexgrid
     aoi_buffer = aoi.copy()
@@ -202,7 +196,7 @@ def main(save = False, save_space = False):
     aup.log(f"Starting creation of osmnx network.")
 
     # Download osmnx network (G, nodes and edges from bounding box of aoi)
-    G, nodes, edges = download_osmnx(aoi, save_space = save_space)
+    G, nodes, edges = download_osmnx(aoi)
 
     aup.log(f"Finished creating osmnx network.")
 
@@ -228,6 +222,12 @@ def main(save = False, save_space = False):
     nearest = aup.find_nearest(G, nodes_gdf, pois, return_distance= True)
 
     aup.log("Calculated distances from pois to nearest node.")
+
+    # Saves space in disk if instructed
+    if save_space:
+        del nodes
+        del edges
+        aup.log("Saved space by deleting used data.")
 
     #-----------------------------------------------------------------------------------------------------------------------------------------------------
     # STEP 3: Calculate distance from each node to nearest source amenity (Based on Script 02_distance_amenities)
@@ -360,6 +360,22 @@ def main(save = False, save_space = False):
         aup.log(f"Added time for source {s} to nodes_sources.")     
         
         i += 1
+    
+    # Saves space in disk if instructed
+    if save_space:
+        del nearest
+        del nodes_gdf
+        del nodes_analysis
+        del source_tmp
+        del source_gdf
+        del df_temp
+        del nodes_distance
+        del nodes_time
+        del source_process
+        del nodes_distance_prep
+        del df_int
+        del df_min
+        aup.log("Saved space by deleting used data.")
 
     #-----------------------------------------------------------------------------------------------------------------------------------------------------
     # STEP 4: Group and analyze (from distance data in nodes to proximity in hexagons) (Based on Script 15-15-min-cities)
@@ -385,9 +401,11 @@ def main(save = False, save_space = False):
         nodes_analysis = nodes_analysis.merge(nodes_tmp, on='osmid')
 
     if save_space:
+        del nodes
         del nodes_sources
         del nodes_geom
         del nodes_tmp
+        aup.log("Saved space by deleting used data.")
 
     aup.log("Transformed nodes data.")
 
@@ -474,6 +492,7 @@ def main(save = False, save_space = False):
 
     if save_space:
         del nodes_analysis
+        aup.log("Saved space by deleting used data.")
         
     aup.log("Calculated proximity to amenities data by node.")
 
@@ -539,13 +558,15 @@ def main(save = False, save_space = False):
             del hex_socio_gdf #pop_output=True
             del hex_pop #pop_output=True
             del hex_tmp
+            del nodes_analysis_filter
             del hex_res_idx
             del hex_res_pop #pop_output=True
-
         else:
             del hexgrid #pop_output=False
             del hex_tmp
+            del nodes_analysis_filter
             del hex_res_idx
+        aup.log("Saved space by deleting used data.")
 
     # Recalculate ejes max times by hexagon ------------------------------------------------------------------------ 
     
@@ -615,6 +636,7 @@ def main(save = False, save_space = False):
 
     if save_space:
         del hex_idx
+        aup.log("Saved space by deleting used data.")
 
     aup.log('Finished final format')
 
@@ -623,24 +645,34 @@ def main(save = False, save_space = False):
     #-----------------------------------------------------------------------------------------------------------------------------------------------------
 
     if save:
-        aup.df_to_db_slow(hex_idx_city, 'proximityanalysis','prox_analysis', if_exists='append')
+        aup.df_to_db_slow(hex_idx_city, table, schema, if_exists='append')
+
 
 if __name__ == "__main__":
     aup.log('--'*10)
     aup.log('Starting script')
 
     # REQUIRED DATA
+    # Name of area of interest
     city = 'Aguascalientes'
+    # Resolutions of hexgrid output
     res_list = [8,9]
-
+    # Save final output to db?
+    save = True
+    schema = 'prox_analysis'
+    table = 'proximityanalysis'
+    # Save disk space by deleting used data that will not be used after?
+    save_space = True
     # Required directories
     aoi_dir = "../../data/external/prox_latam/aoi_ags.gpkg"
     pois_dir = "../../data/external/prox_latam/pois_ags.gpkg"
-    # Pop data file directory (required if pop_output = True)
+
+    # OPTIONAL DATA (required if pop_output = True in main function)
+    # Pop data file directory
     pop_dir = "../../data/external/prox_latam/pop_gdf_ags.gpkg"
-    # Column with pop data (required if pop_output = True)
+    # Column with pop data
     pop_column = 'pobtot'
-    # Pop gdf index column (required if pop_output = True)
+    # Pop gdf index column
     pop_index_column = 'cvegeo'
 
     # PARAMETERS DICTIONARY
@@ -687,6 +719,7 @@ if __name__ == "__main__":
                                                 'denue_museos':[712111, 712112]}
                                     } 
                 }
+
     # WEIGHT DICTIONARY
     # If need to measure nearest source for amenity, doesn't matter which, choose 'min'
     # If need to measure access to all of the different sources in an amenity, choose 'max'
@@ -706,4 +739,4 @@ if __name__ == "__main__":
                                         'Cultural':'min'} # //////////////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
                     }
 
-    main(save=True,save_space=True)
+    main(pop_output=True, save=save, save_space=save_space)
