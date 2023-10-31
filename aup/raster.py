@@ -848,6 +848,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     log(f'Starting interpolation')
 
                     raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
+                    # only for temperature
+                    raster_idx[raster_idx == -124.25 ] = np.nan # change zero values to nan
                     raster_idx = raster_idx.astype('float32') # change data type to float32 to avoid fillnodata error
 
                     log(f'Interpolating {np.isnan(raster_idx).sum()} nan values')
