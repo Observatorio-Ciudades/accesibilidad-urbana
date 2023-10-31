@@ -162,7 +162,7 @@ if __name__ == "__main__":
     start_date = '2018-01-01'
     end_date = '2022-12-31'
     satellite = 'landsat-c2-l2'
-    save = True # True
+    save = False # True
     del_data = False # True
 
     # check if a skip city csv exists
@@ -190,7 +190,10 @@ if __name__ == "__main__":
         pass
 
     city_analysis = ['Monterrey'] # Guaymas
+
     for city in gdf_mun.city.unique():
+
+        aup.log(f'\n Iterating {city}')
 
         # if city not in processed_city_list and city not in skip_list:
         if city in city_analysis and city not in processed_city_list and city not in skip_list:
