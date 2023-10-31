@@ -806,10 +806,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         date_filter = np.array(date_order)
         dates_ordered = date_array[date_filter]
         
-        # mosaic raster
-        
+        # mosaic raster iterations (while loop tries 5 times to process all available rasters (dates) in a month)
         iter_count = 1
-
         # create skip date list used to analyze null values in raster
         skip_date_list = []
         
