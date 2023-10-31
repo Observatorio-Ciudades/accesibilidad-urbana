@@ -350,12 +350,14 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a"):
+def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
     """
     Filters dates per quantile and finds available ones.
 
     Arguments:
         items (np.array): items intersecting time and area of interest
+        satellite (str): satellite used to download imagery
+        min_cloud_value (int): minimum cloud coverage value to be considered for quantile analysis
 
     Returns:
         date_list (list): List with available dates with filter
@@ -425,7 +427,7 @@ def available_datasets(items, satellite="sentinel-2-l2a"):
     q3 = [v[0] for v in q3]
 
     # check if q3 analysis is necessary
-    q3_test = [True if test>20 else False for test in q3]
+    q3_test = [True if test>min_cloud_value else False for test in q3]
     if sum(q3_test)>0:
         log(f'Quantile filter dictionary by column: {dict(zip(df_tile.columns, q3))}')
 
@@ -900,6 +902,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.loc[df_raster.index==i,'data_id']=0
             df_raster.loc[df_raster.index==i,'able_to_download']=0
             df_raster.to_csv(df_file_dir, index=False)
+            available_data_check(df_len, missing_months) # test for missing months
             continue
 
     df_len = pd.read_csv(df_file_dir, index_col=False)
