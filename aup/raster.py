@@ -795,11 +795,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # creates time range for a specific month
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
-        # gather links for the date range
-        items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
-
-        # gather links from dates that are within date_list
-        assets_hrefs = link_dict(band_name_list, items, date_list)
+    
         # create dataframe
         #df_links = pd.DataFrame.from_dict(assets_hrefs, 
         #                                orient='Index').reset_index().rename(columns={'index':'date'})
@@ -813,11 +809,16 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # mosaic raster
         
         iter_count = 1
+
+        # create skip date list used to analyze null values in raster
+        skip_date_list = []
         
         while iter_count <= 5:
-
-            # create skip date list used to analyze null values in raster
-            skip_date_list = []
+            # gather links for the date range from planetary computer
+            items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
+            
+            # gather links from dates that are within date_list
+            assets_hrefs = link_dict(band_name_list, items, date_list)
 
             #for data_link in range(len(df_links)):
             for data_link in range(len(dates_ordered)):
@@ -828,6 +829,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                 # check if date contains null values within study area
                 #if df_links.iloc[data_link]['date'] in skip_date_list:
                 if dates_ordered[data_link] in skip_date_list:
+                    log(f'Skipped {dates_ordered[data_link]} because it did not pass null test.')
                     continue
 
                 try:
