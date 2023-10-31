@@ -78,7 +78,7 @@ def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date
             aup.log(f'hex_gdf_res len: {len(hex_gdf_res)} is bigger than processing chunk: {processing_chunk}')
             c_processing = len(hex_gdf_res)/processing_chunk
             aup.log(f'There are {round(c_processing)} processes')
-            for i in range(int(c_processing)):
+            for i in range(int(c_processing)+1):
                 aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
                 hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
                 raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
