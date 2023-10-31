@@ -189,11 +189,9 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Monterrey'] # Guaymas
+    city_analysis = ['Monterrey']
 
     for city in gdf_mun.city.unique():
-
-        aup.log(f'\n Iterating {city}')
 
         # if city not in processed_city_list and city not in skip_list:
         if city in city_analysis and city not in processed_city_list and city not in skip_list:
