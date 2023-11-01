@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 """Global settings, can be configured by user with utils.config()."""
 
 import logging as lg

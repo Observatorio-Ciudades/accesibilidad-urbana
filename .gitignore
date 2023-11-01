@@ -37,3 +37,9 @@ aup.egg-info/
 *.js
 *.gitattributes
 *.devcontainer
+
+#tif files
+*.tif
+
+# env
+*.env
