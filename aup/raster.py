@@ -826,6 +826,9 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                             f'/{dates_ordered[data_link].month}'+
                             f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
                 
+                # log(data_link)
+                log(dates_ordered[data_link])
+                log(skip_date_list)
                 # check if date contains null values within study area
                 #if df_links.iloc[data_link]['date'] in skip_date_list:
                 if dates_ordered[data_link] in skip_date_list:
@@ -889,7 +892,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                         break
                     except:
                         log('Failed null test')
-                        skip_date_list.append(assets_hrefs[list(assets_hrefs.keys())[data_link]])
+                        skip_date_list.append(dates_ordered[data_link])
                         delete_files_from_folder(tmp_raster_dir)
 
                 except:
@@ -902,7 +905,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.loc[df_raster.index==i,'data_id']=0
             df_raster.loc[df_raster.index==i,'able_to_download']=0
             df_raster.to_csv(df_file_dir, index=False)
-            available_data_check(df_len, missing_months) # test for missing months
+            available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0])) # test for missing months
             continue
 
     df_len = pd.read_csv(df_file_dir, index_col=False)
