@@ -9,36 +9,10 @@ if module_path not in sys.path:
     import aup
 
 
-def main(city, res, save=False):
-
-    # download municipality polygons
-    schema = 'metropolis'
-    table = 'metro_gdf_2020'
-
-    city = 'Guadalajara'
-
-    query = f"SELECT * FROM {schema}.{table} WHERE \"city\" = \'{city}\'"
-
-    mun_gdf = aup.gdf_from_query(query)
-
-    aup.log(f'Downloaded {len(mun_gdf)} municipalities for {city}')
-
-    # download ageb polygons
-
-    schema = 'censoageb'
-    table = 'censoageb_2020'
-
-    ageb_gdf = gpd.GeoDataFrame()
-
-    for cvegeo in mun_gdf.CVEGEO.unique():
-        query = f"SELECT cve_geo,pobtot,geometry FROM {schema}.{table} WHERE \"cve_geo\" LIKE \'{cvegeo}%%\'"
-        ageb_gdf = pd.concat([ageb_gdf, aup.gdf_from_query(query)],
-                            ignore_index = True, axis = 0)
-        
-    aup.log(f'Downloaded {len(ageb_gdf)} ageb features for {city} with {ageb_gdf.pobtot.sum()} persons')
+def main(city, res, mun_gdf, ageb_gdf, save=False):
 
     # create hexagons grid
-    hex_gdf = aup.create_hexgrid(mun_gdf, 8)
+    hex_gdf = aup.create_hexgrid(mun_gdf, res)
 
     aup.log(f'Created {len(hex_gdf)} hexagons for {city}')
 
@@ -50,8 +24,8 @@ def main(city, res, save=False):
     
     cnt_join = hex_cnt.sjoin(mun_gdf).drop(columns='index_right')
 
-    hex_merge = hex_gdf.merge(cnt_join[['hex_id_8','CVEGEO','NOMGEO','city']],
-             on='hex_id_8')
+    hex_merge = hex_gdf.merge(cnt_join[[f'hex_id_{res}','CVEGEO','NOMGEO','city']],
+             on=f'hex_id_{res}')
     aup.log(f'Merged hexagons with municipalities for {city}')
     aup.log(f'Total hex_gdf: {len(hex_gdf)} and hex_merge: {len(hex_merge)}')
 
@@ -67,12 +41,12 @@ def main(city, res, save=False):
     aup.log(f'Total ageb: {total_ageb} and joined ageb: {total_join}')
 
     # define urban and rural hexagons
-    hex_list = list(ageb_join.hex_id_8.unique())
+    hex_list = list(ageb_join[f'hex_id_{res}'].unique())
     hex_merge.loc[:,'type'] = 'rural'
-    hex_merge.loc[hex_merge.hex_id_8.isin(hex_list),'type'] = 'urban'
+    hex_merge.loc[hex_merge[f'hex_id_{res}'].isin(hex_list),'type'] = 'urban'
 
-    urban_len = len(hex_merge.loc[hex_merge.type == 'urban'])
-    rural_len = len(hex_merge.loc[hex_merge.type == 'rural'])
+    urban_len = len(hex_merge.loc[hex_merge['type'] == 'urban'])
+    rural_len = len(hex_merge.loc[hex_merge['type'] == 'rural'])
     aup.log(f'Created {urban_len} urban and {rural_len} rural hexagons')
 
     if save:
@@ -100,6 +74,31 @@ if __name__ == "__main__":
     save = False
 
     for city in city_names.city.unique():
+
+        # download municipality polygons
+        schema = 'metropolis'
+        table = 'metro_gdf_2020'
+
+        query = f"SELECT * FROM {schema}.{table} WHERE \"city\" = \'{city}\'"
+
+        mun_gdf = aup.gdf_from_query(query)
+
+        aup.log(f'Downloaded {len(mun_gdf)} municipalities for {city}')
+
+        # download ageb polygons
+
+        schema = 'censoageb'
+        table = 'censoageb_2020'
+
+        ageb_gdf = gpd.GeoDataFrame()
+
+        for cvegeo in mun_gdf.CVEGEO.unique():
+            query = f"SELECT cve_geo,pobtot,geometry FROM {schema}.{table} WHERE \"cve_geo\" LIKE \'{cvegeo}%%\'"
+            ageb_gdf = pd.concat([ageb_gdf, aup.gdf_from_query(query)],
+                                ignore_index = True, axis = 0)
+            
+        aup.log(f'Downloaded {len(ageb_gdf)} ageb features for {city} with {ageb_gdf.pobtot.sum()} persons')
+
         for r in res_list:
             aup.log(f'Processing {city} with resolution {r}')
-            main(city, r, save=save)
+            main(city, r, mun_gdf, ageb_gdf, save=save)
