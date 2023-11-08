@@ -29,16 +29,22 @@ def main(city, res, mun_gdf, ageb_gdf, save=False):
     aup.log(f'Merged hexagons with municipalities for {city}')
     aup.log(f'Total hex_gdf: {len(hex_gdf)} and hex_merge: {len(hex_merge)}')
 
+    assert len(hex_gdf) == len(hex_merge), 'hex_gdf does not match hex_merge'
+
     # hexagons to ageb - define urban/rural
     ageb_join = ageb_gdf.sjoin(hex_merge).drop(columns='index_right')
 
     pop_join = ageb_gdf.loc[ageb_gdf.cve_geo.isin(list(ageb_join.cve_geo.unique()))].pobtot.sum()
     pop_ageb = ageb_gdf.pobtot.sum()
     aup.log(f'Total ageb population: {pop_ageb} and joined ageb population: {pop_join}')
+    
+    assert pop_ageb == pop_join, 'Population does not match'
 
     total_ageb = ageb_gdf.shape[0]
     total_join = ageb_gdf.loc[ageb_gdf.cve_geo.isin(list(ageb_join.cve_geo.unique()))].shape[0]
     aup.log(f'Total ageb: {total_ageb} and joined ageb: {total_join}')
+
+    assert total_ageb == total_join, 'ageb does not match'
 
     # define urban and rural hexagons
     hex_list = list(ageb_join[f'hex_id_{res}'].unique())
@@ -100,5 +106,9 @@ if __name__ == "__main__":
         aup.log(f'Downloaded {len(ageb_gdf)} ageb features for {city} with {ageb_gdf.pobtot.sum()} persons')
 
         for r in res_list:
-            aup.log(f'Processing {city} with resolution {r}')
-            main(city, r, mun_gdf, ageb_gdf, save=save)
+            aup.log(f'\n Processing {city} with resolution {r}')
+            try:
+                main(city, r, mun_gdf, ageb_gdf, save=save)
+            except:
+                aup.log(f'Assertion error processing {city} with resolution {r}')
+                continue
