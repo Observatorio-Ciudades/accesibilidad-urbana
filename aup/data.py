@@ -336,7 +336,7 @@ def gdf_from_query(query, geometry_col="geometry", index_col=None):
     return df
 
 
-def gdf_from_db(name, schema,geom_col="geometry"):    
+def gdf_from_db(name, schema, geom_col="geometry"):    
     """
     Load a table from the database into a GeoDataFrame
 
