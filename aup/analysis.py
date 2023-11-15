@@ -1,9 +1,7 @@
 ################################################################################
 # Module: analysis.py
-# Set of utility functions 
-# developed by: Luis Natera @natera
-# 			  nateraluis@gmail.com
-# updated: 25/08/2020
+# Set of data and spatial data analysis functions
+# updated: 15/11/2023
 ################################################################################
 
 import igraph as ig
