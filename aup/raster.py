@@ -350,12 +350,14 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a"):
+def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
     """
     Filters dates per quantile and finds available ones.
 
     Arguments:
         items (np.array): items intersecting time and area of interest
+        satellite (str): satellite used to download imagery
+        min_cloud_value (int): minimum cloud coverage value to be considered for quantile analysis
 
     Returns:
         date_list (list): List with available dates with filter
@@ -404,7 +406,7 @@ def available_datasets(items, satellite="sentinel-2-l2a"):
                 # check if properties are within dictionary date keys
                 if i.properties['landsat:wrs_row']+'_cloud' in list(date_dict[i.datetime.date()].keys()):
                     date_dict[i.datetime.date()].update(
-                        {i.properties['llandsat:wrs_row']+'_cloud':
+                        {i.properties['landsat:wrs_row']+'_cloud':
                         i.properties['landsat:cloud_cover_land']})
                 
                 else:
@@ -425,7 +427,7 @@ def available_datasets(items, satellite="sentinel-2-l2a"):
     q3 = [v[0] for v in q3]
 
     # check if q3 analysis is necessary
-    q3_test = [True if test>20 else False for test in q3]
+    q3_test = [True if test>min_cloud_value else False for test in q3]
     if sum(q3_test)>0:
         log(f'Quantile filter dictionary by column: {dict(zip(df_tile.columns, q3))}')
 
@@ -824,6 +826,9 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                             f'/{dates_ordered[data_link].month}'+
                             f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
                 
+                # log(data_link)
+                log(dates_ordered[data_link])
+                log(skip_date_list)
                 # check if date contains null values within study area
                 #if df_links.iloc[data_link]['date'] in skip_date_list:
                 if dates_ordered[data_link] in skip_date_list:
@@ -848,6 +853,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     log(f'Starting interpolation')
 
                     raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
+                    # only for temperature
+                    raster_idx[raster_idx == -124.25 ] = np.nan # change zero values to nan
                     raster_idx = raster_idx.astype('float32') # change data type to float32 to avoid fillnodata error
 
                     log(f'Interpolating {np.isnan(raster_idx).sum()} nan values')
@@ -885,7 +892,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                         break
                     except:
                         log('Failed null test')
-                        skip_date_list.append(assets_hrefs[list(assets_hrefs.keys())[data_link]])
+                        skip_date_list.append(dates_ordered[data_link])
                         delete_files_from_folder(tmp_raster_dir)
 
                 except:
@@ -898,6 +905,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.loc[df_raster.index==i,'data_id']=0
             df_raster.loc[df_raster.index==i,'able_to_download']=0
             df_raster.to_csv(df_file_dir, index=False)
+            available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0])) # test for missing months
             continue
 
     df_len = pd.read_csv(df_file_dir, index_col=False)
