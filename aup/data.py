@@ -1,10 +1,7 @@
 ################################################################################
-# Module: Data downloader
-# saves the original network in the folder ../data/raw/{type}_{city}.{format}
-# name of the city as key.
-# developed by: Luis Natera @natera
-# 			  nateraluis@gmail.com
-# updated: 25/08/2020
+# Module: Data
+# Set of data gathering, downloading and uploading functions
+# updated: 15/11/2023
 ################################################################################
 import csv
 import json
