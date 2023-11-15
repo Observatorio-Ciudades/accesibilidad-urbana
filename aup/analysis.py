@@ -31,7 +31,7 @@ def voronoi_cpu(g, weights, seeds):
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
-def get_distances(g, seeds, weights, voronoi_assignment):
+def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False):
 	"""
 	Distance for the shortest path for each node to the closest seed using Dijkstra's algorithm.
 	Arguments:
@@ -44,11 +44,13 @@ def get_distances(g, seeds, weights, voronoi_assignment):
 	"""
 	shortest_paths = np.array(g.shortest_paths_dijkstra(seeds,weights=weights))
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
+	if get_nearest_poi:
+		nearest_poi_idx = [np.argmin(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
+		return distances, nearest_poi_idx
 	return distances
 
-
 def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name, 
-wght='length', max_distance=(0,'distance_node')):
+wght='length', get_nearest_poi=(False, 'poi_id_column'), max_distance=(0,'distance_node')):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -59,6 +61,7 @@ wght='length', max_distance=(0,'distance_node')):
 		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
 		column_name (str): column name where the nearest distance index is stored
 		wght (str): weights column in edges. Defaults to length
+		get_nearest_poi (tuple): tuple containing boolean to get the nearest POI and column name that contains that value. Defaults to (False, 'poi_id_column')
 		max_distance (tuple): tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
 
 	Returns:
@@ -72,7 +75,12 @@ wght='length', max_distance=(0,'distance_node')):
 	col_weight = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
-	distances = get_distances(g,seeds,weights,voronoi_assignment)
+	if get_nearest_poi[0]:
+		distances, nearest_poi_idx = get_distances(g,seeds,weights,voronoi_assignment,get_nearest_poi=True)
+		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
+		nodes['nearest_poi'] = nearest_poi
+	else:
+		distances = get_distances(g,seeds,weights,voronoi_assignment)
 
 	nodes[col_weight] = distances
 
@@ -81,6 +89,7 @@ wght='length', max_distance=(0,'distance_node')):
 	nodes = nodes[idx].copy()
 
 	return nodes
+
 
 def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	"""
@@ -582,7 +591,7 @@ def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
 		z0 = z0[np.squeeze(idx)]
 
 	# calculate weights
-	weights = 1.0 (dist + 1e-12)**power
+	weights = 1.0 * (dist + 1e-12)**power
 	# weights sum to 1 by row
 	weights /= weights.sum(axis=0)
 
