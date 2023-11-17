@@ -1,3 +1,9 @@
+################################################################################
+# Module: Raster
+# Set of raster data treatment and analysis functions, mainly using Planetary Computer
+# updated: 13/11/2023
+################################################################################
+
 from .utils import *
 from .data import *
 from tqdm import tqdm
