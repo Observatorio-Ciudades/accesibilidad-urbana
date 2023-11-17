@@ -1,10 +1,7 @@
 ################################################################################
-# Module: Data downloader
-# saves the original network in the folder ../data/raw/{type}_{city}.{format}
-# name of the city as key.
-# developed by: Luis Natera @natera
-# 			  nateraluis@gmail.com
-# updated: 25/08/2020
+# Module: Data
+# Set of data gathering, downloading and uploading functions
+# updated: 15/11/2023
 ################################################################################
 import csv
 import json
@@ -335,6 +332,28 @@ def gdf_from_query(query, geometry_col="geometry", index_col=None):
 
     return df
 
+def gdf_from_polygon(gdf, schema, table, geom_col="geometry"):
+    """
+    Load a table from the database into a GeoDataFrame
+
+    Arguments:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for download
+        schema (str): schema from DataBase where edges and nodes are stored
+        table (str): table name whithin schema where edges stored.
+        geom_col (str): column name with geometry. Defaults to geometry
+
+    Returns:
+        gdf (geopandas.GeoDataFrame): GeoDataFrame with the table from the database.
+    """
+    gdf = gdf.to_crs("EPSG:6372")
+    gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
+    gdf = gdf.set_geometry("geometry")
+    gdf = gdf.to_crs("EPSG:4326")
+    poly_wkt = gdf.dissolve().geometry.to_wkt()[0]
+    query = f"SELECT * FROM {schema}.{table} WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
+    gdf_download = gdf_from_query(query, geometry_col=geom_col)
+
+    return gdf_download
 
 def gdf_from_db(name, schema, geom_col="geometry"):    
     """
