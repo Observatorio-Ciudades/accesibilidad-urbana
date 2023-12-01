@@ -44,7 +44,7 @@ class NanValues(Exception):
     def __init__(self, message):
         self.message = message
 
-def available_data_check(df_len, missing_months, pct_limit=50, window_limit=5):
+def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
     pct_missing = round(missing_months/len(df_len),2)*100
     log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
     if pct_missing >= pct_limit: 
@@ -123,6 +123,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # analyze available data according to raster properties
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
                                            band_name_list, freq)
+
     available_data_check(df_len, missing_months) # test for missing months
 
     # creates raster and analyzes percentage of missing data points
@@ -356,7 +357,7 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
+def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     """
     Filters dates per quantile and finds available ones.
 
@@ -384,26 +385,26 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
                     date_dict[i.datetime.date()].update(
                         {i.properties['s2:mgrs_tile']+'_cloud':
                         i.properties['s2:high_proba_clouds_percentage']})
-                    date_dict[i.datetime.date()].update(
-                        {i.properties['s2:mgrs_tile']+'_nodata':
-                        i.properties['s2:nodata_pixel_percentage']})
+                    #date_dict[i.datetime.date()].update(
+                    #    {i.properties['s2:mgrs_tile']+'_nodata':
+                    #    i.properties['s2:nodata_pixel_percentage']})
                 
                 else:
                     date_dict[i.datetime.date()].update(
                         {i.properties['s2:mgrs_tile']+'_cloud':
                         i.properties['s2:high_proba_clouds_percentage']})
-                    date_dict[i.datetime.date()].update(
-                        {i.properties['s2:mgrs_tile']+'_nodata':
-                        i.properties['s2:nodata_pixel_percentage']})
+                    #date_dict[i.datetime.date()].update(
+                    #    {i.properties['s2:mgrs_tile']+'_nodata':
+                    #    i.properties['s2:nodata_pixel_percentage']})
             # create new date key and add properties to it
             else:
                 date_dict[i.datetime.date()] = {}
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_cloud':
                     i.properties['s2:high_proba_clouds_percentage']})
-                date_dict[i.datetime.date()].update(
-                    {i.properties['s2:mgrs_tile']+'_nodata':
-                    i.properties['s2:nodata_pixel_percentage']})
+                #date_dict[i.datetime.date()].update(
+                #    {i.properties['s2:mgrs_tile']+'_nodata':
+                #    i.properties['s2:nodata_pixel_percentage']})
         elif satellite == "landsat-c2-l2":
             # check and add raster properties to dictionary by tile and date
             # if date is within dictionary append properties from item to list
@@ -428,8 +429,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
     
     # determine third quartile for each tile
     df_tile = pd.DataFrame.from_dict(date_dict, orient='index')
-    q3 = [np.percentile(df_tile[c].dropna(), 
-                        [75]) for c in df_tile.columns.to_list()]
+    q3 = [np.percentile(df_tile[c].dropna(),[75]) for c in df_tile.columns.to_list() if 'cloud' in c]
     q3 = [v[0] for v in q3]
 
     # check if q3 analysis is necessary
@@ -448,7 +448,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
 
         # filter dates by missing values or outliers according to cloud and no_data values
         for c in range(len(column_list)):
-            df_tile.loc[df_tile[column_list[c]]>20,column_list[c]] = np.nan
+            df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
 
     # arrange by cloud coverage average
     df_tile['avg_cloud'] = df_tile.mean(axis=1)
