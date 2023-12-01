@@ -16,53 +16,67 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
+def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
 
     ###############################
-    # Download hex polygons with AGEB data
-    schema_hex = 'censo'
-    folder_hex = 'hex_bins_pop_2020'
+    # Create area of interest (Download hex polygons with city data)
+    schema_hex = 'hexgrid'
+    table_hex = 'hexgrid_8_city_2020'
 
-    hex_ageb = gpd.GeoDataFrame()
+    query = f"SELECT hex_id_8,geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\'"
+    hex_city = aup.gdf_from_query(query, geometry_col='geometry')
 
-    # cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
-
-    for m in cvegeo_list:
-        query = f"SELECT hex_id_8,geometry FROM {schema_hex}.{folder_hex} WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-        hex_ageb = pd.concat([hex_ageb, 
-                            aup.gdf_from_query(query, geometry_col='geometry')], 
-                            ignore_index = True, axis = 0)
-
-    aup.log(f'Downloaded {len(hex_ageb)} hexagon features')
+    aup.log(f'Downloaded {len(hex_city)} hexagon features')
     
-
-    df_len = aup.download_raster_from_pc(hex_ageb, index_analysis, city, freq,
+    # Download and process rasters
+    df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
                                         start_date, end_date, tmp_dir, band_name_dict, satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
     ### raster to hex
     ### hex preprocessing
-    aup.log('Started creating hexagons at different resolutions')
-    hex_gdf = hex_ageb.copy()
-    hex_gdf.rename(columns={'hex_id_8':'hex_id'}, inplace=True)
-    hex_gdf['res'] = res[0]
+    aup.log('Started loading hexagons at different resolutions')
+    
+    # Create res_list
+    res_list=[]
+    for r in range(res[0,res[-1]+1]):
+        res_list.append(r)
 
-    if len(res)>1:
-        for r in range(res[0]+1,res[-1]+1):
-            
-            hex_tmp = aup.create_hexgrid(hex_ageb, r)
-            hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
-            hex_tmp['res'] = r
-            
-            hex_gdf = pd.concat([hex_gdf, hex_tmp], 
-                ignore_index = True, axis = 0)
-            
-            del hex_tmp
-    else:
-        hex_gdf = aup.create_hexgrid(hex_gdf, res[0])
-        hex_gdf.rename(columns={f'hex_id_{res[0]}':'hex_id'}, inplace=True)
-        hex_gdf['res'] = res[0]
+    # Load hexgrids
+    hex_gdf = pd.GeoDataFrame()
+    schema_hex = 'hexgrid'
+
+    for r in res_list:
+
+        table_hex = f'hexgrid_{r}_city_2020'
+
+        # Download hexagons with type=urban
+        type = 'urban'
+        query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\'"
+        hex_urban = aup.gdf_from_query(query, geometry_col='geometry')
+        
+        # Download hexagons with type=rural within 500m buffer
+        poly = hex_urban.to_crs("EPSG:6372").buffer(500)
+        poly = poly.to_crs("EPSG:4326")
+        poly_wkt = poly.dissolve().geometry.to_wkt()[0]
+        type = 'rural'
+        query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\' AND (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        hex_rural = aup.gdf_from_query(query, geometry_col='geometry')
+
+        # Concatenate urban and rural hex
+        hex_tmp = pd.concat([hex_urban, hex_rural])
+        hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
+        hex_tmp['res'] = r
+
+        # Concatenate different resolutions
+        if r == res[0]:
+            hex_gdf = hex_tmp.copy()
+        else:
+            hex_gdf = pd.concat([hex_gdf, hex_tmp], ignore_index = True, axis = 0)
+        
+        del hex_tmp
+
 
     aup.log('Finished creating hexagons at different resolutions')
 
@@ -149,9 +163,10 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[True],
-                      'swir16':[False]}
-    index_analysis = 'ndmi'
+    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+                      'red':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-red)/(nir+red)']} 
+    index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
@@ -170,7 +185,7 @@ if __name__ == "__main__":
 
     skip_list = list(df_skip.city.unique())
 
-    gdf_mun = aup.gdf_from_db('metro_gdf', 'metropolis')
+    gdf_mun = aup.gdf_from_db('metro_gdf_2020', 'metropolis')
     gdf_mun = gdf_mun.sort_values(by='city')
 
     # prevent cities being analyzed several times in case of a crash
@@ -183,23 +198,18 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Tijuana','Merida','Leon',
-                     'Queretaro','Tuxtla','Puebla','Monterrey',
-                     'Guadalajara','Chihuahua','ZMVM'] # Guaymas
+    # analysis
     for city in gdf_mun.city.unique():
 
         # if city not in processed_city_list and city not in skip_list:
-        if city in city_analysis and city not in processed_city_list and city not in skip_list:
+        if city not in processed_city_list and city not in skip_list:
 
             aup.log(f'\n Starting city {city}')
 
-            cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
-            cvegeo_list = ["09002", "09003", "09004", "09005", "09006", 
-                           "09007", "09008", "09009", "09010", "09011", 
-                           "09012", "09013", "09014", "09015", "09016", "09017"]
+
 
             try:
-                main(index_analysis, city, cvegeo_list, band_name_dict, start_date,
+                main(index_analysis, city, band_name_dict, start_date,
                     end_date, freq, satellite, save, del_data)
             except Exception as e:
                 aup.log(e)
