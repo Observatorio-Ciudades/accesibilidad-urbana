@@ -19,12 +19,26 @@ class NanValues(Exception):
 def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
 
     ###############################
-    # Create area of interest (Download hex polygons with city data)
+    # Create city area of interest with biggest hexs
+    big_res = min(res)
     schema_hex = 'hexgrid'
-    table_hex = 'hexgrid_8_city_2020'
+    table_hex = f'hexgrid_{big_res}_city_2020'
 
-    query = f"SELECT hex_id_8,geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\'"
-    hex_city = aup.gdf_from_query(query, geometry_col='geometry')
+    # Download hexagons with type=urban
+    type = 'urban'
+    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\'"
+    hex_urban = aup.gdf_from_query(query, geometry_col='geometry')
+    
+    # Download hexagons with type=rural within 500m buffer
+    poly = hex_urban.to_crs("EPSG:6372").buffer(500).reset_index()
+    poly = poly.to_crs("EPSG:4326")
+    poly_wkt = poly.dissolve().geometry.to_wkt()[0]
+    type = 'rural'
+    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\' AND (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+    hex_rural = aup.gdf_from_query(query, geometry_col='geometry')
+    
+    # Concatenate urban and rural hex
+    hex_city = pd.concat([hex_urban, hex_rural])
 
     aup.log(f'Downloaded {len(hex_city)} hexagon features')
     
@@ -40,43 +54,30 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     
     # Create res_list
     res_list=[]
-    for r in range(res[0,res[-1]+1]):
+    for r in range(res[0],res[-1]+1):
         res_list.append(r)
 
     # Load hexgrids
-    hex_gdf = pd.GeoDataFrame()
-    schema_hex = 'hexgrid'
-
+    hex_gdf = hex_city.copy()
+    hex_gdf.rename(columns={f'hex_id_{big_res}':'hex_id'}, inplace=True)
+    hex_gdf['res'] = big_res
+    
     for r in res_list:
-
-        table_hex = f'hexgrid_{r}_city_2020'
-
-        # Download hexagons with type=urban
-        type = 'urban'
-        query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\'"
-        hex_urban = aup.gdf_from_query(query, geometry_col='geometry')
+        # biggest resolution already loaded
+        if r == big_res:
+            continue
         
-        # Download hexagons with type=rural within 500m buffer
-        poly = hex_urban.to_crs("EPSG:6372").buffer(500)
-        poly = poly.to_crs("EPSG:4326")
-        poly_wkt = poly.dissolve().geometry.to_wkt()[0]
-        type = 'rural'
-        query = f"SELECT * FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\' AND (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
-        hex_rural = aup.gdf_from_query(query, geometry_col='geometry')
-
-        # Concatenate urban and rural hex
-        hex_tmp = pd.concat([hex_urban, hex_rural])
+        # Load hexgrid
+        table_hex = f'hexgrid_{r}_city_2020'
+        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
+        # Format hexgrid
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
         hex_tmp['res'] = r
+        # Concatenate to hex_gdf
+        hex_gdf = pd.concat([hex_gdf, hex_tmp])
 
-        # Concatenate different resolutions
-        if r == res[0]:
-            hex_gdf = hex_tmp.copy()
-        else:
-            hex_gdf = pd.concat([hex_gdf, hex_tmp], ignore_index = True, axis = 0)
-        
         del hex_tmp
-
 
     aup.log('Finished creating hexagons at different resolutions')
 
@@ -106,7 +107,6 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     del hex_gdf
 
     if del_data:
-
         # delete raster files
         aup.delete_files_from_folder(tmp_dir)
 
@@ -119,14 +119,14 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
     aup.log(f'df nan values: {df_raster_analysis[index_analysis].isna().sum()}')
     if df_raster_analysis[index_analysis].isna().sum() > 0:
         raise NanValues('NaN values are still present after processing')
+    
+    # local save (test)
+    if local_save:
+        hex_raster_analysis.to_file(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.geojson')
+        df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
 
     if save:
-        # local save
-        # hex_raster_analysis.to_file(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.geojson')
-        # df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
-        
         # upload to database
-        
         upload_chunk = 150000
         aup.log('Starting upload')
 
@@ -154,7 +154,6 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
                             'raster_analysis', if_exists='append')
         aup.log(f'Finished uploading data for res{r}')
         
-    
     # delete variables
     del df_raster_analysis
     del hex_raster_analysis
@@ -173,7 +172,8 @@ if __name__ == "__main__":
     start_date = '2018-01-01'
     end_date = '2022-12-31'
     satellite = "sentinel-2-l2a"
-    save = True # True
+    save = False # True
+    local_save = True # True (test)
     del_data = True # True
 
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
@@ -205,8 +205,6 @@ if __name__ == "__main__":
         if city not in processed_city_list and city not in skip_list:
 
             aup.log(f'\n Starting city {city}')
-
-
 
             try:
                 main(index_analysis, city, band_name_dict, start_date,
