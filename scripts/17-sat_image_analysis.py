@@ -176,6 +176,11 @@ if __name__ == "__main__":
     local_save = True # True (test)
     del_data = True # True
 
+    # Create folder to store skip list
+    folder_dir = f'../data/processed/{index_analysis}_skip_city/'
+    if os.path.exists(folder_dir) == False:
+        os.mkdir(folder_dir)
+
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
     if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
         df_skip = pd.DataFrame(columns=['city','missing_months','unable_to_download'])
@@ -184,6 +189,10 @@ if __name__ == "__main__":
         df_skip = pd.read_csv(df_skip_dir)
 
     skip_list = list(df_skip.city.unique())
+
+    # Create folder to store raster analysis
+    if os.path.exists(tmp_dir) == False:
+        os.mkdir(tmp_dir)
 
     gdf_mun = aup.gdf_from_db('metro_gdf_2020', 'metropolis')
     gdf_mun = gdf_mun.sort_values(by='city')
@@ -199,7 +208,11 @@ if __name__ == "__main__":
         pass
 
     # analysis
-    for city in gdf_mun.city.unique():
+    #for city in gdf_mun.city.unique():
+    #------test
+    city_list = ['Aguascalientes']
+    for city in city_list:
+    #------test
 
         # if city not in processed_city_list and city not in skip_list:
         if city not in processed_city_list and city not in skip_list:
