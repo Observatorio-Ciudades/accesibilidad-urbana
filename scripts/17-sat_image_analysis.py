@@ -19,7 +19,7 @@ class NanValues(Exception):
 def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
 
     ###############################
-    # Create city area of interest with biggest hexs
+    ### Create city area of interest with biggest hexs
     big_res = min(res)
     schema_hex = 'hexgrid'
     table_hex = f'hexgrid_{big_res}_city_2020'
@@ -42,9 +42,9 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
 
     aup.log(f'Downloaded {len(hex_city)} hexagon features')
     
-    # Download and process rasters
+    ### Download and process rasters
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -125,8 +125,8 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
         hex_raster_analysis.to_file(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.geojson')
         df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
 
+    # Save - upload to database
     if save:
-        # upload to database
         upload_chunk = 150000
         aup.log('Starting upload')
 
@@ -172,11 +172,13 @@ if __name__ == "__main__":
     start_date = '2018-01-01'
     end_date = '2022-12-31'
     satellite = "sentinel-2-l2a"
-    save = False # True
-    local_save = True # True (test)
-    del_data = True # True
+    del_data = True
 
-    # Create folder to store skip list
+    local_save = True #------ Set True if test
+    save = False #------ Set True if full analysis
+
+    ###############################
+    # Create folder to store city skip_list
     folder_dir = f'../data/processed/{index_analysis}_skip_city/'
     if os.path.exists(folder_dir) == False:
         os.mkdir(folder_dir)
@@ -207,12 +209,12 @@ if __name__ == "__main__":
     except:
         pass
 
-    # analysis
-    #for city in gdf_mun.city.unique():
-    #------test
+    #------ Set following if test
     city_list = ['Aguascalientes']
     for city in city_list:
-    #------test
+
+    #------ Set following if full analysis
+    #for city in gdf_mun.city.unique():
 
         # if city not in processed_city_list and city not in skip_list:
         if city not in processed_city_list and city not in skip_list:
