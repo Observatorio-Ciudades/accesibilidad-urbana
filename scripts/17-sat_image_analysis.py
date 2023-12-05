@@ -122,6 +122,12 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
     
     # local save (test)
     if local_save:
+        # Create folder to store local save
+        localsave_dir = tmp_dir+'local_save/'
+        if os.path.exists(localsave_dir) == False:
+            os.mkdir(localsave_dir)
+
+        # Local save
         hex_raster_analysis.to_file(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.geojson')
         df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
 
