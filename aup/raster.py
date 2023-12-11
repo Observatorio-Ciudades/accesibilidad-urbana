@@ -828,18 +828,21 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
             #for data_link in range(len(df_links)):
             for data_link in range(len(dates_ordered)):
+                 
+                # Skip date if in skip_date_list
+                if dates_ordered[data_link] in skip_date_list:
+                    log(f'Skipped {dates_ordered[data_link]} - iteration:{iter_count} because it did not pass null test.')
+                    continue
+                 
+                # log(data_link)
+                log(f'Skip list:{skip_date_list}')
+                log(dates_ordered[data_link])
                 log(f'Mosaic date {dates_ordered[data_link].day}'+
                             f'/{dates_ordered[data_link].month}'+
                             f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
                 
-                # log(data_link)
-                log(dates_ordered[data_link])
-                log(skip_date_list)
                 # check if date contains null values within study area
                 #if df_links.iloc[data_link]['date'] in skip_date_list:
-                if dates_ordered[data_link] in skip_date_list:
-                    log(f'Skipped {dates_ordered[data_link]} because it did not pass null test.')
-                    continue
 
                 try:
                     #links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
