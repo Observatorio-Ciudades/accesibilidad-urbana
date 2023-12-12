@@ -648,3 +648,90 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 	int_value = np.where(np.isnan(weights.T),0,weights.T).dot(np.where(np.isnan(z0),0,z0))
 
 	return int_value
+
+
+def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
+	"""
+	Args:
+		aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
+		pop_dir (str): Directory (location) of the population file.
+		index_column (str): Name of the unique index column within the population file.
+		pop_columns (list): List of names of columns to be added by hexagon. 
+							First item of list must be name of total population column in order to calculate density.
+		res_list (list): List of integers containing hex resolutions for output.
+
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with grouped sociodemographic data, hex_id and its resolution.
+	"""
+
+	# Read pop GeoDataFrame
+	pop_gdf = gpd.read_file(pop_dir)
+
+	# Format and set columns of interest
+	pop_gdf = pop_gdf.to_crs("EPSG:4326")
+	pop_gdf.columns = pop_gdf.columns.str.lower()
+	columns_ofinterest = pop_columns.copy()
+	columns_ofinterest.append(index_column)
+	columns_ofinterest.append('geometry')
+	block_pop = pop_gdf[columns_ofinterest]
+	print(f"Filtered pop_gdf.")
+
+	# Extract point from polygon
+	block_pop = block_pop.to_crs("EPSG:6372")
+	block_pop = block_pop.set_index(index_column)
+	point_within_polygon = gpd.GeoDataFrame(geometry=block_pop.representative_point())
+	print(f"Extracted pop_gdf centroids.")
+
+	# Format centroids with pop data
+	# Add census data to points
+	centroid_block_pop = point_within_polygon.merge(block_pop, right_index=True, left_index=True) 
+	# Format geometry column
+	centroid_block_pop.drop(columns=['geometry_y'], inplace=True)
+	centroid_block_pop.rename(columns={'geometry_x':'geometry'}, inplace=True)
+	# Create GeoDataFrame with that geometry column
+	centroid_block_pop = gpd.GeoDataFrame(centroid_block_pop, geometry='geometry')
+	# Format population column
+	centroid_block_pop.rename(columns={pop_columns[0]:'pobtot'},inplace=True)
+	# General final formatting
+	centroid_block_pop = centroid_block_pop.to_crs("EPSG:4326")
+	centroid_block_pop = centroid_block_pop.reset_index()
+	print(f"Converted to centroids with {centroid_block_pop.pobtot.sum()} " + f"pop vs {block_pop[pop_columns[0]].sum()} pop in original gdf.")
+
+	# Create buffer for aoi to include outer blocks when creating hexgrid
+	aoi_buffer = aoi.copy()
+	aoi_buffer = aoi_buffer.dissolve()
+	aoi_buffer = aoi_buffer.to_crs("EPSG:6372").buffer(2500)
+	aoi_buffer = gpd.GeoDataFrame(geometry=aoi_buffer)
+	aoi_buffer = aoi_buffer.to_crs("EPSG:4326")
+
+	hex_socio_gdf = gpd.GeoDataFrame()
+
+	for res in res_list:
+		# Generate hexagon gdf
+		hex_gdf = create_hexgrid(aoi_buffer, res)
+		hex_gdf = hex_gdf.set_crs("EPSG:4326")
+
+		# Format - Remove res from index name and add column with res
+		hex_gdf.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+		hex_gdf['res'] = res
+		print(f"Created hex_grid with {res} resolution")
+
+		# Group pop data
+		string_columns = [index_column]
+		hex_socio_df = socio_points_to_polygon(hex_gdf, centroid_block_pop,'hex_id', string_columns) 
+		print(f"Agregated socio data to hex with a total of {hex_socio_df.pobtot.sum()} population for resolution {res}.")
+
+		# Hexagons data to hex_gdf GeoDataFrame
+		hex_socio_gdf_tmp = hex_gdf.merge(hex_socio_df, on='hex_id')
+		
+		# Calculate population density
+		hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
+		hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
+		print(f"Calculated an average density of {hex_socio_gdf_tmp.dens_pob_ha.mean()}")
+		
+		# Concatenate in hex_socio_gdf, where (if more resolutions) next resolution will also be stored.
+		hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])    
+
+	print(f"Finished calculating population by hexgrid for res {res_list}.")
+
+	return hex_socio_gdf
