@@ -235,7 +235,7 @@ def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentin
             )
 
             # Check how many items were returned
-            items.extend(list(search.get_items()))
+            items.extend(list(search.items()))
         except:
             log('No items found')
             continue
@@ -453,6 +453,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     # arrange by cloud coverage average
     df_tile['avg_cloud'] = df_tile.mean(axis=1)
     df_tile = df_tile.sort_values(by='avg_cloud')
+    log(f'Updated average cloud coverage: {df_tile.avg_cloud.mean()}')
 
     # create list of dates within normal distribution and without missing values
     date_list = df_tile.dropna().index.to_list()
