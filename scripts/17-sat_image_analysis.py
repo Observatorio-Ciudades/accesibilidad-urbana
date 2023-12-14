@@ -16,7 +16,7 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
+def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False):
 
     ###############################
     ### Create city area of interest with biggest hexs
@@ -44,7 +44,8 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     
     ### Download and process rasters
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, 
+                                        query=query_sat, satellite = satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -168,10 +169,10 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
-                      'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-red)/(nir+red)']} 
-    index_analysis = 'ndvi'
+    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
+                      'swir16':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-swir16)/(nir+swir16)']} 
+    index_analysis = 'ndmi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
@@ -179,9 +180,10 @@ if __name__ == "__main__":
     end_date = '2022-12-31'
     satellite = "sentinel-2-l2a"
     del_data = True
+    query_sat = {"eo:cloud_cover": {"lt": 10}}
 
     local_save = True #------ Set True if test
-    save = False #------ Set True if full analysis
+    save = True #------ Set True if full analysis
 
     ###############################
     # Create folder to store city skip_list
@@ -216,11 +218,11 @@ if __name__ == "__main__":
         pass
 
     #------ Set following if test
-    city_list = ['Aguascalientes']
-    for city in city_list:
+    # city_list = ['ZMVM']
+    # for city in city_list:
 
     #------ Set following if full analysis
-    #for city in gdf_mun.city.unique():
+    for city in gdf_mun.city.unique():
 
         # if city not in processed_city_list and city not in skip_list:
         if city not in processed_city_list and city not in skip_list:
@@ -229,7 +231,8 @@ if __name__ == "__main__":
 
             try:
                 main(index_analysis, city, band_name_dict, start_date,
-                    end_date, freq, satellite, save, del_data)
+                    end_date, freq, satellite,
+                    query_sat=query_sat, save=save, del_data=del_data)
             except Exception as e:
                 aup.log(e)
                 aup.log(f'Error with city {city}')
