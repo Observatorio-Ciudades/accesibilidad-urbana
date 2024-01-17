@@ -32,19 +32,12 @@ def main(city, cve_geolist, save=False,):
     block_pop = pd.DataFrame()
     mun_gdf = gpd.GeoDataFrame()
     # Iterates over municipality codes for each metropolitan area or capital
-    #CVEGEO LIST ITERAR sobre cvegeolist
-    #Quitar m quitar jsons
     for i in  cvegeo_list :
         # Extracts specific municipality code
         # Downloads municipality polygon according to code
         cve_geo_values = ', '.join([f"'{value}'" for value in cve_geolist])
         query = f"SELECT * FROM {mpos_schema}.{mpos_folder} WHERE \"CVEGEO\" IN ({cve_geo_values})" 
-        #query = f"SELECT * FROM {mpos_schema}.{mpos_folder} WHERE \"CVEGEO\" IN {tuple(cve_geolist)}"
-
-        #query = f"SELECT cvegeo,pobtot,geometry FROM {block_schema}.{block_cnt_folder} WHERE \"cvegeo\" LIKE \'{i}%%\'"
         block_centroid = block_centroid.append(aup.gdf_from_query(query, geometry_col='geometry'))
-        #query = f"SELECT * FROM {block_census_schema}.{block_census_folder} WHERE \"CVEGEO\" LIKE \'{m}%%\'"
-        #block_pop = block_pop.append(aup.df_from_query(query))
         # Downloads municipality polygon according to code
         mun_gdf = mun_gdf.append(aup.gdf_from_query(query, geometry_col='geometry'))
         aup.log("LOGRADO")
@@ -137,8 +130,6 @@ def main(city, cve_geolist, save=False,):
          hex_mrg_10_20.to_file(f'../data/processed/pop_chng/{c}_Census_10_20_BlockAnalysis_res{res}.geojson', driver='GeoJSON')
 
 
-#Agregar if save=
-#Ejectutar a una ciudad pero correr las líneas de 
 if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
