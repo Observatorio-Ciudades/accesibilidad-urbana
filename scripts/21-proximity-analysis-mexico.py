@@ -1,5 +1,6 @@
 import geopandas as gpd
 import pandas as pd
+import osmnx as ox
 import numpy as np
 
 import warnings
@@ -419,26 +420,24 @@ if __name__ == "__main__":
     pop_table = 'hex_bins_pop_2020'
 
     # ANALYSIS AND OUTPUT OPTIONS
-    # Network distance data used to calculate distance from each node to nearest poi in function pois_time.
+    # Network distance method used in function pois_time.
     prox_measure = 'time_min' # Must pass 'length' or 'time_min'
     # If pop_output = True, loads pop data from pop_schema and pop_table.
+    # If pop_output = False, creates hexgrid.
     pop_output = True
     # Hexagon resolutions of output
     res_list = [8,9]
+    # Save disk space by deleting used data that will not be used after?
+    # save_space = True #Not available at the moment
 
     # SAVING
     # Save final output to db?
     save = False
     save_schema = 'prox_analysis'
     save_table = 'proximityanalysis'
-    # Local save? (For tests)
+    # Local save? (Runs Aguascalientes for tests)
     local_save = True
-    local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/ags_proxanalysis_scriptv2.gpkg'
-    if local_save:
-        city = 'Aguascalientes'
-
-    # Save disk space by deleting used data that will not be used after?
-    # save_space = True
+    local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2.gpkg'
 
     # PARAMETERS DICTIONARY
     # This dicctionary sets the ejes, amenidades, sources and codes for analysis
@@ -505,11 +504,14 @@ if __name__ == "__main__":
                     }
     
     # MAIN FUNCTION RUN
-    cities_gdf = aup.gdf_from_db('metro_gdf', 'metropolis')
-    cities_gdf = cities_gdf.sort_values(by='city')
-    city_list = list(cities_gdf.city.unique())
+    if local_save: #tests
+        city_list = ['Aguascalientes']
+    else: #script run
+        cities_gdf = aup.gdf_from_db('metro_gdf', 'metropolis')
+        cities_gdf = cities_gdf.sort_values(by='city')
+        city_list = list(cities_gdf.city.unique())
 
-    del cities_gdf
+        del cities_gdf
     
     # prevent cities being analyzed several times in case of a crash
     aup.log('Downloading preprocessed data')
@@ -520,7 +522,8 @@ if __name__ == "__main__":
         processed_city_list = list(processed_city_list.city.unique())
     except:
         pass
-
+    
+    aup.log('Starting')
     for city in city_list:
         if city not in processed_city_list:
             main(city = city, save = save, local_save = local_save)
