@@ -107,7 +107,10 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	dist_col = col_name
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
+	# Group data by hex_id
+	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
+	# Merge back to geometry
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
@@ -760,108 +763,119 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure):
 	pois = pois.set_crs("EPSG:4326")
 	nodes = nodes.set_crs("EPSG:4326")
 	edges = edges.set_crs("EPSG:4326")
-    ### Calculate nearest node for each DENUE point
-	nearest = find_nearest(G, nodes, pois, return_distance= True)
-	nearest = nearest.set_crs("EPSG:4326")
-	print(f"Found and assigned nearest node osmid to each {poi_name}.")
 
-	##########################################################################################
-    # Step 2: DISTANCE NEAREST POI. Calculates distance from each node to its nearest point of interest.
-	    
-    # --------------- 2.1 FORMAT NETWORK
-    # Fill NANs with mean times
-	edges[prox_measure].fillna(edges[prox_measure].mean(),inplace=True)
-    
-    # --------------- 2.2 ELEMENTS NEEDED OUTSIDE THE LOOP
-	# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi
-	# nodes_analysis is a nodes (index reseted) used in the function.
-	nodes_analysis = nodes.reset_index().copy()
-    # df_temp: Each column will store a batch of procesed nodes.
-	df_temp = nodes.copy()
-    #nodes_distance: Minimum time/distance found in all batches will be added from df_min (within if/elif/else) 
-	#				 to nodes_distance (output) keeping x,y and geometry data.
-	nodes_distance = nodes.copy()
-    
-    # --------------- 2.3 PROCESSING DISTANCE
-	print (f"Starting time analysis for {poi_name}.")
-    # In case there are no amenities of the type in the city, prevents it from crashing if len = 0
-	if len(nearest) == 0:
-		nodes_time['time'] = 0
+ 	# In case there are no amenities of the type in the city, prevents it from crashing if len = 0
+	if len(pois) == 0:
+		nodes_time = nodes.copy()
+		# Time is set to np.nan
+		nodes_time['time'] = np.nan
 		print(f"0 {poi_name} found. Time set to 0.")
-    
-	# If possible, analyses by batches of 200 pois.
-	elif len(nearest) % 250:
-		batch_size = len(nearest)/200
-		for k in range(int(batch_size)+1):
-			print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
-			source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
-			nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght=prox_measure)
-    
-            #A middle gdf is created whose columns will be the name of the poi and the batch number it belongs to
-			df_int = pd.DataFrame()
-			df_int['dist_'+str(k)+poi_name] = nodes_distance_prep['dist_'+poi_name]
-            
-            #The middle gdf is merged into the previously created temporary gdf to store the data by node, each batch in a column.
-			df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
-    
-        # Once finished, drop the non-distance values from the temporary gdf
-		df_temp.drop(['x', 'y', 'street_count','geometry'], inplace = True, axis=1)
-    
-        #We apply the min function to find the minimum value. This value is sent to a new df_min
-		df_min = pd.DataFrame()
-		df_min['dist_'+poi_name] = df_temp.min(axis=1)
-    
-        #We merge df_min which contains the shortest distance to the POI with nodes_distance which will store all final data
-		nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
-    
-		if prox_measure == 'length':
-            # If used lenght, calculate time assuming walking speed = 4km/hr
-			nodes_time = nodes_distance.copy()
-			nodes_time['time'] = (nodes_time['dist_'+poi_name]*60)/4000
-		else:
-			nodes_time = nodes_distance.copy()
-			nodes_time['time'] = nodes_time['dist_'+poi_name]
-    
-	# Else, analyses by batches of 250 pois.
-	else:
-		batch_size = len(nearest)/250
-		for k in range(int(batch_size)+1):
-			print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
-			source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
-			nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght=prox_measure)
-    
-            #A middle gdf is created whose columns will be the name of the poi and the batch number it belongs to
-			df_int = pd.DataFrame()
-			df_int['dist_'+str(k)+poi_name] = nodes_distance_prep['dist_'+poi_name]
-    
-            #The middle gdf is merged into the previously created temporary gdf to store the data by node, each batch in a column.
-			df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
-    
-        # Once finished, drop the non-distance values from the temporary gdf
-		df_temp.drop(['x', 'y', 'street_count','geometry'], inplace = True, axis=1)
-    
-        #We apply the min function to find the minimum value. This value is sent to a new df_min
-		df_min = pd.DataFrame()
-		df_min['dist_'+poi_name] = df_temp.min(axis=1)
-    
-        #We merge df_min which contains the shortest distance to the POI with nodes_distance which will store all final data
-		nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
-		
-		if prox_measure == 'length':
-            # If used lenght, calculate time assuming walking speed = 4km/hr
-			nodes_time = nodes_distance.copy()
-			nodes_time['time'] = (nodes_time['dist_'+poi_name]*60)/4000
-		else:
-			nodes_time = nodes_distance.copy()
-			nodes_time['time'] = nodes_time['dist_'+poi_name]
-
-	print(f"Finished time analysis for {poi_name}.")
-
-	##########################################################################################
-	# Step 3: FORMAT. Adds poi name (source), organices and filters data.
-	nodes_time['source'] = poi_name
-	nodes_time.reset_index(inplace=True)
-	nodes_time = nodes_time.set_crs("EPSG:4326")
-	nodes_time = nodes_time[['osmid','time','source','x','y','geometry']]
+		# Format
+		nodes_time['source'] = poi_name
+		nodes_time.reset_index(inplace=True)
+		nodes_time = nodes_time.set_crs("EPSG:4326")
+		nodes_time = nodes_time[['osmid','time','source','x','y','geometry']]
+		return nodes_time
 	
-	return nodes_time
+	else:
+		### Calculate nearest node for each DENUE point
+		nearest = find_nearest(G, nodes, pois, return_distance= True)
+		nearest = nearest.set_crs("EPSG:4326")
+		print(f"Found and assigned nearest node osmid to each {poi_name}.")
+
+		##########################################################################################
+		# Step 2: DISTANCE NEAREST POI. Calculates distance from each node to its nearest point of interest.
+			
+		# --------------- 2.1 FORMAT NETWORK
+		# Fill NANs with mean times
+		edges[prox_measure].fillna(edges[prox_measure].mean(),inplace=True)
+		
+		# --------------- 2.2 ELEMENTS NEEDED OUTSIDE THE LOOP
+		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi
+		# nodes_analysis is a nodes (index reseted) used in the function.
+		nodes_analysis = nodes.reset_index().copy()
+		# df_temp: Each column will store a batch of procesed nodes.
+		df_temp = nodes.copy()
+		#nodes_distance: Minimum time/distance found in all batches will be added from df_min (within if/elif/else) 
+		#				 to nodes_distance (output) keeping x,y and geometry data.
+		nodes_distance = nodes.copy()
+		
+		# --------------- 2.3 PROCESSING DISTANCE
+		print (f"Starting time analysis for {poi_name}.")
+	
+		# If possible, analyses by batches of 200 pois.
+		if len(nearest) % 250:
+			batch_size = len(nearest)/200
+			for k in range(int(batch_size)+1):
+				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
+				source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
+				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght=prox_measure)
+		
+				#A middle gdf is created whose columns will be the name of the poi and the batch number it belongs to
+				df_int = pd.DataFrame()
+				df_int['dist_'+str(k)+poi_name] = nodes_distance_prep['dist_'+poi_name]
+				
+				#The middle gdf is merged into the previously created temporary gdf to store the data by node, each batch in a column.
+				df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
+		
+			# Once finished, drop the non-distance values from the temporary gdf
+			df_temp.drop(['x', 'y', 'street_count','geometry'], inplace = True, axis=1)
+		
+			#We apply the min function to find the minimum value. This value is sent to a new df_min
+			df_min = pd.DataFrame()
+			df_min['dist_'+poi_name] = df_temp.min(axis=1)
+		
+			#We merge df_min which contains the shortest distance to the POI with nodes_distance which will store all final data
+			nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
+		
+			if prox_measure == 'length':
+				# If used lenght, calculate time assuming walking speed = 4km/hr
+				nodes_time = nodes_distance.copy()
+				nodes_time['time'] = (nodes_time['dist_'+poi_name]*60)/4000
+			else:
+				nodes_time = nodes_distance.copy()
+				nodes_time['time'] = nodes_time['dist_'+poi_name]
+		
+		# Else, analyses by batches of 250 pois.
+		else:
+			batch_size = len(nearest)/250
+			for k in range(int(batch_size)+1):
+				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
+				source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
+				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght=prox_measure)
+		
+				#A middle gdf is created whose columns will be the name of the poi and the batch number it belongs to
+				df_int = pd.DataFrame()
+				df_int['dist_'+str(k)+poi_name] = nodes_distance_prep['dist_'+poi_name]
+		
+				#The middle gdf is merged into the previously created temporary gdf to store the data by node, each batch in a column.
+				df_temp = df_temp.merge(df_int, left_index=True, right_index=True)
+		
+			# Once finished, drop the non-distance values from the temporary gdf
+			df_temp.drop(['x', 'y', 'street_count','geometry'], inplace = True, axis=1)
+		
+			#We apply the min function to find the minimum value. This value is sent to a new df_min
+			df_min = pd.DataFrame()
+			df_min['dist_'+poi_name] = df_temp.min(axis=1)
+		
+			#We merge df_min which contains the shortest distance to the POI with nodes_distance which will store all final data
+			nodes_distance = nodes_distance.merge(df_min, left_index=True, right_index=True)
+			
+			if prox_measure == 'length':
+				# If used lenght, calculate time assuming walking speed = 4km/hr
+				nodes_time = nodes_distance.copy()
+				nodes_time['time'] = (nodes_time['dist_'+poi_name]*60)/4000
+			else:
+				nodes_time = nodes_distance.copy()
+				nodes_time['time'] = nodes_time['dist_'+poi_name]
+
+		print(f"Finished time analysis for {poi_name}.")
+
+		##########################################################################################
+		# Step 3: FORMAT. Adds poi name (source), organices and filters data.
+		nodes_time['source'] = poi_name
+		nodes_time.reset_index(inplace=True)
+		nodes_time = nodes_time.set_crs("EPSG:4326")
+		nodes_time = nodes_time[['osmid','time','source','x','y','geometry']]
+		
+		return nodes_time
