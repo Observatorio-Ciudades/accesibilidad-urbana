@@ -16,7 +16,7 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
+def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date, freq, satellite, query_sat, save=False, del_data=False):
 
     ###############################
     # Download hex polygons with AGEB data
@@ -25,8 +25,7 @@ def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date
 
     hex_ageb = gpd.GeoDataFrame()
 
-    # cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
-
+    # Donwload hex bins with population data
     for m in cvegeo_list:
         query = f"SELECT hex_id_8,geometry FROM {schema_hex}.{folder_hex} WHERE \"CVEGEO\" LIKE \'{m}%%\'"
         hex_ageb = pd.concat([hex_ageb, 
@@ -37,7 +36,8 @@ def main(index_analysis, city, cvegeo_list, band_name_dict, start_date, end_date
     
 
     df_len = aup.download_raster_from_pc(hex_ageb, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, 
+                                        query=query_sat, satellite=satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -101,6 +101,8 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
 
     hex_raster_analysis, df_raster_analysis = aup.raster_to_hex_analysis(hex_gdf_i, df_len, index_analysis,
                                                                 tmp_dir, city, r)
+    hex_raster_analysis['temp_diff_mean'] = hex_raster_analysis[f'{index_analysis}_mean'] - hex_raster_analysis[f'{index_analysis}_mean'].mean()
+
     aup.log('Finished assigning raster data to hexagons')
     aup.log(f'df nan values: {df_raster_analysis[index_analysis].isna().sum()}')
     if df_raster_analysis[index_analysis].isna().sum() > 0:
@@ -149,27 +151,31 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[True],
-                      'swir16':[False]}
-    index_analysis = 'ndmi'
+    band_name_dict = {'lwir11':[False],
+                 'eq':["((lwir11*0.00341802) + 149.0)-273.15"]}
+    query_sat = {"eo:cloud_cover": {"lt": 20},
+              "platform": {"in": ["landsat-8", "landsat-9"]}}
+    index_analysis = 'temperature'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
     end_date = '2022-12-31'
-    satellite = "sentinel-2-l2a"
-    save = True # True
-    del_data = True # True
+    satellite = 'landsat-c2-l2'
+    save = False # True
+    del_data = False # True
 
+    # check if a skip city csv exists
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
     if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
         df_skip = pd.DataFrame(columns=['city','missing_months','unable_to_download'])
         df_skip.to_csv(df_skip_dir)
     else:
         df_skip = pd.read_csv(df_skip_dir)
-
+    # gather the city names from the skip city csv
     skip_list = list(df_skip.city.unique())
 
+    # download the cities GeoDataFrames from the database
     gdf_mun = aup.gdf_from_db('metro_gdf', 'metropolis')
     gdf_mun = gdf_mun.sort_values(by='city')
 
@@ -183,9 +189,8 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Tijuana','Merida','Leon',
-                     'Queretaro','Tuxtla','Puebla','Monterrey',
-                     'Guadalajara','Chihuahua','ZMVM'] # Guaymas
+    city_analysis = ['Monterrey']
+
     for city in gdf_mun.city.unique():
 
         # if city not in processed_city_list and city not in skip_list:
@@ -194,13 +199,14 @@ if __name__ == "__main__":
             aup.log(f'\n Starting city {city}')
 
             cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
-            cvegeo_list = ["09002", "09003", "09004", "09005", "09006", 
-                           "09007", "09008", "09009", "09010", "09011", 
-                           "09012", "09013", "09014", "09015", "09016", "09017"]
+            if city == 'ZMVM':
+                cvegeo_list = ["09002", "09003", "09004", "09005", "09006", 
+                            "09007", "09008", "09009", "09010", "09011", 
+                            "09012", "09013", "09014", "09015", "09016", "09017"]
 
             try:
                 main(index_analysis, city, cvegeo_list, band_name_dict, start_date,
-                    end_date, freq, satellite, save, del_data)
+                    end_date, freq, satellite, query_sat, save, del_data)
             except Exception as e:
                 aup.log(e)
                 aup.log(f'Error with city {city}')
