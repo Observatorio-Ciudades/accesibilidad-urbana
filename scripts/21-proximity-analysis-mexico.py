@@ -13,6 +13,100 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
+def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
+    # This function downloads the codigo_act denue poi requested for the analysis.
+    # If it is version 2.0, applies a filter to certain pois.
+
+    # Download denue pois
+    query = f"SELECT * FROM {denue_schema}.{denue_table} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = \'{code}\')"
+    code_pois = aup.gdf_from_query(query, geometry_col='geometry')
+
+    # Version 2.0 pois filter
+    if version == 1:
+        aup.log("--- No filter applied.")
+    elif version == 2:
+        if code == 931610: #denue_dif
+            aup.log(f"--- Applying filtering to code {code}.")
+            dif = code_pois.copy()
+            # Sets word of amenity to avoid in nom_estab
+            words_toavoid = [# Culturales
+                            'ARTE', #incluye ARTES, CONARTE
+                            'MEDIATECA', 'MUSICA','ORQUESTA', #incluye MUSICAL, ORQUESTAS
+                            # Instituciones
+                            'CONAFE','CONACYT', #incluye CULTURAL
+                            'TRIBUNAL','PROTECCION CIVIL','IMM',
+                            # Salud
+                            'IMMS','ISSTE','INAPAM','SEGURO','POPULAR','FOVI', #incluye FOVISSTE, FOVILEON, etc #
+                            'CAPASITIS',#Centro ambulatorio para la prevención y atención del SIDA e infecciones de transmision sexual
+                            'SANITARI', #SANITARIO/SANITARIA
+                            'MEDIC', #MEDICO/MEDICA
+                            # Educación
+                            'INEA','PRIMARIA','SECUNDARIA','PREPARATORIA','MAESTROS','BECA','ASESORIA','APOYO',
+                            'USAER', #Unidad de Servicio de Apoyo a la Educación Regular
+                            'EDUCA', #EDUCACION, EDUCACIÓN, EDUCATIVO, EDUCATIVA
+                            # Vivienda
+                            'VIVIENDA','INFONAVIT',
+                            # Oficinas
+                            'COORDINA','CORDINA', #incluye COORDINACION, y typos (CORDINACION)
+                            'DIRECCION','DIVISION','INSPECCION','INSTITUTO','JEFATURA','JURISDICCION','OFICINA','PROGRAMA','PROCURADORIA','PROCURADURIA',
+                            'RECAUDACION','PAPELERIA','REGION ','REGULACION','SECRETARIA','DELEGACION','SUPERVI',
+                            'ADMINISTRA',#ADMINISTRATIVO, ADMINISTRATIVA
+                            'ANALISIS', 'SEGUIMIENTO','MICRORED','MICRO RED',
+                            # Almacenes y bodegas
+                            'ALMACEN','BODEGA','ARCHIVO','ACTIVO',
+                            'PROVEED', #PROVEEDOR, PROVEEDORA
+                            # Otros
+                            'JUNTA', # para juntas de mejoras
+                            'POLIVALENTE',
+                            'SERVICIO',
+                            'GIMNASIO']
+            # Set checker
+            dif['keep'] = 1
+            for word in words_toavoid:
+                # Reset word_coincidence_count column
+                dif['word_coincidence_count'] = 0
+                # Look for word coincidence (0 = absent, 1 = present)
+                dif['word_coincidence_count'] = dif['nom_estab'].apply(lambda x: x.count(word))
+                # If the word is present, do not keep
+                dif.loc[dif.word_coincidence_count > 0,'keep'] = 0
+            # Filter and return to rest of function
+            dif_filtered = dif.loc[dif['keep'] == 1]
+            dif_filtered.drop_duplicates(inplace=True)
+            code_pois = dif_filtered.copy()
+        
+        elif code == 711312: #denue_centro_cultural
+            aup.log(f"--- Applying filtering to code {code}.")
+            centro_cultural = code_pois.copy()
+            amenities_ofinterest = ['CENTRO',
+                                    'CULTURA', #incluye CULTURAL
+                                    'LIENZO',
+                                    'PLAZA',
+                                    'ARENA',
+                                    'AUDITORIO',
+                                    'TEATRO',
+                                    'ARTE', # incluye ARTES
+                                    'MUSEO']
+            # Filter 
+            centro_cultural_filtered = gpd.GeoDataFrame()
+            for amenity in amenities_ofinterest:
+                tmp = centro_cultural.loc[centro_cultural['nom_estab'].str.contains(amenity, regex=False)]
+                centro_cultural_filtered = pd.concat([centro_cultural_filtered, tmp])
+            # Return to rest of function
+            centro_cultural_filtered.drop_duplicates(inplace=True)
+            code_pois = centro_cultural_filtered.copy()
+        else:
+            aup.log("--- No filter applied.")
+    else:
+        aup.log("--- Error in specified proximity analysis version. Must pass integers 1 or 2.")
+        intended_crash
+
+    # Format denue pois
+    code_pois = code_pois[['codigo_act', 'geometry']]
+    code_pois = code_pois.rename(columns={'codigo_act':'code'})
+    code_pois['code'] = code_pois['code'].astype('int64')
+
+    return code_pois
+
 def main(city, save = False, local_save = True):
     aup.log('--'*30)
     aup.log(f'--- STARTING CITY {city}.')
@@ -54,7 +148,7 @@ def main(city, save = False, local_save = True):
     del clues_pois
 
     # SIP (Marco geoestadistico)
-    aup.log(f"--- Downloading sip pois for {city}.")
+    aup.log(f"--- Downloading SIP pois for {city}.")
     # Download
     sip_gdf = aup.gdf_from_polygon(aoi, sip_schema, sip_table, geom_col="geometry")
     sip_amenities = {'GEOGRAFICO':['Mercado','Plaza'], 
@@ -106,19 +200,14 @@ Analysing source {source}.""")
                     #If source is denue:
                     if source[0] == 'd':
                         aup.log(f'--- Downloading denue source pois code {code} from db.')
-                        # Download denue pois
-                        query = f"SELECT * FROM {denue_schema}.{denue_table} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = \'{code}\')"
-                        code_pois = aup.gdf_from_query(query, geometry_col='geometry')
-                        # Format denue pois
-                        code_pois = code_pois[['codigo_act', 'geometry']]
-                        code_pois = code_pois.rename(columns={'codigo_act':'code'})
-                        code_pois['code'] = code_pois['code'].astype('int64')
+                        code_pois = get_denue_pois(denue_schema,denue_table,poly_wkt,code,version)
                     #If source is clues or sip:
                     elif source[0] == 'c' or source[0] == 's':
                         aup.log(f'--- Getting clues/sip source pois code {code} from previously downloaded.')
                         code_pois = sip_clues_gdf.loc[sip_clues_gdf['code'] == code]
                     else:
                         aup.log(f'--- Error, check parameters dicctionary.')
+                        aup.log(f'--- Sources must start with denue_, clues_ or sip_.')
                         intended_crash
                         
                     source_pois = pd.concat([source_pois,code_pois])
@@ -273,7 +362,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # 2.4 --------------- GROUP DATA BY HEX
     # ------------------- This groups nodes data by hexagon.
     # ------------------- If pop output, uses previously created hexes. Else, creates hexgrid.
-            
+     
     hex_idx = gpd.GeoDataFrame()
     for res in res_list:
         # Load or create hexgrid
@@ -295,7 +384,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             hexgrid = hexgrid.set_crs("EPSG:4326")
             hex_tmp = hexgrid.copy()
             aup.log(f"--- Created hexgrid of resolution {res}.")
-                
+        
         # Group data by hex
         hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
         hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
@@ -412,6 +501,16 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
 if __name__ == "__main__":
     aup.log('--'*30)
     aup.log('--- STARTING SCRIPT.')
+
+    # Prox analysis version (Must pass 1 or 2)
+    # If version = 1, does proximity analysis as it was done in 2020.
+    # If version = 2:
+        # > Filters denue_dif for reviewed points of interest
+        # > Introduces new method to choose times (used in cultural amenity) 
+        # > Includes and filters pois to cultural amenity: 
+        #   denue_bibliotecas --> "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
+        #   denue_centrocultural --> "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
+    version = 1
 
     # BASE DATA REQUIRED
     # Area of interest (city)
