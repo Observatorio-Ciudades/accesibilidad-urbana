@@ -502,7 +502,7 @@ if __name__ == "__main__":
     aup.log('--'*30)
     aup.log('--- STARTING SCRIPT.')
 
-    # Prox analysis version (Must pass 1 or 2)
+    # Prox analysis version (Must pass integers 1 or 2)
     # If version = 1, does proximity analysis as it was done in 2020.
     # If version = 2:
         # > Filters denue_dif for reviewed points of interest
@@ -511,6 +511,18 @@ if __name__ == "__main__":
         #   denue_bibliotecas --> "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
         #   denue_centrocultural --> "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
     version = 1
+
+    if version == 1: #Prox analysis 2020 version
+        cultural_dicc = {'denue_cines':[512130],
+                         'denue_museos':[712111, 712112]}
+    elif version == 2:
+        cultural_dicc = {'denue_cines':[512130],
+                        'denue_museos':[712111, 712112],
+                        'denue_bibliotecas':[519121,519122],
+                        'denue_centrocultural':[711312]}
+    else:
+        aup.log("--- Error in specified proximity analysis version. Must pass integers 1 or 2.")
+        intended_crash
 
     # BASE DATA REQUIRED
     # Area of interest (city)
@@ -591,8 +603,7 @@ if __name__ == "__main__":
                                                         'sip_unidad_deportiva':[93111],
                                                         'sip_espacio_publico':[9321],
                                                         'denue_parque_natural':[712190]},
-                                    'Cultural':{'denue_cines':[512130],
-                                                'denue_museos':[712111, 712112]}
+                                    'Cultural':cultural_dicc
                                     } 
                 }
 
