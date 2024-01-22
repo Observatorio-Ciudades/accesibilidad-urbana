@@ -97,7 +97,8 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
         else:
             aup.log("--- No filter applied.")
     else:
-        aup.log("--- Error in specified proximity analysis version. Must pass integers 1 or 2.")
+        aup.log("""--- Error in specified proximity analysis version. 
+                Must pass integers 1 or 2.""")
         intended_crash
 
     # Format denue pois
@@ -127,7 +128,7 @@ def main(city, save = False, local_save = True):
     
     # Download Network used to calculate nearest note to each poi
     aup.log('--- Downloading network.')
-    G, nodes, edges = aup.graph_from_hippo(aoi,'osmnx',edges_folder = edges_folder)
+    G, nodes, edges = aup.graph_from_hippo(aoi, schema=network_schema, edges_folder=edges_table, nodes_folder=nodes_table)
 
     # 1.2 --------------- DOWNLOAD POINTS OF INTEREST (clues and sip pois, not denue)
     # ------------------- This step downloads SIP and CLUES points of interest (denue pois are downloaded later.)
@@ -378,11 +379,21 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             aup.log(f"--- Loaded pop hexgrid of resolution {res}.")
         # If pop_output is false, creates hexgrid
         else:
-            # Create hexgrid (which already has ID_res)
-            hexgrid = aup.create_hexgrid(aoi,res)
+            if version == 1:
+                hex_table = f'hexgrid_{res}_city'
+            elif version == 2:
+                hex_table = f'hexgrid_{res}_city_2020'
+            else:
+                aup.log("""--- Error in specified proximity analysis version. 
+                        Must pass integers 1 or 2.""")
+                intended_crash
+
+            # Load hexgrid (which already has ID_res)
+            query = f"SELECT * FROM {hex_schema}.{hex_table} WHERE \"city\" LIKE \'{city}\'"
+            hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
             # Create hex_tmp
             hexgrid = hexgrid.set_crs("EPSG:4326")
-            hex_tmp = hexgrid.copy()
+            hex_tmp = hex_tmp[[f'hex_id_{res}','geometry']].copy()
             aup.log(f"--- Created hexgrid of resolution {res}.")
         
         # Group data by hex
@@ -515,42 +526,54 @@ if __name__ == "__main__":
     if version == 1: #Prox analysis 2020 version
         cultural_dicc = {'denue_cines':[512130],
                          'denue_museos':[712111, 712112]}
-    elif version == 2:
+        cultural_weight =  'min'
+
+    elif version == 2: #Prox analysis 2024 version
         cultural_dicc = {'denue_cines':[512130],
                         'denue_museos':[712111, 712112],
                         'denue_bibliotecas':[519121,519122],
                         'denue_centrocultural':[711312]}
+        cultural_weight =  'two_method'
     else:
-        aup.log("--- Error in specified proximity analysis version. Must pass integers 1 or 2.")
+        aup.log("""--- Error in specified proximity analysis version. 
+                Must pass integers 1 or 2.""")
         intended_crash
 
     # BASE DATA REQUIRED
     # Area of interest (city)
     metro_schema = 'metropolis'
-    metro_table = 'metro_gdf_2015'
-    # Edges folder for distance analysis (also used to generate the network G with which the nearest OSMID is assigned to each poi)
-    edges_folder = 'edges_speed'
+    metro_table = 'metro_gdf_2015' #'metro_gdf_2015' or 'metro_gdf_2020'
+    # Network data (nodes and edges table for distance analysis,
+    # also used to generate the network G with which the nearest OSMID is assigned to each poi)
+    network_schema = 'osmnx'
+    nodes_table = 'nodes' #'nodes' or 'nodes_23_point'
+    edges_table = 'edges_speed' ################################# PENDIENTE
     # Points of interest - DENUE
     denue_schema = 'denue'
-    denue_table = 'denue_2020'
+    denue_table = 'denue_2020' #'denue_2020' or 'denue_23_point'
     # Points of interest - CLUES
     clues_schema = 'denue'
-    clues_table = 'clues'
+    clues_table = 'clues' #'clues' or 'clues_23_point'
     # Points of interest - SIP
     sip_schema = 'denue'
-    sip_table = 'sip_2020'
+    sip_table = 'sip_2020' #'sip_2020' or 'sip_23_point'
+    # Hexgrid
+    hex_schema = 'hexgrid'
     # Population data
     pop_schema = 'censo'
-    pop_table = 'hex_bins_pop_2020'
+    pop_table = 'hex_bins_pop_2020' ################################# PENDIENTE
 
     # ANALYSIS AND OUTPUT OPTIONS
     # Network distance method used in function pois_time.
     prox_measure = 'time_min' # Must pass 'length' or 'time_min'
+
     # If pop_output = True, loads pop data from pop_schema and pop_table.
     # If pop_output = False, creates hexgrid.
     pop_output = True
+
     # Hexagon resolutions of output
     res_list = [8,9]
+
     # Save disk space by deleting used data that will not be used after?
     # save_space = True #Not available at the moment
 
@@ -558,7 +581,7 @@ if __name__ == "__main__":
     # Save final output to db?
     save = False
     save_schema = 'prox_analysis'
-    save_table = 'proximityanalysis'
+    save_table = 'proximityanalysis_24_ageb_hex'
     # Local save? (Runs Aguascalientes for tests)
     local_save = True
     local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2.gpkg'
@@ -623,20 +646,21 @@ if __name__ == "__main__":
                                 'Complementarios':'min'}, # /////////////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
                     'Entretenimiento':{'Social':'max', # ////////////////////////////////////////////////// Will choose max time to source because measuring access to all of them.
                                         'Actividad física':'min', # //////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
-                                        'Cultural':'min'} # //////////////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
+                                        'Cultural':cultural_weight} # //////////////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
                     }
     
     # MAIN FUNCTION RUN
+    # Load city list
     if local_save: #tests
         city_list = ['Aguascalientes']
     else: #script run
-        cities_gdf = aup.gdf_from_db('metro_gdf', 'metropolis')
+        cities_gdf = aup.gdf_from_db(metro_table, metro_schema)
         cities_gdf = cities_gdf.sort_values(by='city')
         city_list = list(cities_gdf.city.unique())
 
         del cities_gdf
     
-    # prevent cities being analyzed several times in case of a crash
+    # Prevent cities being analyzed several times in case of a crash
     aup.log('--- Downloading preprocessed data.')
     processed_city_list = []
     try:
@@ -646,6 +670,7 @@ if __name__ == "__main__":
     except:
         pass
     
+    # Run
     for city in city_list:
         if city not in processed_city_list:
             main(city = city, save = save, local_save = local_save)
