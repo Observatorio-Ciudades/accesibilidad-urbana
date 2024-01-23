@@ -69,7 +69,7 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
                 dif['word_coincidence_count'] = dif['nom_estab'].apply(lambda x: x.count(word))
                 # If the word is present, do not keep
                 dif.loc[dif.word_coincidence_count > 0,'keep'] = 0
-            # Filter and return to rest of function
+            # Filter and return to rest of function (Formats later)
             dif_filtered = dif.loc[dif['keep'] == 1]
             dif_filtered.drop_duplicates(inplace=True)
             code_pois = dif_filtered.copy()
@@ -97,8 +97,8 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
         else:
             aup.log("--- No filter applied.")
     else:
-        aup.log("""--- Error in specified proximity analysis version. 
-                Must pass integers 1 or 2.""")
+        aup.log("--- Error in specified proximity analysis version.")
+        aup.log("--- Must pass integers 1 or 2.")
         intended_crash
 
     # Format denue pois
@@ -107,6 +107,38 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
     code_pois['code'] = code_pois['code'].astype('int64')
 
     return code_pois
+
+def two_method_check(row):
+    # This function is used to decide which time to choose for cultural amenities.
+    # Why:
+        # In version 2 we aded 'Bibliotecas'. The source contains plenty of pois.
+        # This might dilute other cultural sources. Therefore:
+
+    # If 2 or more source amenities are within 15 minutes, 
+    # chooses max time of the sources within 15 minutes.
+    # (Measures proximity to an amenity which we know is close.)
+    if row['check_count'] > 1:
+        # Identify sources within 15 minutes
+        prox_sources=[]
+        for s in check_lst:
+            if row[s] == 1:
+                prox_sources.append(s.replace('_check',''))
+        # Find max of those sources
+        row['max_'+a.lower()] = row[prox_sources].max()
+
+    # Else (just 1 or 0 source amenities are within 15 minutes),
+    # chooses min time of the amenities outside 15 minutes. 
+    # (Ignores if only one is close (most likely bibliotecas), takes next closest)
+    else:
+        # Identify sources outside 15 minutes
+        prox_sources=[]
+        for s in check_lst:
+            if row[s] == 0:
+                prox_sources.append(s.replace('_check',''))
+        # Find min of those sources
+        row['max_'+a.lower()] = row[prox_sources].min()
+        
+    return row
 
 def main(city, save = False, local_save = True):
     aup.log('--'*30)
@@ -309,12 +341,34 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
 
             #Calculates time to currently examined amenity:
             #Uses source_weight dictionary to decide which time to use.
-            if source_weight[e][a] == 'min':
-                # To know how far the closest source amenity is.
+            weight = source_weight[e][a]
+            if weight == 'min': # To know distance to closest source amenity.
+                                # If it doesn't matter which one is closest (e.g. Alimentos).
                 nodes_analysis['max_'+ a.lower()] = nodes_analysis[definitions[e][a]].min(axis=1)
-            else:
-                # To know how far the farthest source amenity is
+
+            elif weight == 'max': # To know distance to farthest source amenity.
+                                  # If need to know proximity to all of the options (e.g. Social)
                 nodes_analysis['max_'+ a.lower()] = nodes_analysis[definitions[e][a]].max(axis=1)
+
+            elif weight == 'two-method': #'two-method' (for cultural amenity's sources).
+                                         # See two_method_check function definition for explanation.
+                # Check which sources are within 15 minutes
+                check_lst = []
+                for s in definitions[e][a]:
+                    nodes_analysis[s+'_check'] = nodes_analysis[s].apply(lambda x: 1 if x <= 15 else 0)
+                    check_lst.append(s+'_check')
+                # Check how many sources are within 15 minutes
+                nodes_analysis['check_count'] = nodes_analysis[check_lst].sum(axis=1)
+                # Apply two method check
+                nodes_analysis = nodes_analysis.apply(two_method_check,axis='columns')
+                # Drop columns used for checking
+                check_lst.append('check_count')
+                nodes_analysis.drop(columns=check_lst,inplace=True)
+            else:
+                # Crash on purpose and raise error
+                aup.log("--- Error in source_weight dicc.")
+                aup.log("--- Must pass 'min', 'max' or 'two-method'")
+                intended_crash
 
         #Calculates time to currently examined eje (max time of its amenities):
         nodes_analysis['max_'+ e.lower()] = nodes_analysis[column_max_amenities].max(axis=1) 
@@ -384,8 +438,8 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             elif version == 2:
                 hex_table = f'hexgrid_{res}_city_2020'
             else:
-                aup.log("""--- Error in specified proximity analysis version. 
-                        Must pass integers 1 or 2.""")
+                aup.log("--- Error in specified proximity analysis version.")
+                aup.log("--- Must pass integers 1 or 2.")
                 intended_crash
 
             # Load hexgrid (which already has ID_res)
@@ -535,8 +589,8 @@ if __name__ == "__main__":
                         'denue_centrocultural':[711312]}
         cultural_weight =  'two_method'
     else:
-        aup.log("""--- Error in specified proximity analysis version. 
-                Must pass integers 1 or 2.""")
+        aup.log("--- Error in specified proximity analysis version.")
+        aup.log("--- Must pass integers 1 or 2.")
         intended_crash
 
     # BASE DATA REQUIRED
