@@ -31,7 +31,7 @@ def voronoi_cpu(g, weights, seeds):
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
-def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False):
+def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, count_pois=0):
 	"""
 	Distance for the shortest path for each node to the closest seed using Dijkstra's algorithm.
 	Arguments:
@@ -39,6 +39,10 @@ def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False):
 		seeds (numpy.array): Find the shortest path from each node to the closest seed
 		weights (numpy.array): Specify the weights of each edge, which is used to calculate the shortest path
 		voronoi_assignment (numpy.array): Assign the nodes to their respective seeds
+		get_nearest_poi (bool, optional): Returns idx of nearest point of interest. Defaults to False.
+		count_pois (int, optional): Returns number of pois within given number (time). 
+									Defaults to 0 (Does not calculate).
+
 	Returns: 
 		The distance for the shortest path for each node to the closest seed
 	"""
@@ -46,11 +50,21 @@ def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False):
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
 	if get_nearest_poi:
 		nearest_poi_idx = [np.argmin(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
+	if (count_pois != 0):
+		near_count = [len(np.where(shortest_paths[:,i] <= count_pois)[0]) for i in range(len(voronoi_assignment))]
+	
+	# Function output options
+	if get_nearest_poi and (count_pois != 0):
+		return distances, nearest_poi_idx, near_count
+	elif get_nearest_poi:
 		return distances, nearest_poi_idx
-	return distances
+	elif (count_pois != 0):
+		return distances, near_count
+	else:
+		return distances
 
 def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name, 
-wght='length', get_nearest_poi=(False, 'poi_id_column'), max_distance=(0,'distance_node')):
+wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=0, max_distance=(0,'distance_node')):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -62,30 +76,54 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), max_distance=(0,'distan
 		column_name (str): column name where the nearest distance index is stored
 		wght (str): weights column in edges. Defaults to length
 		get_nearest_poi (tuple): tuple containing boolean to get the nearest POI and column name that contains that value. Defaults to (False, 'poi_id_column')
+		count_pois (int, optional): Returns number of pois within given number (time). 
+									Defaults to 0 (Does not calculate).
 		max_distance (tuple): tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with geometry and distance to the nearest POI
 	"""
+	
+	# --- Required processing
 	nodes = nodes.copy()
 	edges = edges.copy()
 	if max_distance[0] > 0:
 		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance[0]]
 	g, weights, node_mapping = to_igraph(nodes,edges,wght=wght) #convert to igraph to run the calculations
-	col_weight = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
-	if get_nearest_poi[0]:
-		distances, nearest_poi_idx = get_distances(g,seeds,weights,voronoi_assignment,get_nearest_poi=True)
+
+	# --- Analysis options
+	if get_nearest_poi[0] and (count_pois != 0): # Return distances, nearest poi idx and near count
+		distances, nearest_poi_idx, near_count = get_distances(g,seeds,weights,voronoi_assignment,
+                                                               get_nearest_poi=True, 
+                                                               count_pois=count_pois)
 		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
-		nodes['nearest_poi'] = nearest_poi
-	else:
+		nodes[f'dist_{amenity_name}'] = distances
+		nodes[f'nearest_{amenity_name}'] = nearest_poi
+		nodes[f'{count_pois}min_{amenity_name}'] = near_count
+		
+    
+	elif get_nearest_poi[0]: # Return distances and nearest poi idx
+		distances, nearest_poi_idx = get_distances(g,seeds,weights,voronoi_assignment,
+                                                   get_nearest_poi=True)
+		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
+		nodes[f'dist_{amenity_name}'] = distances
+		nodes[f'nearest_{amenity_name}'] = nearest_poi
+    
+	elif (count_pois != 0): # Return distances and near count
+		distances, near_count = get_distances(g,seeds,weights,voronoi_assignment,
+                                              count_pois=count_pois)
+		nodes[f'dist_{amenity_name}'] = distances
+		nodes[f'{count_pois}min_{amenity_name}'] = near_count
+
+	else: # Return distances only
 		distances = get_distances(g,seeds,weights,voronoi_assignment)
+		nodes[f'dist_{amenity_name}'] = distances
 
-	nodes[col_weight] = distances
-
+	# --- Format
 	nodes.replace([np.inf, -np.inf], np.nan, inplace=True)
-	idx = pd.notnull(nodes[col_weight])
+	idx = pd.notnull(nodes[f'dist_{amenity_name}'])
 	nodes = nodes[idx].copy()
 
 	return nodes
