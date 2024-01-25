@@ -141,7 +141,6 @@ if __name__ == "__main__":
     processed_city_list = []
     try:
         processed_city_list = aup.gdf_from_db('cd_script18_hexres8', 'prox_analysis')
-        #quitar cd cuidadoras_hexres8 cambiar el nombre a script 18 
         processed_city_list = list(processed_city_list.city.unique())
     except:
         pass
