@@ -641,3 +641,16 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 	int_value = np.where(np.isnan(weights.T),0,weights.T).dot(np.where(np.isnan(z0),0,z0))
 
 	return int_value
+
+def weighted_average(df, weight_column, value_column):
+	"""
+	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
+	Arguments:
+		df (pandas.DataFrame): DataFrame containing the data to be averaged
+		weight_column (str): Column name with weight data
+		value_column (str): Column name with value data
+	Returns:
+		weighted_average (float): Weighted average of the value column
+	"""
+	weighted_average = (df[weight_column] * df[value_column]).sum() / df[weight_column].sum()
+	return weighted_average
