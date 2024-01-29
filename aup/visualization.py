@@ -1,3 +1,9 @@
+################################################################################
+# Module: Visualization
+# General visualization functions, mainly focused on kepler configurations
+# updated: 10/08/2023
+################################################################################
+
 import matplotlib.pyplot as plt
 import geopandas as gpd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
