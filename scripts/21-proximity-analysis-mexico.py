@@ -220,22 +220,28 @@ STARTING source pois proximity to nodes analysis for {city}.""")
     poly_wkt = aoi.dissolve().geometry.to_wkt()[0]
     i = 0
     # PREP. FOR ANALYSIS - List of columns used to deliver final format of Script part 1
-    analysis_cols = []
-    # PREP. FOR ANALYSIS - Append each source to list
+    all_analysis_cols = []
+
+    # SOURCE ANALYSIS
     for eje in parameters.keys():
         for amenity in parameters[eje]:
             for source in parameters[eje][amenity]:
+                source_analysis_cols = []
 
                 aup.log(f"""
 Analysing source {source}.""")
                 
-                analysis_cols.append(source)
-                # PREP. FOR ANALYSIS - If counting pois, append corresponding column (count_col formated example: 'denue_preescolar_15min')
+                # ANALYSIS COLS - Add source col to lists
+                source_analysis_cols.append(source)
+                all_analysis_cols.append(source)
+
+                # ANALYSIS COLS  - If counting pois, create and append column (count_col formated example: 'denue_preescolar_15min')
                 if count_pois[0]:
                     count_col = f'{source}_{count_pois[1]}min'
-                    analysis_cols.append(count_col)
+                    source_analysis_cols.append(count_col)
+                    all_analysis_cols.append(count_col)
 
-                # ANALYSIS - Select source points of interest (concats all data of current source's codes in source_pois)
+                # GET POIS - Select source points of interest (concats all data of current source's codes in source_pois)
                 source_pois = gpd.GeoDataFrame()
                 for code in parameters[eje][amenity][source]:
                     #If source is denue:
@@ -257,27 +263,22 @@ Analysing source {source}.""")
                 
                 # ANALYSIS - Calculate time data from nodes to source
                 source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure,count_pois)
+                # ANALYSIS - Format
                 source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
-                if count_pois[0]:
-                    source_nodes_time = source_nodes_time[['osmid',source,count_col,'x','y','geometry']]
-                else:
-                    source_nodes_time = source_nodes_time[['osmid',source,'x','y','geometry']]
+                source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
 
-                # ANALYSIS - Merge all time data in one df
+                # SOURCE MERGE - Merge all sources time data in final output nodes gdf
                 if i == 0: # For the first analysed source
                     nodes_analysis = source_nodes_time.copy()
-                else: # For the rest
-                    if count_pois[0]:
-                        nodes_analysis = pd.merge(nodes_analysis,source_nodes_time[['osmid',source,count_col]],on='osmid')
-                    else:
-                        nodes_analysis = pd.merge(nodes_analysis,source_nodes_time[['osmid',source]],on='osmid')
-
+                else: # For the following
+                    nodes_analysis = pd.merge(nodes_analysis,source_nodes_time[['osmid']+source_analysis_cols],on='osmid')
+   
                 i = i+1
 
                 aup.log(f"--- FINISHED source {source}. Mean city time = {nodes_analysis[source].mean()}")
             
     # Final format for nodes
-    column_order = ['osmid'] + analysis_cols + ['x','y','geometry']
+    column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
     nodes_analysis = nodes_analysis[column_order]
     
     aup.log(f"""
@@ -797,14 +798,14 @@ if __name__ == "__main__":
                     'Servicios comunitarios':{'Salud':'max',  #There is only one source, no effect.
                                             'Guarderías':'max', #There is only one source, no effect.
                                             'Asistencia social':'max'},  #There is only one source, no effect.
-                    'Comercio':{'Alimentos':'min', # /////////////////////////////////////////////////////// Will choose min time to source because measuring access to nearest food source, doesn't matter which.
+                    'Comercio':{'Alimentos':'min', # /////////////////////////////////// Will choose min time to source because measuring access to nearest food source, doesn't matter which.
                                 'Personal':'max', #There is only one source, no effect.
                                 'Farmacias':'max', #There is only one source, no effect.
-                                'Hogar':'min', # ////////////////////////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
-                                'Complementarios':'min'}, # /////////////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
-                    'Entretenimiento':{'Social':'max', # ////////////////////////////////////////////////// Will choose max time to source because measuring access to all of them.
-                                        'Actividad física':'min', # //////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
-                                        'Cultural':cultural_weight} # //////////////////////////////////////////////// Depends on version.
+                                'Hogar':'min', # /////////////////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
+                                'Complementarios':'min'}, # //////////////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
+                    'Entretenimiento':{'Social':'max', # /////////////////////////////// Will choose MAX time to source because measuring access to all of them (restaurantes, bares AND cafes)
+                                        'Actividad física':'min', # //////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
+                                        'Cultural':cultural_weight} # ////////////////// Depends on version (v1 will choose min, v2 two-method.)
                     }
     
     # MAIN FUNCTION RUN
