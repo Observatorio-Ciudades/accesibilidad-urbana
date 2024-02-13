@@ -923,3 +923,422 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		else:
 			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]		
 			return nodes_time
+		
+
+def calculate_censo_nan_values_v1(aoi,extended_logs=False):
+	""" Finds time from each node to nearest poi (point of interest).
+	Args:
+		G (networkx.MultiDiGraph): Graph with edge bearing attributes
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes within boundaries
+		edges (geopandas.GeoDataFrame): GeoDataFrame with edges within boundaries
+		pois (geopandas.GeoDataFrame): GeoDataFrame with points of interest
+		poi_name (str): Text containing name of the point of interest being analysed
+		prox_measure (str): Text ("length" or "time_min") used to choose a way to 
+							calculate time between nodes and points of interest.
+							If "length", will assume a walking speed of 4km/hr.
+							If "time_min", edges with time information must be provided.
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0) 
+
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
+	"""
+	
+	##########################################################################################
+	# STEP 1: LOAD AND CHECK POP DATA FOR DIFFERENCES IN AGEBs
+	
+	# --------------- 1.1 DOWNLOAD POP DATA
+	aoi = aoi.set_crs("EPSG:4326")
+	print("Loading AGEBs for area of interest.")
+	pop_ageb_gdf = gdf_from_polygon(aoi,'censoageb','censoageb_2020')
+	print("Loading blocks for area of interest.")
+	pop_mza_gdf = gdf_from_polygon(aoi,'censo_mza','censo_mza_2020')
+
+	# --------------- 1.2 CHECK FOR DIFFERENCES IN AGEBs
+	# Look for AGEBs in both gdfs
+	agebs_in_ageb = list(pop_ageb_gdf.cve_ageb.unique())
+	agebs_in_mza = list(pop_mza_gdf.CVE_AGEB.unique())
+
+	if (len(agebs_in_ageb) == 0) and (len(agebs_in_mza) == 0):
+		print("Error: Area of interest has no AGEB pop data.")
+		intended_crash
+
+	# AGEBs present in ageb_gdf but not in mza_gdf
+	missing_agebs_1 = list(set(agebs_in_ageb) - set(agebs_in_mza))
+	if len(missing_agebs_1) > 0:
+		print(f'WARNING: AGEBs {missing_agebs_1} present in ageb_gdf but missing from mza_gdf.')
+		print(f'WARNING: Removing AGEBs {missing_agebs_1} from analysis.')
+
+	# AGEBs present in mza_gdf but not in AGEB_gdf
+	missing_agebs_2 = list(set(agebs_in_mza) - set(agebs_in_ageb))
+	if len(missing_agebs_2) > 0:
+		print(f'WARNING: AGEBs {missing_agebs_2} present in mza_gdf but missing from ageb_gdf.')
+		print(f'WARNING: Removing AGEBs {missing_agebs_2} from analysis.')
+
+	# AGEBs in both dataframes (Remove duplicates using set)
+	agebs_analysis = agebs_in_ageb + agebs_in_mza
+	agebs_analysis = list(set(agebs_analysis))
+
+	# Remove missing AGEBs from AGEB analysis
+	for ageb in missing_agebs_1 + missing_agebs_2:
+		agebs_analysis.remove(ageb)
+
+	##########################################################################################
+	# STEP 2: CALCULATE NAN VALUES
+	
+	print("STARTING NANs calculation.")
+
+	# STATISTICS - LOG DATA
+	# Will create progress logs when progress reaches these percentages:
+	progress_logs = [10,20,30,40,50,60,70,80,90,100]
+	# Accumulative (All AGEBs processing statistics)
+	acc_statistics = pd.DataFrame()
+
+	# --------------- NaNs CALCULATION 0) Start
+	i = 1
+	for ageb in agebs_analysis:
+
+		if extended_logs:
+			print('--'*20)
+			print('Calculating NaNs for AGEB {ageb}.')
+		
+		# STATISTICS - PROGRESS LOG DATA
+		current_progress = (i / len(agebs_analysis))*100
+		for progress in progress_logs:
+			if current_progress >= progress:
+				print(f'Calculating NaNs. {progress}% done.')
+				progress_logs.remove(progress)
+				break
+
+		# --------------- NaNs CALCULATION 1) FIND CURRENT AGEB DATA
+		ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf.cve_ageb == ageb]
+		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf.CVE_AGEB == ageb].copy()
+
+		# --------------- NaNs CALCULATION 2) KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (ALL values are NaNs)
+		# 2a) Set columns to be analysed
+		columns_of_interest = ['POBFEM','POBMAS',
+							'P_0A2','P_0A2_F','P_0A2_M',
+							'P_3A5','P_3A5_F','P_3A5_M',
+							'P_6A11','P_6A11_F','P_6A11_M',
+							'P_12A14','P_12A14_F','P_12A14_M',
+							'P_15A17','P_15A17_F','P_15A17_M',
+							'P_18A24','P_18A24_F','P_18A24_M',
+							'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
+							'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
+							'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
+							'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
+							'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
+							'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+		blocks = mza_ageb_gdf[['CVEGEO','POBTOT'] + columns_of_interest].copy()
+		
+		# 2b) Set found values to 0
+		blocks['found_values'] = 0
+		
+		# 2c) Find rows with nan values and sum nan values
+		for col in columns_of_interest:
+			# Turn to numeric
+			blocks[col] = pd.to_numeric(blocks[col])
+			# Set checker column to 'exist' (1)
+			blocks[f'check_{col}'] = 1
+			# If it doesn't exist, set that row's check to (0)
+			idx = blocks[col].isna()
+			blocks.loc[idx, f'check_{col}'] = 0
+			# Sum total row nan values
+			blocks['found_values'] = blocks['found_values'] + blocks[f'check_{col}']
+			# Drop checker column
+			blocks.drop(columns=[f'check_{col}'],inplace=True)
+		
+		# 2d) Loc and drop rows with 0 values (useless)
+		blocks_values = blocks.loc[blocks['found_values'] > 0].copy()
+		blocks_values.drop(columns=['found_values'],inplace=True)
+		
+		# 2e) Save rows with 0 values for later.
+		blocks_nans = blocks.loc[blocks['found_values'] == 0].copy()
+		blocks_nans.drop(columns=['found_values'],inplace=True)
+
+		del blocks
+		
+		# --------------- NaNs CALCULATION 3) CALCULATE NaN values in blocks
+		if extended_logs:
+			print('Calculating NaNs using block data for AGEB {ageb}.')
+
+		# 3a) Count current (original) nan values
+		original_nan_values = int(blocks_values.isna().sum().sum())
+		
+		# 3b) Set a start and finish nan value for while loop
+		start_nan_values = original_nan_values
+		finish_nan_values = start_nan_values - 1
+		
+		# 3c) Run nan-calculating loop
+		loop_count = 1
+		while start_nan_values > finish_nan_values:
+			# ROUND STARTING DATA
+			start_nan_values = blocks_values.isna().sum().sum()
+
+			# [PARENT] = [SUB] + [SUB]
+			# POBTOT = POBFEM + POBMAS
+			blocks_values.POBTOT.fillna(blocks_values.POBFEM + blocks_values.POBMAS, inplace=True)
+			blocks_values.POBFEM.fillna(blocks_values.POBTOT - blocks_values.POBMAS, inplace=True)
+			blocks_values.POBMAS.fillna(blocks_values.POBTOT - blocks_values.POBFEM, inplace=True)
+			# P_0A2 = P_0A2_F + P_0A2_M
+			blocks_values.P_0A2.fillna(blocks_values.P_0A2_F + blocks_values.P_0A2_M, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.P_0A2 - blocks_values.P_0A2_M, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.P_0A2 - blocks_values.P_0A2_F, inplace=True)
+			# P_3A5 = P_3A5_F + P_3A5_M
+			blocks_values.P_3A5.fillna(blocks_values.P_3A5_F + blocks_values.P_3A5_M, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.P_3A5 - blocks_values.P_3A5_M, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.P_3A5 - blocks_values.P_3A5_F, inplace=True)
+			# P_6A11 = P_6A11_F + P_6A11_M
+			blocks_values.P_6A11.fillna(blocks_values.P_6A11_F + blocks_values.P_6A11_M, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.P_6A11 - blocks_values.P_6A11_M, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.P_6A11 - blocks_values.P_6A11_F, inplace=True)
+			# P_12A14 = P_12A14_F + P_12A14_M
+			blocks_values.P_12A14.fillna(blocks_values.P_12A14_F + blocks_values.P_12A14_M, inplace=True)
+			blocks_values.P_12A14_F.fillna(blocks_values.P_12A14 - blocks_values.P_12A14_M, inplace=True)
+			blocks_values.P_12A14_M.fillna(blocks_values.P_12A14 - blocks_values.P_12A14_F, inplace=True)
+			# P_15A17 = P_15A17_F + P_15A17_M
+			blocks_values.P_15A17.fillna(blocks_values.P_15A17_F + blocks_values.P_15A17_M, inplace=True)
+			blocks_values.P_15A17_F.fillna(blocks_values.P_15A17 - blocks_values.P_15A17_M, inplace=True)
+			blocks_values.P_15A17_M.fillna(blocks_values.P_15A17 - blocks_values.P_15A17_F, inplace=True)
+			# P_18A24 = P_18A24_F + P_18A24_M
+			blocks_values.P_18A24.fillna(blocks_values.P_18A24_F + blocks_values.P_18A24_M, inplace=True)
+			blocks_values.P_18A24_F.fillna(blocks_values.P_18A24 - blocks_values.P_18A24_M, inplace=True)
+			blocks_values.P_18A24_M.fillna(blocks_values.P_18A24 - blocks_values.P_18A24_F, inplace=True)
+			# P_60YMAS = P_60YMAS_F + P_60YMAS_M
+			blocks_values.P_60YMAS.fillna(blocks_values.P_60YMAS_F + blocks_values.P_60YMAS_M, inplace=True)
+			blocks_values.P_60YMAS_F.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_M, inplace=True)
+			blocks_values.P_60YMAS_M.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_F, inplace=True)
+			
+			# [POBTOT] - [{n}_YMAS] = [group] + [group] + ... + [group]
+			# ---------------------------------------------------------------------------------------- POBTOT - P_3YMAS = P_0A2
+			# --> P_0A2 = POBTOT - P_3YMAS
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_3YMAS, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_3YMAS_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_3YMAS_M, inplace=True)
+			# --> P_3YMAS = POBTOT - P_0A2
+			blocks_values.P_3YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2, inplace=True)
+			blocks_values.P_3YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F, inplace=True)
+			blocks_values.P_3YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M, inplace=True)
+			# ---------------------------------------------------------------------------------------- POBTOT - P_12YMAS = (P_0A2 + P_3A5 + P_6A11)
+			# --> P_0A2 = POBTOT - P_12YMAS - P_3A5 - P_6A11
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_12YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
+			# --> P_3A5 = POBTOT - P_12YMAS - P_0A2 - P_6A11
+			blocks_values.P_3A5.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_0A2 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS - blocks_values.P_12YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M, inplace=True)
+			# --> P_6A11 = POBTOT - P_12YMAS - P_0A2 - P_3A5
+			blocks_values.P_6A11.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_0A2 - blocks_values.P_3A5, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS - blocks_values.P_12YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M, inplace=True)
+			# --> P_12YMAS = POBTOT - P_0A2 - P_3A5 -P_6A11
+			blocks_values.P_12YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_12YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_12YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
+			# ---------------------------------------------------------------------------------------- POBTOT - P_15YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14)
+			# --> P_0A2 = POBTOT - P_15YMAS - P_3A5 - P_6A11 - P_12A14
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_3A5 = POBTOT - P_15YMAS - P_0A2 - P_6A11 - P_12A14
+			blocks_values.P_3A5.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_6A11 = POBTOT - P_15YMAS - P_0A2 - P_3A5 - P_12A14
+			blocks_values.P_6A11.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_12A14 = POBTOT - P_15YMAS - P_0A2 - P_3A5 - P_6A11
+			blocks_values.P_12A14.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_12A14_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_12A14_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
+			# --> P_15YMAS = POBTOT - P_0A2 - P_3A5 - P_6A11 - P_12A14
+			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_15YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_15YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# ---------------------------------------------------------------------------------------- POBTOT - P_18YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17)
+			# --> P_0A2 = POBTOT - P_18YMAS - P_3A5 - P_6A11 - P_12A14 - P_15A17
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_3A5 = POBTOT - P_18YMAS - P_0A2 - P_6A11 - P_12A14 - P_15A17
+			blocks_values.P_3A5.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_6A11 = POBTOT - P_18YMAS - P_0A2 - P_3A5 - P_12A14 - P_15A17
+			blocks_values.P_6A11.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_12A14 = POBTOT - P_18YMAS - P_0A2 - P_3A5 - P_6A11 - P_15A17
+			blocks_values.P_12A14.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_12A14_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_12A14_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_15A17 = POBTOT - P_18YMAS - P_0A2 - P_3A5 - P_6A11 - P_12A14
+			blocks_values.P_15A17.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_15A17_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_15A17_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_18YMAS = POBTOT - P_0A2 - P_3A5 - P_6A11 - P_12A14 - P_15A17
+			blocks_values.P_18YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_18YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_18YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+
+			# COMPLEMENTARY ECUATIONS
+			# ---------------------------------------------------------------------------------------- REL_H_M = (POBMAS/POBFEM)*100
+			# --> POBMAS = (REL_H_M/100) * POBFEM
+			blocks_values.POBMAS.fillna(round((blocks_values.REL_H_M / 100) * blocks_values.POBFEM,0), inplace=True)
+			# --> POBFEM = (POBMAS * 100) / REL_H_M
+			blocks_values.POBFEM.fillna(round((blocks_values.POBMAS * 100) / blocks_values.REL_H_M,0), inplace=True)
+			# ---------------------------------------------------------------------------------------- POBTOT = POB0_14 + POB15_64 + POB65_MAS
+			# --> POB0_14 = POBTOT - POB15_64 - POB65_MAS
+			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.POB15_64 - blocks_values.POB65_MAS, inplace=True)
+			# --> POB15_64 = POBTOT - POB0_14 - POB65_MAS
+			blocks_values.POB15_64.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB65_MAS, inplace=True)
+			# --> POB65_MAS = POBTOT - POB0_14 - POB15_64
+			blocks_values.POB65_MAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB15_64, inplace=True)
+			# ---------------------------------------------------------------------------------------- POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
+			# --> POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
+			blocks_values.POB0_14.fillna(blocks_values.P_0A2 + blocks_values.P_3A5 + blocks_values.P_6A11 + blocks_values.P_12A14, inplace=True)
+			# --> P_0A2 = POB0_14 - P_3A5 - P_6A11 - P_12A14
+			blocks_values.P_0A2.fillna(blocks_values.POB0_14 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			# --> P_3A5 = POB0_14 - P_0A2 - P_6A11 - P_12A14
+			blocks_values.P_3A5.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			# --> P_6A11 = POB0_14 - P_0A2 - P_3A5 - P_12A14
+			blocks_values.P_6A11.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)				
+			# --> P_12A14 = POB0_14 - P_0A2 - P_3A5 - P_6A11
+			blocks_values.P_12A14.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True) 
+			# ---------------------------------------------------------------------------------------- P_15YMAS = POBTOT - POB0_14
+			# --> P_15YMAS = POBTOT - POB0_14
+			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14, inplace=True)
+			# --> POB0_14 = POBTOT - P_15YMAS
+			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS, inplace=True)
+			
+			# ROUND FINISHING DATA
+			finish_nan_values = blocks_values.isna().sum().sum()
+
+			if extended_logs:
+				print(f'Round {loop_count} Starting with {start_nan_values} nan values. Finishing with {finish_nan_values} nan values.')
+			
+			loop_count += 1
+		
+		nan_reduction = round(((1-(finish_nan_values/original_nan_values))*100),2)
+		if extended_logs:
+			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
+		
+		# 3d) Join back blocks with all nan values
+		blocks_calc = pd.concat([blocks_values,blocks_nans])
+		
+		# --------------- NaNs CALCULATION 4) FOR THE NAN VALUES THAT COULDN'T BE SOLVED, DISTRIBUTE AGEB VALUES.
+		if extended_logs:
+			print('Calculating NaNs using AGEB data for AGEB {ageb}.')
+		
+		# 4a) Prepare for loop
+		# Remove masc/fem relation column
+		ageb_filling_cols = columns_of_interest.copy()
+		ageb_filling_cols.remove('REL_H_M')
+		# Counting solving method needed
+		solved_using_blocks = 0 # for log statistics
+		solved_using_ageb = 0 # for log statistics
+		
+		# 4b) Fill with AGEB values.
+		for col in ageb_filling_cols:
+			# Find number of nan values in current col
+			col_nan_values = blocks_calc.isna().sum()[col]
+
+			# If there are no nan values left in col, pass.
+			if col_nan_values == 0:
+
+				solved_using_blocks += 1 # for log statistics
+			
+			# Elif there is only one value left, assign missing value directly to cell.
+			elif col_nan_values == 1: 
+				# Calculate missing value
+				ageb_col_value = ageb_gdf[col.lower()].unique()[0]
+				current_block_sum = blocks_calc[col].sum()
+				missing_value = ageb_col_value - current_block_sum
+				# Add missing value to na spot in column
+				blocks_calc[col].fillna(missing_value,inplace=True)
+				
+				solved_using_ageb += 1 # for log statistics
+			
+			# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distr. method.
+			elif col_nan_values > 1:        
+				# Locate rows with NaNs in current col
+				idx = blocks_calc[col].isna()
+				# Set dist_factor to 0
+				blocks_calc['dist_factor'] = 0
+				# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
+				blocks_calc.loc[idx,'dist_factor'] = blocks_calc['POBTOT'] / blocks_calc.loc[idx].POBTOT.sum()
+				# Calculate missing value
+				ageb_col_value = ageb_gdf[col.lower()].unique()[0]
+				current_block_sum = blocks_calc[col].sum()
+				missing_value = ageb_col_value - current_block_sum
+				# Distribute missing value in those rows using POBTOT factor
+				blocks_calc[col].fillna(missing_value * blocks_calc.dist_factor, inplace=True)
+				blocks_calc.drop(columns=['dist_factor'],inplace=True)
+		
+				solved_using_ageb += 1
+		
+		# 4d) Recalculate mas/fem relation
+		blocks_calc['REL_H_M'] = (blocks_calc['POBMAS']/blocks_calc['POBFEM'])*100
+
+		# Logs Statistics
+		pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
+		pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100
+
+		if extended_logs:
+			print(f'{pct_col_byblocks}% of columns solved using block data only.')
+			print(f'{pct_col_byagebs}% of columns required AGEB filling.')
+		
+		# Currently examined AGEB
+		acc_statistics.loc[i,'ageb'] = ageb
+		# Percentage of NaNs found using blocks gdf
+		acc_statistics.loc[i,'nans_calculated'] = nan_reduction
+		# Percentage of columns which could be solved entirely using equations in block_gdf
+		acc_statistics.loc[i,'block_calculated'] = solved_using_blocks
+		# Percentage of columns which required AGEB filling
+		acc_statistics.loc[i,'ageb_filling'] = solved_using_ageb
+
+		# --------------- NaNs CALCULATION 5) Return calculated data from this AGEB to original block gdf (mza_ageb_gdf)
+		# 5a) Change original cols for calculated cols
+		calculated_cols = ['POBTOT','POBFEM','POBMAS',
+						'P_0A2','P_0A2_F','P_0A2_M',
+						'P_3A5','P_3A5_F','P_3A5_M',
+						'P_6A11','P_6A11_F','P_6A11_M',
+						'P_12A14','P_12A14_F','P_12A14_M',
+						'P_15A17','P_15A17_F','P_15A17_M',
+                       	'P_18A24','P_18A24_F','P_18A24_M',
+                       	'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
+                       	'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
+                       	'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
+                       	'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
+                       	'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
+                       	'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+		
+		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols)
+		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO')
+
+		# 5b) Restore original column order
+		column_order = list(pop_mza_gdf.columns.values)
+		mza_ageb_gdf = mza_ageb_gdf[column_order]
+
+		# Save to mza_calc gdf (Function output)
+		if i == 1:
+			mza_calc = mza_ageb_gdf.copy()
+		else:
+			mza_calc = pd.concat([mza_calc,mza_ageb_gdf])
+
+		i += 1
+
+	# Format output
+	mza_calc.reset_index(inplace=True)
+	mza_calc.drop(columns=['index'],inplace=True)
+
+	print('Finished calculating NaNs.')
+	print(f'Percentage of NaNs found using blocks gdf: {acc_statistics.nans_calculated.mean()}.')
+	print(f'Columns which could be solved entirely using equations in block_gdf: {acc_statistics.block_calculated.sum()}.')
+	print(f'Columns which required AGEB filling: {acc_statistics.ageb_filling.sum()}.')
+	
+	return mza_calc
+
+	
+		
