@@ -214,8 +214,6 @@ def socio_points_to_polygon(
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
         cve_column (str): Column name with polygon id in gdf_polygon.
         string_columns (list): List with column names for string data in gdf_socio.
-        column_start (int, optiona): Column position were sociodemographic data starts in gdf_socio. Defaults to 0.
-        column_end (int, optional): Column position were sociodemographic data ends in gdf_socio. Defaults to -1.
         wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
         avg_column (list, optional): List with column names with average data. Defaults to None.
     Returns:
@@ -1222,9 +1220,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
 		
 		# 2.4a) Prepare for loop
-		# Remove masc/fem relation column
+		# Remove masc/fem relation from analysis. 
+		# It complicates this and further processes, when needed add (REL_H_M = (POBMAS/POBFEM)*100)
 		ageb_filling_cols = columns_of_interest.copy()
-		ageb_filling_cols.remove('REL_H_M') # Shouldn't fill with AGEB data.
+		ageb_filling_cols.remove('REL_H_M')
+		blocks_calc.drop(columns=['REL_H_M'],inplace=True)
 		# Solving method used to solve column
 		solved_using_blocks = 0 # for log statistics
 		solved_using_ageb = 0 # for log statistics
@@ -1267,9 +1267,6 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				blocks_calc.drop(columns=['dist_factor'],inplace=True)
 		
 				solved_using_ageb += 1 # for log statistics
-		
-		# 2.4c) Recalculate mas/fem relation
-		blocks_calc['REL_H_M'] = (blocks_calc['POBMAS']/blocks_calc['POBFEM'])*100
 
 		# Logs Statistics - How was this AGEB solved?
 		if extended_logs:
@@ -1301,7 +1298,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
                        	'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
                        	'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
                        	'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-                       	'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+                       	'POB0_14','POB15_64','POB65_MAS']
 		
 		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols)
 		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO')
