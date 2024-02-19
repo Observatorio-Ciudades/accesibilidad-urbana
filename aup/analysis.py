@@ -11,6 +11,7 @@ from .utils import *
 from .data import *
 import math
 from scipy import optimize
+from scipy.spatial import Voronoi
 from math import sqrt
 
 
@@ -924,9 +925,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		
 
 def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
-	""" Calculates (and/or distributes) values to NaN cells in population columns of INEGI's censo blocks gdf.
+	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
-		As of this version, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
+		As of this version, if couldn't find all values, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
 	Args:
 		pop_ageb_gdf (geopandas.GeoDataFrame): GeoDataFrame with AGEB polygons containing pop data.
 		pop_mza_gdf (geopandas.GeoDataFrame): GeoDataFrame with block polygons containing pop data.
@@ -941,10 +942,18 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	##########################################################################################
 	# STEP 1: CHECK POP DATA FOR DIFFERENCES IN AGEBs
 
+	# --------------- 1.1 SET COLUMNS TO .UPPER() EXCEPT FOR GEOMETRY
+	# (When the equations were written, we used UPPER names, easier to change it this way and then return output with .lower columns)
+	pop_ageb_gdf.columns = pop_ageb_gdf.columns.str.upper()
+	pop_ageb_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
+
+	pop_mza_gdf.columns = pop_mza_gdf.columns.str.upper()
+	pop_mza_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
+
 	# --------------- 1.2 CHECK FOR DIFFERENCES IN AGEBs
 	# Look for AGEBs in both gdfs
-	agebs_in_ageb = list(pop_ageb_gdf.cve_ageb.unique())
-	agebs_in_mza = list(pop_mza_gdf.CVE_AGEB.unique())
+	agebs_in_ageb = list(pop_ageb_gdf['AGEB'].unique())
+	agebs_in_mza = list(pop_mza_gdf['AGEB'].unique())
 
 	if (len(agebs_in_ageb) == 0) and (len(agebs_in_mza) == 0):
 		print("Error: Area of interest has no AGEB pop data.")
@@ -962,11 +971,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		print(f'WARNING: AGEBs {missing_agebs_2} present in mza_gdf but missing from ageb_gdf.')
 		print(f'WARNING: Removing AGEBs {missing_agebs_2} from analysis.')
 
-	# AGEBs in both dataframes (Remove duplicates using set)
+	# List AGEBs in both dataframes (Remove duplicates using set)
 	agebs_analysis = agebs_in_ageb + agebs_in_mza
 	agebs_analysis = list(set(agebs_analysis))
 
-	# Remove missing AGEBs from AGEB analysis
+	# Remove missing AGEBs from agebs_analysis list
 	for ageb in missing_agebs_1 + missing_agebs_2:
 		agebs_analysis.remove(ageb)
 
@@ -978,12 +987,12 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	# STATISTICS - LOG DATA
 	# Will create progress logs when progress reaches these percentages:
 	progress_logs = [10,20,30,40,50,60,70,80,90,100]
-	# Df that stores accumulative (After processing all AGEBs) statistics for logs.
+	# This df stores accumulative (All AGEBs) statistics for logs.
 	acc_statistics = pd.DataFrame()
 
 	# --------------- NaNs CALCULATION 2.0) Start
 	i = 1
-	for ageb in agebs_analysis:
+	for ageb in agebs_analysis: # Most of the code of this function iterates over each AGEB
 
 		if extended_logs:
 			print('--'*20)
@@ -998,8 +1007,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				break
 
 		# --------------- NaNs CALCULATION 2.1) FIND CURRENT AGEB DATA
-		ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf.cve_ageb == ageb]
-		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf.CVE_AGEB == ageb].copy()
+		ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['AGEB'] == ageb]
+		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['AGEB'] == ageb].copy()
 
 		# --------------- NaNs CALCULATION 2.2) KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (ALL values are NaNs)
 		# 2.2a) Set columns to be analysed
@@ -1052,17 +1061,15 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		# 2.3a) Count current (original) nan values
 		original_nan_values = int(blocks_values.isna().sum().sum())
 		
-		# 2.3b) Set a start and finish nan value for while loop
+		# 2.3b) Set a start and finish nan value for while loop and run
 		start_nan_values = original_nan_values
 		finish_nan_values = start_nan_values - 1
-		
-		# 2.3c) Run nan-calculating while-loop
 		loop_count = 1
 		while start_nan_values > finish_nan_values:
 			# ROUND STARTING DATA
 			start_nan_values = blocks_values.isna().sum().sum()
 
-			# [PARENT] = [SUB] + [SUB]
+			# 2.3c) Set of equation with structure [PARENT] = [SUB] + [SUB]
 			# POBTOT = POBFEM + POBMAS
 			blocks_values.POBTOT.fillna(blocks_values.POBFEM + blocks_values.POBMAS, inplace=True)
 			blocks_values.POBFEM.fillna(blocks_values.POBTOT - blocks_values.POBMAS, inplace=True)
@@ -1096,8 +1103,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_60YMAS_F.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_M, inplace=True)
 			blocks_values.P_60YMAS_M.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_F, inplace=True)
 			
-			# [POBTOT] - [{n}_YMAS] = [group] + [group] + ... + [group]
-			# ---------------------------------------------------------------------------------------- POBTOT - P_3YMAS = P_0A2
+			# 2.3d) Set of equation with structure [POBTOT] - [{n}_YMAS] = [group] + [group] + ... + [group]
+			# POBTOT - P_3YMAS = P_0A2
 			# --> P_0A2 = POBTOT - P_3YMAS
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_3YMAS, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_3YMAS_F, inplace=True)
@@ -1106,7 +1113,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_3YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2, inplace=True)
 			blocks_values.P_3YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F, inplace=True)
 			blocks_values.P_3YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M, inplace=True)
-			# ---------------------------------------------------------------------------------------- POBTOT - P_12YMAS = (P_0A2 + P_3A5 + P_6A11)
+			# POBTOT - P_12YMAS = (P_0A2 + P_3A5 + P_6A11)
 			# --> P_0A2 = POBTOT - P_12YMAS - P_3A5 - P_6A11
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
@@ -1123,7 +1130,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_12YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
 			blocks_values.P_12YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
 			blocks_values.P_12YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
-			# ---------------------------------------------------------------------------------------- POBTOT - P_15YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14)
+			# POBTOT - P_15YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14)
 			# --> P_0A2 = POBTOT - P_15YMAS - P_3A5 - P_6A11 - P_12A14
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
@@ -1144,7 +1151,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
 			blocks_values.P_15YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
 			blocks_values.P_15YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
-			# ---------------------------------------------------------------------------------------- POBTOT - P_18YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17)
+			# POBTOT - P_18YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17)
 			# --> P_0A2 = POBTOT - P_18YMAS - P_3A5 - P_6A11 - P_12A14 - P_15A17
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
@@ -1170,20 +1177,20 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_18YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
 			blocks_values.P_18YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
 
-			# COMPLEMENTARY ECUATIONS
-			# ---------------------------------------------------------------------------------------- REL_H_M = (POBMAS/POBFEM)*100
+			# 2.3e) Set of complementary equations
+			# REL_H_M = (POBMAS/POBFEM)*100
 			# --> POBMAS = (REL_H_M/100) * POBFEM
 			blocks_values.POBMAS.fillna(round((blocks_values.REL_H_M / 100) * blocks_values.POBFEM,0), inplace=True)
 			# --> POBFEM = (POBMAS * 100) / REL_H_M
 			blocks_values.POBFEM.fillna(round((blocks_values.POBMAS * 100) / blocks_values.REL_H_M,0), inplace=True)
-			# ---------------------------------------------------------------------------------------- POBTOT = POB0_14 + POB15_64 + POB65_MAS
+			# POBTOT = POB0_14 + POB15_64 + POB65_MAS
 			# --> POB0_14 = POBTOT - POB15_64 - POB65_MAS
 			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.POB15_64 - blocks_values.POB65_MAS, inplace=True)
 			# --> POB15_64 = POBTOT - POB0_14 - POB65_MAS
 			blocks_values.POB15_64.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB65_MAS, inplace=True)
 			# --> POB65_MAS = POBTOT - POB0_14 - POB15_64
 			blocks_values.POB65_MAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB15_64, inplace=True)
-			# ---------------------------------------------------------------------------------------- POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
+			# POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
 			# --> POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
 			blocks_values.POB0_14.fillna(blocks_values.P_0A2 + blocks_values.P_3A5 + blocks_values.P_6A11 + blocks_values.P_12A14, inplace=True)
 			# --> P_0A2 = POB0_14 - P_3A5 - P_6A11 - P_12A14
@@ -1194,7 +1201,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_6A11.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)				
 			# --> P_12A14 = POB0_14 - P_0A2 - P_3A5 - P_6A11
 			blocks_values.P_12A14.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True) 
-			# ---------------------------------------------------------------------------------------- P_15YMAS = POBTOT - POB0_14
+			# P_15YMAS = POBTOT - POB0_14
 			# --> P_15YMAS = POBTOT - POB0_14
 			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14, inplace=True)
 			# --> POB0_14 = POBTOT - P_15YMAS
@@ -1212,16 +1219,16 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
 		
-		# 2.3d) Join back blocks with all nan values
+		# 2.3f) Join back blocks with all nan values
 		blocks_calc = pd.concat([blocks_values,blocks_nans])
 		
 		# --------------- NaNs CALCULATION 4) FOR THE NAN VALUES THAT COULDN'T BE SOLVED, DISTRIBUTE AGEB VALUES.
 		if extended_logs:
 			print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
 		
-		# 2.4a) Prepare for loop
+		# 2.4a) Prepare for second loop
 		# Remove masc/fem relation from analysis. 
-		# It complicates this and further processes, when needed add (REL_H_M = (POBMAS/POBFEM)*100)
+		# It complicates this and further processes, when needed calculate using (REL_H_M = (POBMAS/POBFEM)*100)
 		ageb_filling_cols = columns_of_interest.copy()
 		ageb_filling_cols.remove('REL_H_M')
 		blocks_calc.drop(columns=['REL_H_M'],inplace=True)
@@ -1242,7 +1249,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			# Elif there is only one value left, assign missing value directly to cell.
 			elif col_nan_values == 1: 
 				# Calculate missing value
-				ageb_col_value = ageb_gdf[col.lower()].unique()[0]
+				ageb_col_value = ageb_gdf[col].unique()[0]
 				current_block_sum = blocks_calc[col].sum()
 				missing_value = ageb_col_value - current_block_sum
 				# Add missing value to na spot in column
@@ -1257,13 +1264,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				# Set distributing factor to 0
 				blocks_calc['dist_factor'] = 0
 				# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
-				blocks_calc.loc[idx,'dist_factor'] = blocks_calc['POBTOT'] / blocks_calc.loc[idx].POBTOT.sum()
+				blocks_calc.loc[idx,'dist_factor'] = (blocks_calc['POBTOT']) / blocks_calc.loc[idx]['POBTOT'].sum()
 				# Calculate missing value
-				ageb_col_value = ageb_gdf[col.lower()].unique()[0]
+				ageb_col_value = ageb_gdf[col].unique()[0]
 				current_block_sum = blocks_calc[col].sum()
 				missing_value = ageb_col_value - current_block_sum
 				# Distribute missing value in those rows using POBTOT factor
-				blocks_calc[col].fillna(missing_value * blocks_calc.dist_factor, inplace=True)
+				blocks_calc[col].fillna(missing_value * blocks_calc['dist_factor'], inplace=True)
 				blocks_calc.drop(columns=['dist_factor'],inplace=True)
 		
 				solved_using_ageb += 1 # for log statistics
@@ -1286,22 +1293,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 		# --------------- NaNs CALCULATION 5) Return calculated data from this AGEB to original block gdf (mza_ageb_gdf)
 		# 2.5a) Change original cols for calculated cols
-		calculated_cols = ['POBTOT','POBFEM','POBMAS',
-						'P_0A2','P_0A2_F','P_0A2_M',
-						'P_3A5','P_3A5_F','P_3A5_M',
-						'P_6A11','P_6A11_F','P_6A11_M',
-						'P_12A14','P_12A14_F','P_12A14_M',
-						'P_15A17','P_15A17_F','P_15A17_M',
-                       	'P_18A24','P_18A24_F','P_18A24_M',
-                       	'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
-                       	'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
-                       	'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
-                       	'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
-                       	'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-                       	'POB0_14','POB15_64','POB65_MAS']
+		calculated_cols = ['POBTOT'] + ageb_filling_cols
 		
-		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols)
-		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO')
+		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols) #Drops current block pop cols
+		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO') #Replaces with blocks_calc cols
 
 		# 2.5b) Restore original column order
 		column_order = list(pop_mza_gdf.columns.values)
@@ -1319,6 +1314,9 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	mza_calc.reset_index(inplace=True)
 	mza_calc.drop(columns=['index'],inplace=True)
 
+	# Delivers output cols as .lower()
+	mza_calc.columns = mza_calc.columns.str.lower()
+
 	print('Finished calculating NaNs.')
 	print(f'Percentage of NaNs found using blocks gdf: {round(acc_statistics.nans_calculated.mean(),2)}%.')
 	print(f'Columns which could be solved entirely using equations in block_gdf: {acc_statistics.block_calculated.sum()}.')
@@ -1326,5 +1324,75 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	
 	return mza_calc
 
+def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissible_error = 0.01):
+	""" Creates voronoi polygons for n given points within a given area of interest (aoi).
+	Args:
+		area_of_interest (geopandas.GeoDataFrame): GeoDataFrame with area of interest (Determines output extents).
+		points (geopandas.GeoDataFrame): GeoDataFrame with points of interest.
+		points_id_col (str): Name of points ID column (Will be assigned to each resulting voronoi polygon)
+		admissible_error (int, optional): Percentage of error (difference) between the input area (area_of_interest) and output area (dissolved voronoi polygons).
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with voronoi polygons (each containing the point ID it originated from) extending all up to the area of interest extent.
+	"""
+
+	# Set area of interest and points of interest for voronoi analysis to crs:6372
+	aoi = area_of_interest.to_crs('EPSG:6372')
+	pois = points.to_crs('EPSG:6372')
+
+    # Distance is a number used to create a buffer around the polygon and coordinates along a bounding box of that buffer.
+    # Starts at 100 (works for smaller polygons) but will increase itself automatically until the diference between the area of 
+    # the voronoi polygons created and the area of the aoi is less than the admissible_error.
+	distance = 100
+
+    # Goal area (Area of aoi)
+	goal_area_gdf = aoi.copy()
+	goal_area_gdf['area'] = goal_area_gdf.geometry.area
+	goal_area = goal_area_gdf['area'].sum()
 	
+	# Loop starter 
+	area_diff = admissible_error + 1 
+	
+	# Will repeat process while difference between voronoi polygons area and goal_area is more than admissible_error.
+	while area_diff > admissible_error:
+		# Create a rectangular bound for the area of interest with a {distance} buffer.
+		polygon = aoi['geometry'].unique()[0]
+		bound = polygon.buffer(distance).envelope.boundary
 		
+		# Create points along the rectangular boundary every {distance} meters.
+		boundarypoints = [bound.interpolate(distance=d) for d in range(0, np.ceil(bound.length).astype(int), distance)]
+		boundarycoords = np.array([[p.x, p.y] for p in boundarypoints])
+		
+		# Load the points inside the polygon
+		coords = np.array(pois.get_coordinates())
+		
+		# Create an array of all points on the boundary and inside the polygon
+		all_coords = np.concatenate((boundarycoords, coords))
+		
+		# Calculate voronoi to all coords and create voronois gdf (No boundary)
+		vor = Voronoi(points=all_coords)
+		lines = [shapely.geometry.LineString(vor.vertices[line]) for line in vor.ridge_vertices if -1 not in line]
+		polys = shapely.ops.polygonize(lines)
+		unbounded_voronois = gpd.GeoDataFrame(geometry=gpd.GeoSeries(polys), crs='epsg:6372')
+
+		# Add nodes ID data to voronoi polygons
+		unbounded_voronois = gpd.sjoin(unbounded_voronois,pois[[points_id_col,'geometry']])
+		
+		# Clip voronoi with boundary
+		bounded_voronois = gpd.overlay(df1=unbounded_voronois, df2=aoi, how='intersection')
+
+		# Change back crs
+		voronois_gdf = bounded_voronois.to_crs('EPSG:4326')
+
+		# Area check for while loop
+		voronois_area_gdf = voronois_gdf.to_crs('EPSG:6372')
+		voronois_area_gdf['area'] = voronois_area_gdf.geometry.area
+		voronois_area = voronois_area_gdf['area'].sum()
+		area_diff = ((goal_area - voronois_area)/(goal_area))*100
+		if area_diff > admissible_error:
+			print(f'Error = {round(area_diff,2)}%. Repeating process.')
+			distance = distance * 10
+		else:
+			print(f'Error = {round(area_diff,2)}%. Admissible.')
+
+	# Out of the while loop:
+	return voronois_gdf
