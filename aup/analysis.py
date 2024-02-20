@@ -11,6 +11,7 @@ from .utils import *
 from .data import *
 import math
 from scipy import optimize
+import shapely
 from scipy.spatial import Voronoi
 from math import sqrt
 
