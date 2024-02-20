@@ -208,7 +208,8 @@ def socio_points_to_polygon(
 	cve_column,
 	string_columns,
 	wgt_dict=None,
-	avg_column=None):
+	avg_column=None,
+	include_nearest=(False, '_')):
 
 	"""Group sociodemographic point data in polygons
     Arguments:
@@ -216,8 +217,12 @@ def socio_points_to_polygon(
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
         cve_column (str): Column name with polygon id in gdf_polygon.
         string_columns (list): List with column names for string data in gdf_socio.
+		count_pois (tuple): 
         wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
         avg_column (list, optional): List with column names with average data. Defaults to None.
+		include_nearest (tuple,optional): tuple containing boolean. If False, ignores points that fall outside gdf_polygon.
+																	If True, find closest poly vertex to point and assigns the point to it.
+																	Defaults to (False, '_')
     Returns:
         pd.DataFrame: DataFrame with group sociodemographic data and polygon id
 
@@ -225,7 +230,44 @@ def socio_points_to_polygon(
 
 	dictionary_list = []
 	# Adds census data from points to polygon
-	gdf_tmp = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
+	gdf_tmp_1 = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
+	
+	if include_nearest[0]:
+		points_id =  include_nearest[1]
+        # FIND POINTS LEFT OUTSIDE PREVIOUS SJOIN
+        # Find how gdf_socio points_id and gdf_tmp_1 points_id relate (through indicator) and 
+		gdf_socio_merge = gdf_socio.merge(gdf_tmp_1[[points_id]], on=[points_id], how='left', indicator=True)
+        # Select points which fell outside gdf_polygon area ('left_only')
+		gdf_socio_outside = gdf_socio_merge.loc[gdf_socio_merge['_merge']=='left_only']
+        
+        # GET GDF_POLYGON VERTICES
+        # Extract gdf_polygon's coords
+		gdf_coords = gdf_polygon.geometry.get_coordinates()
+        # Merge back with gdf containing ID data
+		gdf_coords_data = pd.merge(gdf_coords,gdf_polygon,left_index=True,right_index=True)
+		gdf_coords_data.drop_duplicates(inplace=True)
+        # Drop poly geometry and set points geometry
+		df_coords_data = gdf_coords_data.drop(columns=['geometry'])
+		gdf_poly_vertices = gpd.GeoDataFrame(df_coords_data, geometry=gpd.points_from_xy(df_coords_data.x, df_coords_data.y), crs='EPSG:4326')
+        # Final format
+		gdf_poly_vertices = gdf_poly_vertices[[cve_column,'geometry']]
+        
+        #FIND NEAREST POLY ID TO EACH POINTS ID
+		gdf1 = gdf_socio_outside.to_crs('EPSG:6372')
+		gdf2 = gdf_poly_vertices.to_crs('EPSG:6372')
+		nearest = gpd.sjoin_nearest(gdf1, gdf2,lsuffix="left", rsuffix="right")
+        # A vertex may be shared by two or more polys, keep first.
+		nearest.drop_duplicates(subset=points_id,keep='first',inplace=True)
+        # Drop not usefull cols and merge back hexs data
+		nearest.drop(columns=['_merge'],inplace=True)
+		nearest = nearest.to_crs('EPSG:4326')
+		df_polygon = gdf_polygon.drop(columns=['geometry'])
+		gdf_tmp_2 = pd.merge(nearest,df_polygon,on=cve_column)
+		
+		gdf_tmp = pd.concat([gdf_tmp_1,gdf_tmp_2])
+	
+	else:
+		gdf_tmp = gdf_tmp_1.copy()
 
 	# convert data types
 	all_columns = list(gdf_socio.columns)
@@ -690,7 +732,8 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 
 
 def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
-	"""
+	""" Function originally designed for proximity analysis in Latinamerica. It takes an area of interest, a population directory, 
+		index and pop columns and a list of desired hex res outputs and groups sociodemographic data by hex.
 	Args:
 		aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
 		pop_dir (str): Directory (location) of the population file.
@@ -941,7 +984,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	"""
 	
 	##########################################################################################
-	# STEP 1: CHECK POP DATA FOR DIFFERENCES IN AGEBs
+	# STEP 1: CHECK FOR DIFFERENCES IN AVAILABLE AGEBs (PREVENTS CRASH)
 
 	# --------------- 1.1 SET COLUMNS TO .UPPER() EXCEPT FOR GEOMETRY
 	# (When the equations were written, we used UPPER names, easier to change it this way and then return output with .lower columns)
@@ -1000,11 +1043,12 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			print(f'Calculating NaNs for AGEB {ageb} ({i}/{len(agebs_analysis)}.)')
 		
 		# STATISTICS - PROGRESS LOG DATA
+		# Measures current progress, prints if passed a checkpoint of progress_logs list.
 		current_progress = (i / len(agebs_analysis))*100
-		for progress in progress_logs:
-			if current_progress >= progress:
-				print(f'Calculating NaNs. {progress}% done.')
-				progress_logs.remove(progress)
+		for checkpoint in progress_logs:
+			if current_progress >= checkpoint:
+				print(f'Calculating NaNs. {checkpoint}% done.')
+				progress_logs.remove(checkpoint)
 				break
 
 		# --------------- NaNs CALCULATION 2.1) FIND CURRENT AGEB DATA
