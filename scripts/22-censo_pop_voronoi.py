@@ -25,7 +25,7 @@ def main(city,save=False):
     city_gdf = city_gdf.set_crs("EPSG:4326")
     aoi = city_gdf.dissolve()
     
-    # --------------- 1.2 LOAD POP DATA    
+    # --------------- 1.2 LOAD POP DATA
     print("Loading AGEBs for area of interest.")
     pop_ageb_gdf = aup.gdf_from_polygon(aoi,'censoageb',f'censoageb_{year}')
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
@@ -33,7 +33,8 @@ def main(city,save=False):
     print("Loading blocks for area of interest.")
     pop_mza_gdf = aup.gdf_from_polygon(aoi,'censo_mza',f'censo_mza_{year}')
     pop_mza_gdf = pop_mza_gdf.set_crs("EPSG:4326")
-    pop_mza_gdf = pop_mza_gdf.loc[pop_mza_gdf.AMBITO == 'Urbana'].copy()
+    if year == '2020':
+        pop_mza_gdf = pop_mza_gdf.loc[pop_mza_gdf.AMBITO == 'Urbana'].copy()
     
     ##########################################################################################
 	# STEP 2: CALCULATE NaN VALUES for pop fields (most of them, check function) of gdf containing blocks.
@@ -134,7 +135,6 @@ def main(city,save=False):
         mza_voronoi[f'voronoi_{col}'] = mza_voronoi[col] * mza_voronoi['area_pct']
     
         # Group data by osmid
-        #col_data = mza_voronoi[['osmid',f'voronoi_{col}']]
         osmid_grouped_data = mza_voronoi.groupby('osmid').agg({f'voronoi_{col}':np.sum})
         
         # Merge data to nodes_gdf
@@ -167,7 +167,7 @@ def main(city,save=False):
         # --------------- 4.2 GROUP POPDATA IN HEXGRID
         # Group pop data
         string_columns = ['osmid'] # Nodes string columns are not used in aup.group_sociodemographic_data. The rest are turned into numeric and processed.
-        hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns) 
+        hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns,include_nearest=(True,'osmid')) 
         print(f"Agregated socio data to hex with a total of {hex_socio_df['pobtot'].sum()} population for resolution {res}.")
     
         # Hexagons data to hex_gdf GeoDataFrame

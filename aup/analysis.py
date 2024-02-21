@@ -234,35 +234,19 @@ def socio_points_to_polygon(
 	
 	if include_nearest[0]:
 		points_id =  include_nearest[1]
-        # FIND POINTS LEFT OUTSIDE PREVIOUS SJOIN
-        # Find how gdf_socio points_id and gdf_tmp_1 points_id relate (through indicator) and 
+        # Find points of gdf_socio that were left outside gdf_polygon by merging gdf_socio and gdf_tmp_1
+		# and (through indicator) keep only those points found in gdf_socio and not in gdf_tmp_1 ('left_only')
 		gdf_socio_merge = gdf_socio.merge(gdf_tmp_1[[points_id]], on=[points_id], how='left', indicator=True)
-        # Select points which fell outside gdf_polygon area ('left_only')
 		gdf_socio_outside = gdf_socio_merge.loc[gdf_socio_merge['_merge']=='left_only']
-        
-        # GET GDF_POLYGON VERTICES
-        # Extract gdf_polygon's coords
-		gdf_coords = gdf_polygon.geometry.get_coordinates()
-        # Merge back with gdf containing ID data
-		gdf_coords_data = pd.merge(gdf_coords,gdf_polygon,left_index=True,right_index=True)
-		gdf_coords_data.drop_duplicates(inplace=True)
-        # Drop poly geometry and set points geometry
-		df_coords_data = gdf_coords_data.drop(columns=['geometry'])
-		gdf_poly_vertices = gpd.GeoDataFrame(df_coords_data, geometry=gpd.points_from_xy(df_coords_data.x, df_coords_data.y), crs='EPSG:4326')
-        # Final format
-		gdf_poly_vertices = gdf_poly_vertices[[cve_column,'geometry']]
-        
-        #FIND NEAREST POLY ID TO EACH POINTS ID
+		gdf_socio_outside = gdf_socio_outside.drop(columns=['_merge'])
+		# Extract gdf_polygon's vertices
+		gdf_poly_edges = gdf_polygon.copy()
+		gdf_poly_edges['geometry'] = gdf_poly_edges.geometry.boundary
+        # Find nearest gdf1 to each gdf2
 		gdf1 = gdf_socio_outside.to_crs('EPSG:6372')
-		gdf2 = gdf_poly_vertices.to_crs('EPSG:6372')
+		gdf2 = gdf_poly_edges.to_crs('EPSG:6372')
 		nearest = gpd.sjoin_nearest(gdf1, gdf2,lsuffix="left", rsuffix="right")
-        # A vertex may be shared by two or more polys, keep first.
-		nearest.drop_duplicates(subset=points_id,keep='first',inplace=True)
-        # Drop not usefull cols and merge back hexs data
-		nearest.drop(columns=['_merge'],inplace=True)
-		nearest = nearest.to_crs('EPSG:4326')
-		df_polygon = gdf_polygon.drop(columns=['geometry'])
-		gdf_tmp_2 = pd.merge(nearest,df_polygon,on=cve_column)
+		gdf_tmp_2 = nearest.to_crs('EPSG:4326')
 		
 		gdf_tmp = pd.concat([gdf_tmp_1,gdf_tmp_2])
 	
