@@ -980,32 +980,18 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 	# --------------- 1.2 CHECK FOR DIFFERENCES IN AGEBs
 	# Look for AGEBs in both gdfs
-	agebs_in_ageb = list(pop_ageb_gdf['AGEB'].unique())
-	agebs_in_mza = list(pop_mza_gdf['AGEB'].unique())
+	agebs_in_ageb_gdf = list(pop_ageb_gdf['CVE_AGEB'].unique())
+	agebs_in_mza_gdf = list(pop_mza_gdf['CVE_AGEB'].unique())
 
-	if (len(agebs_in_ageb) == 0) and (len(agebs_in_mza) == 0):
-		print("Error: Area of interest has no AGEB pop data.")
+	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
+		print("Error: Area of interest has no pop data.")
 		intended_crash
 
-	# Test for AGEBs present in ageb_gdf but not in mza_gdf
-	missing_agebs_1 = list(set(agebs_in_ageb) - set(agebs_in_mza))
-	if len(missing_agebs_1) > 0:
-		print(f'WARNING: AGEBs {missing_agebs_1} present in ageb_gdf but missing from mza_gdf.')
-		print(f'WARNING: Removing AGEBs {missing_agebs_1} from analysis.')
-
 	# Test for AGEBs present in mza_gdf but not in AGEB_gdf
-	missing_agebs_2 = list(set(agebs_in_mza) - set(agebs_in_ageb))
-	if len(missing_agebs_2) > 0:
-		print(f'WARNING: AGEBs {missing_agebs_2} present in mza_gdf but missing from ageb_gdf.')
-		print(f'WARNING: Removing AGEBs {missing_agebs_2} from analysis.')
-
-	# List AGEBs in both dataframes (Remove duplicates using set)
-	agebs_analysis = agebs_in_ageb + agebs_in_mza
-	agebs_analysis = list(set(agebs_analysis))
-
-	# Remove missing AGEBs from agebs_analysis list
-	for ageb in missing_agebs_1 + missing_agebs_2:
-		agebs_analysis.remove(ageb)
+	missing_agebs = list(set(agebs_in_mza_gdf) - set(agebs_in_ageb_gdf))
+	if len(missing_agebs) > 0:
+		print(f'WARNING: AGEBs {missing_agebs} present in mza_gdf but missing from ageb_gdf.')
+		print(f'WARNING: Removing AGEBs {missing_agebs} from AGEB analysis.')
 
 	##########################################################################################
 	# STEP 2: CALCULATE NAN VALUES
@@ -1020,24 +1006,23 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 	# --------------- NaNs CALCULATION 2.0) Start
 	i = 1
-	for ageb in agebs_analysis: # Most of the code of this function iterates over each AGEB
+	for ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB
 
 		if extended_logs:
 			print('--'*20)
-			print(f'Calculating NaNs for AGEB {ageb} ({i}/{len(agebs_analysis)}.)')
+			print(f'Calculating NaNs for AGEB {ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
 		
 		# STATISTICS - PROGRESS LOG DATA
 		# Measures current progress, prints if passed a checkpoint of progress_logs list.
-		current_progress = (i / len(agebs_analysis))*100
+		current_progress = (i / len(agebs_in_mza_gdf))*100
 		for checkpoint in progress_logs:
 			if current_progress >= checkpoint:
 				print(f'Calculating NaNs. {checkpoint}% done.')
 				progress_logs.remove(checkpoint)
 				break
 
-		# --------------- NaNs CALCULATION 2.1) FIND CURRENT AGEB DATA
-		ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['AGEB'] == ageb]
-		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['AGEB'] == ageb].copy()
+		# --------------- NaNs CALCULATION 2.1) FIND CURRENT AGEB BLOCK DATA
+		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVE_AGEB'] == ageb].copy()
 
 		# --------------- NaNs CALCULATION 2.2) KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (ALL values are NaNs)
 		# 2.2a) Set columns to be analysed
@@ -1252,8 +1237,6 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		blocks_calc = pd.concat([blocks_values,blocks_nans])
 		
 		# --------------- NaNs CALCULATION 4) FOR THE NAN VALUES THAT COULDN'T BE SOLVED, DISTRIBUTE AGEB VALUES.
-		if extended_logs:
-			print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
 		
 		# 2.4a) Prepare for second loop
 		# Remove masc/fem relation from analysis. 
@@ -1261,64 +1244,108 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		ageb_filling_cols = columns_of_interest.copy()
 		ageb_filling_cols.remove('REL_H_M')
 		blocks_calc.drop(columns=['REL_H_M'],inplace=True)
-		# Solving method used to solve column
-		solved_using_blocks = 0 # for log statistics
-		solved_using_ageb = 0 # for log statistics
-		
-		# 2.4b) Fill with AGEB values.
-		for col in ageb_filling_cols:
-			# Find number of nan values in current col
-			col_nan_values = blocks_calc.isna().sum()[col]
 
-			# If there are no nan values left in col, pass.
-			if col_nan_values == 0:
+		if ageb not in missing_agebs:
 
-				solved_using_blocks += 1 # for log statistics
+			if extended_logs:
+				print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
+
+			# Locate AGEB data in pop_ageb_gdf
+			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVE_AGEB'] == ageb]
+
+			# Solving method used to solve column
+			solved_using_blocks = 0 # for log statistics
+			solved_using_ageb = 0 # for log statistics
 			
-			# Elif there is only one value left, assign missing value directly to cell.
-			elif col_nan_values == 1: 
-				# Calculate missing value
-				ageb_col_value = ageb_gdf[col].unique()[0]
-				current_block_sum = blocks_calc[col].sum()
-				missing_value = ageb_col_value - current_block_sum
-				# Add missing value to na spot in column
-				blocks_calc[col].fillna(missing_value,inplace=True)
+			# 2.4b) Fill with AGEB values.
+			for col in ageb_filling_cols:
+				# Find number of nan values in current col
+				col_nan_values = blocks_calc.isna().sum()[col]
+
+				# If there are no nan values left in col, pass.
+				if col_nan_values == 0:
+					solved_using_blocks += 1 # for log statistics
 				
-				solved_using_ageb += 1 # for log statistics
-			
-			# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distr. method.
-			elif col_nan_values > 1:        
-				# Locate rows with NaNs in current col
-				idx = blocks_calc[col].isna()
-				# Set distributing factor to 0
-				blocks_calc['dist_factor'] = 0
-				# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
-				blocks_calc.loc[idx,'dist_factor'] = (blocks_calc['POBTOT']) / blocks_calc.loc[idx]['POBTOT'].sum()
-				# Calculate missing value
-				ageb_col_value = ageb_gdf[col].unique()[0]
-				current_block_sum = blocks_calc[col].sum()
-				missing_value = ageb_col_value - current_block_sum
-				# Distribute missing value in those rows using POBTOT factor
-				blocks_calc[col].fillna(missing_value * blocks_calc['dist_factor'], inplace=True)
-				blocks_calc.drop(columns=['dist_factor'],inplace=True)
-		
-				solved_using_ageb += 1 # for log statistics
+				# Elif there is only one value left, assign missing value directly to cell.
+				elif col_nan_values == 1: 
+					# Calculate missing value
+					ageb_col_value = ageb_gdf[col].unique()[0]
+					current_block_sum = blocks_calc[col].sum()
+					missing_value = ageb_col_value - current_block_sum
+					# Add missing value to na spot in column
+					blocks_calc[col].fillna(missing_value,inplace=True)
+					solved_using_ageb += 1 # for log statistics
+				
+				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distr. method.
+				elif col_nan_values > 1:        
+					# Locate rows with NaNs in current col
+					idx = blocks_calc[col].isna()
+					# Set distributing factor to 0
+					blocks_calc['dist_factor'] = 0
+					# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
+					blocks_calc.loc[idx,'dist_factor'] = (blocks_calc['POBTOT']) / blocks_calc.loc[idx]['POBTOT'].sum()
+					# Calculate missing value
+					ageb_col_value = ageb_gdf[col].unique()[0]
+					current_block_sum = blocks_calc[col].sum()
+					missing_value = ageb_col_value - current_block_sum
+					# Distribute missing value in those rows using POBTOT factor
+					blocks_calc[col].fillna(missing_value * blocks_calc['dist_factor'], inplace=True)
+					blocks_calc.drop(columns=['dist_factor'],inplace=True)
+					solved_using_ageb += 1 # for log statistics
 
-		# Logs Statistics - How was this AGEB solved?
-		if extended_logs:
-			pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
-			pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100
-			print(f'{pct_col_byblocks}% of columns solved using block data only.')
-			print(f'{pct_col_byagebs}% of columns required AGEB filling.')
+			# Logs Statistics - How was this AGEB solved?
+			if extended_logs:
+				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
+				pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100
+				print(f'{pct_col_byblocks}% of columns solved using block data only.')
+				print(f'{pct_col_byagebs}% of columns required AGEB filling.')
 		
-		# Logs Statistics - Add currently examined AGEB statistics to log df
-		acc_statistics.loc[i,'ageb'] = ageb
-		# Percentage of NaNs found using blocks gdf
-		acc_statistics.loc[i,'nans_calculated'] = nan_reduction
-		# Percentage of columns which could be solved entirely using equations in block_gdf
-		acc_statistics.loc[i,'block_calculated'] = solved_using_blocks
-		# Percentage of columns which required AGEB filling
-		acc_statistics.loc[i,'ageb_filling'] = solved_using_ageb
+			# Logs Statistics - Add currently examined AGEB statistics to log df
+			acc_statistics.loc[i,'ageb'] = ageb
+			# Percentage of NaNs found using blocks gdf
+			acc_statistics.loc[i,'nans_calculated'] = nan_reduction
+			# Columns which could be solved entirely using equations in block_gdf
+			acc_statistics.loc[i,'block_calculated'] = solved_using_blocks
+			# Columns which required AGEB filling
+			acc_statistics.loc[i,'ageb_filling'] = solved_using_ageb
+			# All could be solved, so
+			acc_statistics.loc[i,'unable_to_solve'] = 0
+
+		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf)
+			if extended_logs:
+				print(f"NANs on AGEB {ageb} cannot be calculated using AGEB data because it doesn't exist.")
+
+			# Solving method used to solve column
+			solved_using_blocks = 0 # for log statistics
+			unable_tosolve = 0 # for log statistics
+			
+			# # Statistical Loop
+			for col in ageb_filling_cols:
+				# Find number of nan values in current col
+				col_nan_values = blocks_calc.isna().sum()[col]
+				# If there are no nan values left in col, pass.
+				if col_nan_values == 0:
+					solved_using_blocks += 1 # for log statistics
+				else:
+					unable_tosolve += 1 # for log statistics
+
+			# Logs Statistics - How was this AGEB solved?
+			if extended_logs:
+				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
+				pct_col_notsolved = (unable_tosolve / len(ageb_filling_cols))*100
+				print(f"{pct_col_byblocks}% of columns solved using block data only.")
+				print(f"{pct_col_notsolved}% of columns couldn't be solved.")
+
+			# Logs Statistics - Add currently examined AGEB statistics to log df
+			acc_statistics.loc[i,'ageb'] = ageb
+			# Percentage of NaNs found using blocks gdf
+			acc_statistics.loc[i,'nans_calculated'] = nan_reduction
+			# Columns which could be solved entirely using equations in block_gdf
+			acc_statistics.loc[i,'block_calculated'] = solved_using_blocks
+			# There wasn't AGEB filling, therefore:
+			acc_statistics.loc[i,'ageb_filling'] = 0
+			# Columns which couldn't be solved because there was no AGEB filling
+			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve
 
 		# --------------- NaNs CALCULATION 5) Return calculated data from this AGEB to original block gdf (mza_ageb_gdf)
 		# 2.5a) Change original cols for calculated cols
@@ -1346,10 +1373,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	# Delivers output cols as .lower()
 	mza_calc.columns = mza_calc.columns.str.lower()
 
-	print('Finished calculating NaNs.')
-	print(f'Percentage of NaNs found using blocks gdf: {round(acc_statistics.nans_calculated.mean(),2)}%.')
-	print(f'Columns which could be solved entirely using equations in block_gdf: {acc_statistics.block_calculated.sum()}.')
-	print(f'Columns which required AGEB filling: {acc_statistics.ageb_filling.sum()}.')
+	print("Finished calculating NaNs.")
+	print(f"Percentage of NaNs found using blocks gdf: {round(acc_statistics['nans_calculated'].mean(),2)}%.")
+	print(f"Columns which could be solved entirely using equations in block_gdf: {acc_statistics['block_calculated'].sum()}.")
+	print(f"Columns which required AGEB filling: {acc_statistics['ageb_filling'].sum()}.")
+	print(f"Columns which couldn't be solved: {acc_statistics['unable_to_solve'].sum()}.")
 	
 	return mza_calc
 
