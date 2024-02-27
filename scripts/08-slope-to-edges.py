@@ -17,11 +17,6 @@ def main(mun_gdf, save=False):
         # Creates query to download OSMNX nodes and edges from the DB
         # by metropolitan area or capital using the municipality geometry
         G, nodes, edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
-        # For 2020 only:
-        if nodes_table == 'nodes_23_point':
-            nodes = nodes.drop(columns=['city'])
-        if edges_table == 'edges_23_line':
-            edges = edges.drop(columns=['city'])
         aup.log(f"--- Downloaded {len(nodes)} nodes and {len(edges)} edges from database for {city}.")
 
         mde_path = [] # list to append mde path strings
@@ -50,6 +45,12 @@ def main(mun_gdf, save=False):
         #set street_count as float
         nodes_elev_mde["street_count"] = nodes_elev_mde["street_count"].astype(float)
 
+        # Temp - nodes_23_point and edges_23_point has column 'city', yet to be deleted from DB.
+        # If used, delete column 'city'.
+        if nodes_table == 'nodes_23_point':
+            nodes_elev_mde = nodes_elev_mde.drop(columns=['city'])
+        if edges_table == 'edges_23_line':
+            edges_elev_mde = edges_elev_mde.drop(columns=['city'])
 
         #upload
         if save:
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     # Location of unzipped MDE data
     grl_path = '../data/external/MDE/'
     # Folder sufix
-    folder_sufix = 'elevation_24' # elevation or elevation_24
+    folder_sufix = 'elevation_23' # elevation or elevation_23
 
     # --------------- SCRIPT
     # Load all cities
