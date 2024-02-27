@@ -90,15 +90,38 @@ if __name__ == "__main__":
     query = f"SELECT city FROM {metro_schema}.{metro_table}"
     metro_df = aup.df_from_query(query)
     city_list = list(metro_df.city.unique())
+    k = len(city_list)
+    aup.log(f'--- Loaded city list with {k} cities.')
 
     #In metro_gdf_2020 CDMX was separated from the rest of ZMVM. 
     # For current elevation analysis, it's better if they are together.
     if metro_table == 'metro_gdf_2020':
         city_list.remove('CDMX') 
 
-    # Iterate over municipality DataFrame columns to access each municipality code
+    # In case of a crash, must write processed_city_list manually
+    processed_city_list = ['Aguascalientes','Ensenada','Mexicali','Tijuana','La Paz','Los Cabos',
+                           'Campeche','Laguna','Monclova','Piedras Negras','Saltillo','Colima',
+                           'Tapachula','Tuxtla','Chihuahua','Delicias','Juarez','ZMVM','Durango',
+                           'Celaya','Guanajuato','Leon','Irapuato','Acapulco','Chilpancingo',
+                           'Pachuca','Tulancingo','Guadalajara','Vallarta','Piedad','Toluca',
+                           'Morelia','Zamora','Uruapan','Cuautla','Cuernavaca','Tepic','Monterrey',
+                           'Oaxaca','Puebla','San Martin','Tehuacan','Queretaro','Cancun','Chetumal',
+                           'Playa','SLP','Culiacan']
+    
+    # LOG - Print progress of script so far
+    missing_cities_list = []
     for city in city_list:
-        aup.log(f"--- Loading municipalities for {city}.")
+        if city not in processed_city_list:
+            missing_cities_list.append(city)
+    i = len(processed_city_list)
+    aup.log(f'--- Already processed ({i}/{k}) cities.')
+    aup.log(f'--- Missing procesing for cities: {missing_cities_list}')
+
+    # Iterate over municipality DataFrame columns to access each municipality code
+    for city in missing_cities_list:
+        aup.log("--"*40)
+        i = i + 1
+        aup.log(f"--- Loading municipalities for city {i}/{k}:{city}.")
 
         # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
