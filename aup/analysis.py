@@ -1,9 +1,7 @@
 ################################################################################
 # Module: analysis.py
-# Set of utility functions 
-# developed by: Luis Natera @natera
-# 			  nateraluis@gmail.com
-# updated: 25/08/2020
+# Set of data and spatial data analysis functions
+# updated: 15/11/2023
 ################################################################################
 
 import igraph as ig
@@ -33,7 +31,7 @@ def voronoi_cpu(g, weights, seeds):
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
-def get_distances(g, seeds, weights, voronoi_assignment):
+def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, count_pois=(False,0)):
 	"""
 	Distance for the shortest path for each node to the closest seed using Dijkstra's algorithm.
 	Arguments:
@@ -41,16 +39,31 @@ def get_distances(g, seeds, weights, voronoi_assignment):
 		seeds (numpy.array): Find the shortest path from each node to the closest seed
 		weights (numpy.array): Specify the weights of each edge, which is used to calculate the shortest path
 		voronoi_assignment (numpy.array): Assign the nodes to their respective seeds
+		get_nearest_poi (bool, optional): Returns idx of nearest point of interest. Defaults to False.
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0) 
+
 	Returns: 
 		The distance for the shortest path for each node to the closest seed
 	"""
 	shortest_paths = np.array(g.shortest_paths_dijkstra(seeds,weights=weights))
 	distances = [np.min(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
-	return distances
-
+	if get_nearest_poi:
+		nearest_poi_idx = [np.argmin(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
+	if count_pois[0]:
+		near_count = [len(np.where(shortest_paths[:,i] <= count_pois[1])[0]) for i in range(len(voronoi_assignment))]
+	
+	# Function output options
+	if get_nearest_poi and count_pois[0]:
+		return distances, nearest_poi_idx, near_count
+	elif get_nearest_poi:
+		return distances, nearest_poi_idx
+	elif count_pois[0]:
+		return distances, near_count
+	else:
+		return distances
 
 def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name, 
-wght='length', max_distance=(0,'distance_node')):
+wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), max_distance=(0,'distance_node')):
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -61,28 +74,58 @@ wght='length', max_distance=(0,'distance_node')):
 		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
 		column_name (str): column name where the nearest distance index is stored
 		wght (str): weights column in edges. Defaults to length
+		get_nearest_poi (tuple, optional): tuple containing boolean to get the nearest POI and column name that contains that value. Defaults to (False, 'poi_id_column')
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		max_distance (tuple): tuple containing limits for distance to node and column name that contains that value. Defaults to (0, distance_node)
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with geometry and distance to the nearest POI
 	"""
+	
+	# --- Required processing
 	nodes = nodes.copy()
 	edges = edges.copy()
 	if max_distance[0] > 0:
 		gdf_f = gdf_f.loc[gdf_f[max_distance[1]]<=max_distance[0]]
 	g, weights, node_mapping = to_igraph(nodes,edges,wght=wght) #convert to igraph to run the calculations
-	col_weight = f'dist_{amenity_name}'
 	seeds = get_seeds(gdf_f, node_mapping, column_name)
 	voronoi_assignment = voronoi_cpu(g, weights, seeds)
-	distances = get_distances(g,seeds,weights,voronoi_assignment)
 
-	nodes[col_weight] = distances
+	# --- Analysis options
+	if get_nearest_poi[0] and (count_pois[0]): # Return distances, nearest poi idx and near count
+		distances, nearest_poi_idx, near_count = get_distances(g,seeds,weights,voronoi_assignment,
+                                                               get_nearest_poi=True, 
+                                                               count_pois=count_pois)
+		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
+		nodes[f'dist_{amenity_name}'] = distances
+		nodes[f'nearest_{amenity_name}'] = nearest_poi
+		nodes[f'{amenity_name}_{count_pois[1]}min'] = near_count
+		
+    
+	elif get_nearest_poi[0]: # Return distances and nearest poi idx
+		distances, nearest_poi_idx = get_distances(g,seeds,weights,voronoi_assignment,
+                                                   get_nearest_poi=True)
+		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
+		nodes[f'dist_{amenity_name}'] = distances
+		nodes[f'nearest_{amenity_name}'] = nearest_poi
+    
+	elif (count_pois[0]): # Return distances and near count
+		distances, near_count = get_distances(g,seeds,weights,voronoi_assignment,
+                                              count_pois=count_pois)
+		nodes[f'dist_{amenity_name}'] = distances
+		nodes[f'{amenity_name}_{count_pois[1]}min'] = near_count
 
+	else: # Return distances only
+		distances = get_distances(g,seeds,weights,voronoi_assignment)
+		nodes[f'dist_{amenity_name}'] = distances
+
+	# --- Format
 	nodes.replace([np.inf, -np.inf], np.nan, inplace=True)
-	idx = pd.notnull(nodes[col_weight])
+	idx = pd.notnull(nodes[f'dist_{amenity_name}'])
 	nodes = nodes[idx].copy()
 
 	return nodes
+
 
 def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	"""
@@ -100,7 +143,10 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 	dist_col = col_name
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
+	# Group data by hex_id
+	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
 	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
+	# Merge back to geometry
 	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
@@ -584,7 +630,7 @@ def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
 		z0 = z0[np.squeeze(idx)]
 
 	# calculate weights
-	weights = 1.0 (dist + 1e-12)**power
+	weights = 1.0 * (dist + 1e-12)**power
 	# weights sum to 1 by row
 	weights /= weights.sum(axis=0)
 
@@ -641,3 +687,251 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 	int_value = np.where(np.isnan(weights.T),0,weights.T).dot(np.where(np.isnan(z0),0,z0))
 
 	return int_value
+
+def weighted_average(df, weight_column, value_column):
+	"""
+	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
+	Arguments:
+		df (pandas.DataFrame): DataFrame containing the data to be averaged
+		weight_column (str): Column name with weight data
+		value_column (str): Column name with value data
+	Returns:
+		weighted_average (float): Weighted average of the value column
+	"""
+	weighted_average = (df[weight_column] * df[value_column]).sum() / df[weight_column].sum()
+	return weighted_average
+
+def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
+	"""
+	Args:
+		aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
+		pop_dir (str): Directory (location) of the population file.
+		index_column (str): Name of the unique index column within the population file.
+		pop_columns (list): List of names of columns to be added by hexagon. 
+							First item of list must be name of total population column in order to calculate density.
+		res_list (list): List of integers containing hex resolutions for output.
+
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with grouped sociodemographic data, hex_id and its resolution.
+	"""
+
+	# Read pop GeoDataFrame
+	pop_gdf = gpd.read_file(pop_dir)
+
+	# Format and set columns of interest
+	pop_gdf = pop_gdf.to_crs("EPSG:4326")
+	pop_gdf.columns = pop_gdf.columns.str.lower()
+	columns_ofinterest = pop_columns.copy()
+	columns_ofinterest.append(index_column)
+	columns_ofinterest.append('geometry')
+	block_pop = pop_gdf[columns_ofinterest]
+	print(f"Filtered pop_gdf.")
+
+	# Extract point from polygon
+	block_pop = block_pop.to_crs("EPSG:6372")
+	block_pop = block_pop.set_index(index_column)
+	point_within_polygon = gpd.GeoDataFrame(geometry=block_pop.representative_point())
+	print(f"Extracted pop_gdf centroids.")
+
+	# Format centroids with pop data
+	# Add census data to points
+	centroid_block_pop = point_within_polygon.merge(block_pop, right_index=True, left_index=True) 
+	# Format geometry column
+	centroid_block_pop.drop(columns=['geometry_y'], inplace=True)
+	centroid_block_pop.rename(columns={'geometry_x':'geometry'}, inplace=True)
+	# Create GeoDataFrame with that geometry column
+	centroid_block_pop = gpd.GeoDataFrame(centroid_block_pop, geometry='geometry')
+	# Format population column
+	centroid_block_pop.rename(columns={pop_columns[0]:'pobtot'},inplace=True)
+	# General final formatting
+	centroid_block_pop = centroid_block_pop.to_crs("EPSG:4326")
+	centroid_block_pop = centroid_block_pop.reset_index()
+	print(f"Converted to centroids with {centroid_block_pop.pobtot.sum()} " + f"pop vs {block_pop[pop_columns[0]].sum()} pop in original gdf.")
+
+	# Create buffer for aoi to include outer blocks when creating hexgrid
+	aoi_buffer = aoi.copy()
+	aoi_buffer = aoi_buffer.dissolve()
+	aoi_buffer = aoi_buffer.to_crs("EPSG:6372").buffer(2500)
+	aoi_buffer = gpd.GeoDataFrame(geometry=aoi_buffer)
+	aoi_buffer = aoi_buffer.to_crs("EPSG:4326")
+
+	hex_socio_gdf = gpd.GeoDataFrame()
+
+	for res in res_list:
+		# Generate hexagon gdf
+		hex_gdf = create_hexgrid(aoi_buffer, res)
+		hex_gdf = hex_gdf.set_crs("EPSG:4326")
+
+		# Format - Remove res from index name and add column with res
+		hex_gdf.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+		hex_gdf['res'] = res
+		print(f"Created hex_grid with {res} resolution")
+
+		# Group pop data
+		string_columns = [index_column]
+		hex_socio_df = socio_points_to_polygon(hex_gdf, centroid_block_pop,'hex_id', string_columns) 
+		print(f"Agregated socio data to hex with a total of {hex_socio_df.pobtot.sum()} population for resolution {res}.")
+
+		# Hexagons data to hex_gdf GeoDataFrame
+		hex_socio_gdf_tmp = hex_gdf.merge(hex_socio_df, on='hex_id')
+		
+		# Calculate population density
+		hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
+		hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
+		print(f"Calculated an average density of {hex_socio_gdf_tmp.dens_pob_ha.mean()}")
+		
+		# Concatenate in hex_socio_gdf, where (if more resolutions) next resolution will also be stored.
+		hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])    
+
+	print(f"Finished calculating population by hexgrid for res {res_list}.")
+
+	return hex_socio_gdf
+
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)):
+	""" Finds time from each node to nearest poi (point of interest).
+	Args:
+		G (networkx.MultiDiGraph): Graph with edge bearing attributes
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes within boundaries
+		edges (geopandas.GeoDataFrame): GeoDataFrame with edges within boundaries
+		pois (geopandas.GeoDataFrame): GeoDataFrame with points of interest
+		poi_name (str): Text containing name of the point of interest being analysed
+		prox_measure (str): Text ("length" or "time_min") used to choose a way to 
+							calculate time between nodes and points of interest.
+							If "length", will assume a walking speed of 4km/hr.
+							If "time_min", edges with time information must be provided.
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0) 
+
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
+	"""
+
+    ##########################################################################################
+    # STEP 1: NEAREST. 
+	# Finds and assigns nearest node OSMID to each point of interest.
+	   
+    # Defines projection for downloaded data
+	pois = pois.set_crs("EPSG:4326")
+	nodes = nodes.set_crs("EPSG:4326")
+	edges = edges.set_crs("EPSG:4326")
+
+ 	# In case there are no amenities of the type in the city, prevents it from crashing if len = 0
+	if len(pois) == 0:
+		nodes_time = nodes.copy()
+
+		# Format
+		nodes_time.reset_index(inplace=True)
+		nodes_time = nodes_time.set_crs("EPSG:4326")
+
+		# As no amenities were found, output columns are set to nan.
+		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
+		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
+		if count_pois[0]: 
+			nodes_time[f'{poi_name}_{count_pois[1]}min'] = np.nan # If requested pois_count, value is set to np.nan.
+			print(f"0 {poi_name} found. Pois count set to nan for all nodes.")
+			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
+			return nodes_time
+		else:
+			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
+			return nodes_time
+	
+	else:
+		### Find nearest osmnx node for each DENUE point.
+		nearest = find_nearest(G, nodes, pois, return_distance= True)
+		nearest = nearest.set_crs("EPSG:4326")
+		print(f"Found and assigned nearest node osmid to each {poi_name}.")
+
+		##########################################################################################
+		# STEP 2: DISTANCE NEAREST POI. 
+		# Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
+			
+		# --------------- 2.1 FORMAT NETWORK DATA
+		# Fill NANs with mean times (prevents crash)
+		edges[prox_measure].fillna(edges[prox_measure].mean(),inplace=True)
+		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
+		if prox_measure == 'length':
+			edges['time_min'] = (edges['length']*60)/4000
+
+		# --------------- 2.2 ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
+		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
+
+		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
+		nodes_analysis = nodes.reset_index().copy()
+		# nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
+		nodes_time = nodes.copy()
+		
+		# --------------- 2.3 PROCESSING DISTANCE
+		print (f"Starting time analysis for {poi_name}.")
+
+		# List of columns with output data by batch
+		time_cols = []
+		poiscount_cols = []
+	
+		# If possible, analyses by batches of 200 pois.
+		if len(nearest) % 250:
+			batch_size = len(nearest)/200
+			for k in range(int(batch_size)+1):
+				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
+				# Calculate
+				source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
+				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
+
+				# Extract from nodes_distance_prep the calculated time data
+				batch_time_col = 'time_'+str(k)+poi_name
+				time_cols.append(batch_time_col)
+				nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
+
+				# If requested, extract from nodes_distance_prep the calculated pois count
+				if count_pois[0]:
+					batch_poiscount_col = f'{poi_name}_{str(k)}_{count_pois[1]}min'
+					poiscount_cols.append(batch_poiscount_col)
+					nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+
+			# After batch processing is over, find final output values for all batches.
+			# For time data, apply the min function to time columns.
+			nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
+			# If requested, apply the sum function to pois_count columns. 
+			if count_pois[0]:
+				# Sum pois count
+				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[poiscount_cols].sum(axis=1)
+		
+		# Else, analyses by batches of 250 pois.
+		else:
+			batch_size = len(nearest)/250
+			for k in range(int(batch_size)+1):
+				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
+				# Calculate
+				source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
+				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
+
+				# Extract from nodes_distance_prep the calculated time data
+				batch_time_col = 'time_'+str(k)+poi_name
+				time_cols.append(batch_time_col)
+				nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
+
+				# If requested, extract from nodes_distance_prep the calculated pois count
+				if count_pois[0]:
+					batch_poiscount_col = f'{poi_name}_{str(k)}_{count_pois[1]}min'
+					poiscount_cols.append(batch_poiscount_col)
+					nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+
+			# After batch processing is over, find final output values for all batches.
+			# For time data, apply the min function to time columns.
+			nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
+			# If requested, apply the sum function to pois_count columns. 
+			if count_pois[0]:
+				# Sum pois count
+				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[poiscount_cols].sum(axis=1)
+
+		print(f"Finished time analysis for {poi_name}.")
+
+		##########################################################################################
+		# Step 3: FINAL FORMAT. Organices and filters output data.
+		nodes_time.reset_index(inplace=True)
+		nodes_time = nodes_time.set_crs("EPSG:4326")
+
+		if count_pois[0]:
+			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
+			return nodes_time
+		else:
+			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]		
+			return nodes_time
