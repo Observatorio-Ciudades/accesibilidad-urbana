@@ -1,3 +1,9 @@
+################################################################################
+# Module: Graph
+# Set of graph analysis functions
+# updated: 15/11/2023
+################################################################################
+
 from pyproj import CRS
 from sklearn.neighbors import BallTree
 from scipy.spatial import cKDTree
