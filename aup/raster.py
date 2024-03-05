@@ -123,6 +123,11 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # analyze available data according to raster properties
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
                                            band_name_list, freq)
+    
+    # save original df_len (to review found and missing months in case of not passing available_data_check)
+    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
+    if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
+        df_len.to_csv(df_file_dir, index=False)
 
     available_data_check(df_len, missing_months) # test for missing months
 
@@ -784,14 +789,19 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # binary id - checks if month could be processed
         checker = 0
 
-        if df_raster.iloc[i].data_id==0:
-            continue
-            
         # gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
         
+        # check if raster already exists
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
+            df_raster.loc[i,'data_id'] = 1
+            df_raster.loc[i,'able_to_download'] = 1
+            df_raster.to_csv(df_file_dir, index=False)
+            continue
+        
+        # check if month is available
+        if df_raster.iloc[i].data_id==0:
             continue
         
         log(f'\n Starting new analysis for {month_}/{year_}')
