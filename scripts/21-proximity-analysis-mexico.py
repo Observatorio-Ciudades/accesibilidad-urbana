@@ -140,8 +140,8 @@ def two_method_check(row):
         
     return row
 
-def main(city, save = False, local_save = True):
-    aup.log('--'*30)
+def main(city, final_save=False, nodes_save=False, local_save=True):
+    aup.log('--'*40)
     aup.log(f'--- STARTING CITY {city}.')
 
     ############################################################### PART 1 ###############################################################
@@ -280,6 +280,19 @@ Analysing source {source}.""")
     # Final format for nodes
     column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
     nodes_analysis = nodes_analysis[column_order]
+
+    if local_save:
+        nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
+        aup.log(f"--- Saved {city} nodes gdf locally.")
+
+    if nodes_save:
+        nodes_analysis['city'] = city
+        aup.gdf_to_db_slow(nodes_timeanalysis_filter, nodes_save_table, save_schema, if_exists='append')
+        aup.log(f"--- Saved {city} nodes gdf in database.")
+
+    if stop:
+        aup.log('Stopped.')
+        return city
     
     aup.log(f"""
 ------------------------------------------------------------
@@ -398,7 +411,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     column_max_all.append('osmid')
     column_max_all.append('geometry')
     nodes_timeanalysis_filter = nodes_analysis[column_max_all].copy()
-        
+
     aup.log("--- Calculated proximity to amenities data by node.")
 
     # 2.2b -------------- AMENITIES COUNT ANALYSIS (amenities at given time count, optional)
@@ -657,18 +670,17 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # ------------------- This step saves (locally for tests, to db for script running)
 
     if local_save:
-        hex_idx_city.to_file(local_save_dir, driver='GPKG')
+        hex_idx_city.to_file(final_local_save_dir, driver='GPKG')
         aup.log(f"--- Saved {city} gdf locally.")
 
-    if save:
-        aup.gdf_to_db_slow(hex_idx_city, save_table, save_schema, if_exists='append')
+    if final_save:
+        aup.gdf_to_db_slow(hex_idx_city, final_save_table, save_schema, if_exists='append')
         aup.log(f"--- Saved {city} gdf in database.")
 
 
 if __name__ == "__main__":
-    aup.log('--'*30)
-    aup.log('--- STARTING SCRIPT.')
-
+ 
+    # ---------------------------- SCRIPT CONFIGURATION - VERSION ----------------------------
     # Prox analysis version (Must pass integers 1 or 2)
     # If version = 1, does proximity analysis as it was done in 2020.
     # If version = 2:
@@ -695,36 +707,36 @@ if __name__ == "__main__":
         aup.log("--- Must pass integers 1 or 2.")
         intended_crash
 
-    # ---------------------------- BASE DATA REQUIRED ----------------------------
+    # ---------------------------- SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ----------------------------
     # Area of interest (city)
     metro_schema = 'metropolis'
-    metro_table = 'metro_gdf_2015' #'metro_gdf_2015' or 'metro_gdf_2020'
+    metro_table = 'metro_gdf_2020'
     # Network data (nodes and edges table for distance analysis,
     # also used to generate the network G with which the nearest OSMID is assigned to each poi)
     network_schema = 'osmnx'
-    nodes_table = 'nodes' #'nodes' or 'nodes_23_point'
-    edges_table = 'edges_speed' ################################# PENDIENTE NEW EDGES_SPEED
+    nodes_table = 'nodes' # 'nodes' or 'nodes_osmnx_23_point'
+    edges_table = 'edges_speed' # 'edges_speed' or 'edges_speed_23_line'
     # Points of interest - DENUE
     denue_schema = 'denue'
-    denue_table = 'denue_2020' #'denue_2020' or 'denue_23_point'
+    denue_table = 'denue_2020' # 'denue_2020' or 'denue_23_point'
     # Points of interest - CLUES
     clues_schema = 'denue'
-    clues_table = 'clues' #'clues' or 'clues_23_point'
+    clues_table = 'clues' # 'clues' or 'clues_23_point'
     # Points of interest - SIP
     sip_schema = 'denue'
-    sip_table = 'sip_2020' #'sip_2020' or 'sip_23_point'
+    sip_table = 'sip_2020' # 'sip_2020' or 'sip_23_point'
     # Hexgrid
     hex_schema = 'hexgrid'
     # Population data
     pop_schema = 'censo'
-    pop_table = 'hex_bins_pop_2020' ################################# PENDIENTE DEFINIR POP SOURCES for 2023
+    pop_table = 'hex_bins_pop_2020' ################################# POP DATA IS WORK IN PROGRESS
 
-    # ---------------------------- ANALYSIS AND OUTPUT OPTIONS ----------------------------
+    # ---------------------------- SCRIPT CONFIGURATION - ANALYSIS AND OUTPUT OPTIONS ----------------------------
     # Network distance method used in function pois_time. (If length, assumes pedestrian speed of 4km/hr.)
     prox_measure = 'time_min' # Must pass 'length' or 'time_min'
 
     # Count available amenities at given time proximity (minutes)?
-    count_pois = (True,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
+    count_pois = (False,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
 
     # If pop_output = True, loads pop data from pop_schema and pop_table.
     # If pop_output = False, loads empty hexgrid.
@@ -733,17 +745,27 @@ if __name__ == "__main__":
     # Hexagon resolutions of output
     res_list = [8]
 
-    # Save disk space by deleting used data that will not be used after?
-    # save_space = True #Not available at the moment
+    # Stop at any given point of main function?
+    stop = True
 
-    # ---------------------------- SAVING ----------------------------
-    # Save final output to db?
-    save = False
+    # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
     save_schema = 'prox_analysis'
-    save_table = 'proximityanalysis_24_ageb_hex'
-    # Local save? (Runs Aguascalientes for tests)
+    # Save nodes with proximity data to db?
+    nodes_save = False
+    nodes_save_table = 'nodesproximity_24'
+    # Save final output to db?
+    final_save = False 
+    final_save_table = 'proximityanalysis_24_ageb_hex'
+
+    # ---------------------------- SCRIPT CONFIGURATION - LOCAL SAVE (TESTS) ----------------------------
+    # If local_save is activated, script runs Aguascalientes only.
     local_save = True
-    local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2_countpois.gpkg'
+    nodes_local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2_nodes.gpkg'
+    final_local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2.gpkg'
+
+    # ---------------------------- SCRIPT START ----------------------------
+    aup.log('--'*50)
+    aup.log(f"--- STARTING SCRIPT USING VERSION {version}.")
 
     # PARAMETERS DICTIONARY
     # This dicctionary sets the ejes, amenidades, sources and codes for analysis
@@ -808,9 +830,8 @@ if __name__ == "__main__":
                                         'Cultural':cultural_weight} # ////////////////// Depends on version (v1 will choose min, v2 two-method.)
                     }
     
-    # MAIN FUNCTION RUN
     # Load city list
-    if local_save: #tests
+    if local_save: # Local save activates test mode (Aguascalientes only)
         city_list = ['Aguascalientes']
     else: #script run
         cities_gdf = aup.gdf_from_db(metro_table, metro_schema)
@@ -820,16 +841,21 @@ if __name__ == "__main__":
         del cities_gdf
     
     # Prevent cities being analyzed several times in case of a crash
-    aup.log('--- Downloading preprocessed data.')
+    aup.log('--- Looking for alredy saved data in db.')
     processed_city_list = []
     try:
-        query = f"SELECT city FROM {save_schema}.{save_table}"
+        query = f"SELECT city FROM {save_schema}.{final_save_table}"
         processed_city_list = aup.df_from_query(query)
         processed_city_list = list(processed_city_list.city.unique())
     except:
         pass
     
+    # If intentionally skipping cities, add here:
+    #processed_city_list.append('city')
+    processed_city_list.append('ZMVM')
+    processed_city_list.append('CDMX')
+
     # Run
     for city in city_list:
         if city not in processed_city_list:
-            main(city = city, save = save, local_save = local_save)
+            main(city, final_save, nodes_save, local_save)
