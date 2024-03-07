@@ -360,6 +360,9 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     # calculate missing months
     missing_months = len(df_complete_dates.loc[df_complete_dates.data_id==0])
     
+    # create empty able_to_download to avoid crash
+    df_complete_dates['able_to_download'] = np.nan
+    
     return df_complete_dates, missing_months
 
 def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
