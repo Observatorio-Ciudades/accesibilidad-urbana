@@ -262,7 +262,7 @@ Analysing source {source}.""")
                 aup.log(f"--- {source_pois.shape[0]} {source} pois. Analysing source pois proximity to nodes.")
                 
                 # ANALYSIS - Calculate time data from nodes to source
-                source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure,count_pois)
+                source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois)
                 # ANALYSIS - Format
                 source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
                 source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
@@ -746,7 +746,7 @@ if __name__ == "__main__":
     res_list = [8]
 
     # Stop at any given point of main function?
-    stop = True
+    stop = False
 
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
     save_schema = 'prox_analysis'
@@ -756,12 +756,10 @@ if __name__ == "__main__":
     # Save final output to db?
     final_save = False 
     final_save_table = 'proximityanalysis_24_ageb_hex'
-
-    # ---------------------------- SCRIPT CONFIGURATION - LOCAL SAVE (TESTS) ----------------------------
     # If local_save is activated, script runs Aguascalientes only.
     local_save = True
-    nodes_local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2_nodes.gpkg'
-    final_local_save_dir = '../data/external/temporal_fromjupyter/proximity_v2/test_proxanalysis_scriptv2.gpkg'
+    nodes_local_save_dir = f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_nodes.gpkg"
+    final_local_save_dir = f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_hex.gpkg"
 
     # ---------------------------- SCRIPT START ----------------------------
     aup.log('--'*50)
