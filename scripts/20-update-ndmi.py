@@ -66,8 +66,8 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     
     for r in res_list:
         # biggest resolution already loaded
-        if r == big_res:
-            continue
+        # if r == big_res:
+        #    continue
         
         # Load hexgrid
         table_hex = f'hexgrid_{r}_city_2020'
@@ -86,9 +86,9 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     for r in list(hex_gdf.res.unique()):
 
         # biggest resolution already loaded
-        if r == big_res:
-            aup.log(f'Skipping res: {r}')
-            continue
+        # if r != 11:
+        #     aup.log(f'Skipping res: {r}')
+        #     continue
 
         processing_chunk = 100000
 
@@ -219,11 +219,11 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
 
         if r == 8:
 
-            '''aup.df_to_db_slow(df_raster_analysis, f'{index_analysis}_complete_dataset_hex',
+            aup.df_to_db_slow(df_raster_analysis, f'{index_analysis}_complete_dataset_hex',
                             'raster_analysis', if_exists='append', chunksize=upload_chunk)
 
             aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
-                            'raster_analysis', if_exists='append')'''
+                            'raster_analysis', if_exists='append')
 
         else:
             limit_len = 5000000
@@ -237,8 +237,9 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
             else:
                 aup.df_to_db(df_raster_analysis,f'{index_analysis}_complete_dataset_hex',
                                     'raster_analysis', if_exists='append')
-            '''aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
-                            'raster_analysis', if_exists='append')'''
+            aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
+                            'raster_analysis', if_exists='append')
+            
         aup.log(f'Finished uploading data for res{r}')
         
     # delete variables
@@ -259,7 +260,7 @@ if __name__ == "__main__":
     start_date = '2023-01-01'
     end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
-    del_data = False
+    del_data = True
     query_sat = {"eo:cloud_cover": {"lt": 10}}
 
     local_save = False #------ Set True if test
@@ -300,11 +301,13 @@ if __name__ == "__main__":
     #------ Set following if test
     # city_list = ['ZMVM']
     # for city in city_list:
+    finish_list = ['CDMX','Aguascalientes','Chihuahua','Chilpancingo','Ciudad Obregon',
+                   'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara']
 
     #------ Set following if full analysis
     for city in gdf_mun.city.unique():
 
-        if city != 'CDMX':
+        if city in finish_list:
             continue
 
         # if city not in processed_city_list and city not in skip_list:
