@@ -330,7 +330,8 @@ if __name__ == "__main__":
                 else:
                     df_raster = pd.read_csv(df_file_dir)
                     missing_months = len(df_raster.loc[df_raster.data_id==0])
-                    not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
+                    # not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
+                    not_donwloadable = -1
                     df_skip.loc[len(df_skip),'missing_months'] = missing_months
                     df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
                 df_skip.to_csv(df_skip_dir, index=False)
