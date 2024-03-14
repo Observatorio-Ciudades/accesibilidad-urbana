@@ -8,6 +8,8 @@ import math
 
 import matplotlib.pyplot as plt
 
+import networkx as nx
+
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
@@ -18,14 +20,64 @@ def main(mun_gdf, save=False):
 
     # Creates query to download OSMNX nodes and edges from the DB
     # by metropolitan area or capital using the municipality geometry
-    _,_,edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
+    G,nodes,edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
     aup.log(f"--- Downloaded {len(edges)} edges from database for {city}.")
 
+    # Added on 2024/03/13 - Keep only parts of Network which are connected to a central point in city.
+    # (Drops parts of Network which are not connected to the main Network)
+    aup.log(f"--- Deleting unconnected edges.")
+    # a) --------------- Load city shape through agebs
+    ageb_gdf = gpd.GeoDataFrame()
+    # Load city states (CVE_ENT)
+    cve_ent_list = list(mun_gdf.CVE_ENT.unique())
+    for cve_ent in cve_ent_list:
+        #Load muns in each city state
+        cve_mun_list = list(mun_gdf.loc[mun_gdf.CVE_ENT == cve_ent].CVE_MUN.unique())
+        # To avoid error that happens when there's only one MUN (Creates tupple with one value only)
+        # Error example: [SQL: SELECT * FROM censo_mza.censo_mza_2020 WHERE ("CVE_ENT" = '02') AND "CVE_MUN" IN ('001',) ]
+        if len(cve_mun_list) >= 2:
+            cve_mun_tpl = str(tuple(cve_mun_list))
+        else:
+            cve_mun_list.append(cve_mun_list[0])
+            cve_mun_tpl = str(tuple(cve_mun_list))
+        # Load AGEBs and concat
+        query = f"SELECT * FROM marco.ageb_2020 WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
+        ageb_gdf = pd.concat([ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
+
+    # b) --------------- Find closest OSMnx node to city centroid
+    # City centroid
+    aoi = ageb_gdf.dissolve()
+    aoi = aoi.to_crs("EPSG:6372")
+    aoi_centroid = gpd.GeoDataFrame(geometry=aoi.centroid)
+    aoi_centroid = aoi_centroid.to_crs("EPSG:4326")
+    # Nearest osmnx node
+    nearest = aup.find_nearest(G, nodes, aoi_centroid, return_distance=False)
+
+    # c) --------------- Find osmids with a path trough G to nearest (Those osmids are connected, the rest are not)
+    # Get the unique osmid of the target node
+    target_osmid = nearest.osmid.unique()[0]
+    # Convert the graph to an undirected graph (To ignore nodes which are not reachable due to direction of streets)
+    G_undirected = G.to_undirected()
+    # Initialize a list to store nodes that have a path to the target node
+    osmids_with_path = []
+    # Iterate over all nodes in the graph
+    for node in G_undirected.nodes():
+        # Check if there is a path from the current node to the target node
+        if nx.has_path(G_undirected, node, target_osmid):
+            # If a path exists, append the node to the list
+            osmids_with_path.append(node)
+
+    # c) --------------- Filter edges using osmids_with_path
+    edges_gdf = edges.reset_index()
+    filtered_edges = edges_gdf.loc[(edges_gdf['u'].isin(osmids_with_path)) | (edges_gdf['v'].isin(osmids_with_path))].copy()
+    filtered_edges = filtered_edges.set_index(["u", "v", "key"])
+    aup.log(f"--- Deleted {edges.shape[0] - filtered_edges.shape[0]} unconnected edges.")
+
     # Calculate walking speed for edges
-    edges = aup.walk_speed(edges)
+    filtered_edges = aup.walk_speed(filtered_edges)
     # Calculate time for edges
-    edges['time_min'] = edges['length']/(1000*edges['walkspeed']/60)
-    aup.log(f"Average speed for {city} is {edges.walkspeed.mean()}")
+    filtered_edges['time_min'] = filtered_edges['length']/(1000*filtered_edges['walkspeed']/60)
+    aup.log(f"--- Average speed for {city} is {filtered_edges.walkspeed.mean()}")
 
     '''
     # Downloads hexgrid for city
@@ -69,8 +121,9 @@ def main(mun_gdf, save=False):
 
     # Save
     if save:
-        edges.reset_index(inplace=True)
-        aup.gdf_to_db_slow(edges, "edges_"+edges_table_sufix, schema=schema, if_exists="append")
+        filtered_edges.reset_index(inplace=True)
+        aup.gdf_to_db_slow(filtered_edges, "edges_"+edges_table_sufix, schema=schema, if_exists="append")
+        aup.log(f"--- Loaded edges_{edges_table_sufix} for {city} to db.")
 
 
 if __name__ == "__main__":
@@ -86,7 +139,7 @@ if __name__ == "__main__":
     nodes_table = 'nodes_elevation_23_point' # nodes_elevation or nodes_elevation_23_point
     edges_table = 'edges_elevation_23_line' # edges_elevation or edges_elevation_23_line
     # Output table sufix
-    edges_table_sufix = 'speed_23_line' # speed or speed_23_line
+    edges_table_sufix = 'speed_23_line_filtered' # speed or speed_23_line
 
     # --------------- SCRIPT
     # Load all available cities
@@ -104,11 +157,11 @@ if __name__ == "__main__":
 
     # In case of a crash, must write processed_city_list manually 
     # because column city is not saved to output.
-    processed_city_list = ['Aguascalientes', 'Ensenada', 'Mexicali', 'Tijuana', 'La Paz', 'Los Cabos', 'Campeche', 'Laguna', 'Monclova', 'Piedras Negras', 
+    processed_city_list = ['Aguascalientes','Ensenada', 'Mexicali', 'Tijuana', 'La Paz', 'Los Cabos', 'Campeche', 'Laguna', 'Monclova', 'Piedras Negras', 
                            'Saltillo', 'Colima', 'Tapachula', 'Tuxtla', 'Chihuahua', 'Delicias', 'Juarez', 'Durango', 'Celaya', 'Guanajuato', 'Leon', 
                            'Irapuato', 'Acapulco', 'Chilpancingo', 'Pachuca', 'Tulancingo', 'Guadalajara', 'Vallarta', 'Piedad', 'Toluca', 'Morelia', 'Zamora', 
-                           'Uruapan', 'Cuautla', 'Cuernavaca', 'Tepic', 'Monterrey', 'Oaxaca', 'Puebla', 'San Martin', 'Tehuacan', 'Queretaro', 'Cancun', 'Chetumal', 
-                           'Playa', 'SLP', 'Culiacan', 'Los Mochis', 'Mazatlan', 'Guaymas', 'Ciudad Obregon', 'Hermosillo', 'Nogales', 'Villahermosa', 'Victoria', 
+                           'Uruapan', 'Cuautla', 'Cuernavaca', 'Tepic', 'Monterrey', 'Oaxaca', 'Puebla', 'San Martin', 'Tehuacan', 'Queretaro', 'Cancun', 'Chetumal',
+                           'Playa', 'SLP', 'Culiacan', 'Los Mochis', 'Mazatlan', 'Guaymas', 'Ciudad Obregon', 'Hermosillo', 'Nogales', 'Villahermosa', 'Victoria',
                            'Matamoros', 'Nuevo Laredo', 'Reynosa', 'Tampico', 'Tlaxcala', 'Coatzacoalcos', 'Cordoba', 'Minatitlan', 'Orizaba', 'Poza Rica', 'Veracruz', 
                            'Xalapa', 'Merida', 'Zacatecas']
     
