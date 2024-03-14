@@ -151,14 +151,14 @@ def main(city, final_save=False, nodes_save=False, local_save=True):
     # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
     # ------------------- This first step downloads the area of interest and network used to measure distance.
     
-    # Download area of interest
+    # Download area of interest (aoi)
     aup.log('--- Downloading area of interest.')
     query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
     mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
     mun_gdf = mun_gdf.set_crs("EPSG:4326")
     aoi = mun_gdf.dissolve()
     
-    # Download Network used to calculate nearest note to each poi
+    # Download Network (G, nodes, edges)
     aup.log('--- Downloading network.')
     G, nodes, edges = aup.graph_from_hippo(aoi, schema=network_schema, edges_folder=edges_table, nodes_folder=nodes_table)
 
