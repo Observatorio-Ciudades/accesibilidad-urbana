@@ -15,18 +15,11 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
+# Added this function on 2024/03/13 - Keeps only parts of Network which are have a path (are connected) to a central point of city.
+def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table):
 
-def main(mun_gdf, save=False):
-
-    # Creates query to download OSMNX nodes and edges from the DB
-    # by metropolitan area or capital using the municipality geometry
-    G,nodes,edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
-    aup.log(f"--- Downloaded {len(edges)} edges from database for {city}.")
-
-    # Added on 2024/03/13 - Keep only parts of Network which are connected to a central point in city.
-    # (Drops parts of Network which are not connected to the main Network)
-    aup.log(f"--- Deleting unconnected edges.")
-    # a) --------------- Load city shape through agebs
+    aup.log(f"-- Filter osmnx network - Downloading city shape through ageb gdf.")
+    # --------------- City shape
     ageb_gdf = gpd.GeoDataFrame()
     # Load city states (CVE_ENT)
     cve_ent_list = list(mun_gdf.CVE_ENT.unique())
@@ -41,10 +34,11 @@ def main(mun_gdf, save=False):
             cve_mun_list.append(cve_mun_list[0])
             cve_mun_tpl = str(tuple(cve_mun_list))
         # Load AGEBs and concat
-        query = f"SELECT * FROM marco.ageb_2020 WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
+        query = f"SELECT * FROM {ageb_schema}.{ageb_table} WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
         ageb_gdf = pd.concat([ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
-
-    # b) --------------- Find closest OSMnx node to city centroid
+    
+    aup.log(f"-- Filter osmnx network - Calculating nearest node to city shape centroid.")
+    # --------------- Closest OSMnx node to city centroid
     # City centroid
     aoi = ageb_gdf.dissolve()
     aoi = aoi.to_crs("EPSG:6372")
@@ -52,26 +46,60 @@ def main(mun_gdf, save=False):
     aoi_centroid = aoi_centroid.to_crs("EPSG:4326")
     # Nearest osmnx node
     nearest = aup.find_nearest(G, nodes, aoi_centroid, return_distance=False)
-
-    # c) --------------- Find osmids with a path trough G to nearest (Those osmids are connected, the rest are not)
+    
+    
+    aup.log(f"-- Filter osmnx network - Converting G to indirected to ignore street directions when finding paths.")
     # Get the unique osmid of the target node
     target_osmid = nearest.osmid.unique()[0]
     # Convert the graph to an undirected graph (To ignore nodes which are not reachable due to direction of streets)
     G_undirected = G.to_undirected()
     # Initialize a list to store nodes that have a path to the target node
     osmids_with_path = []
-    # Iterate over all nodes in the graph
+
+    # ---
+    # PROGRESS LOG DATA - Will create progress logs when progress reaches these percentages:
+    progress_logs = [5,10,15,20,25,30,35,40,45,50,
+                    55,60,65,70,75,80,85,90,95,100]
+    i = 1
+    # ---
+
+    # Iterate over all nodes in the graph searching for path to target
     for node in G_undirected.nodes():
         # Check if there is a path from the current node to the target node
         if nx.has_path(G_undirected, node, target_osmid):
             # If a path exists, append the node to the list
             osmids_with_path.append(node)
 
-    # c) --------------- Filter edges using osmids_with_path
+        # ---
+        # PROGRESS LOG DATA - Measures current progress, prints if passed a checkpoint of progress_logs list.
+        current_progress = (i / len(G_undirected.nodes()))*100
+        for checkpoint in progress_logs:
+            if current_progress >= checkpoint:
+                aup.log(f'-- Filter osmnx network - Finding osmids with a path to city shape centroid. {checkpoint}% done.')
+                progress_logs.remove(checkpoint)
+                break
+        i = i+1
+        # ---
+
+    aup.log(f"-- Filter osmnx network - Filtering edges using osmids with path.")
+    # d) --------------- Filter edges using osmids_with_path
     edges_gdf = edges.reset_index()
     filtered_edges = edges_gdf.loc[(edges_gdf['u'].isin(osmids_with_path)) | (edges_gdf['v'].isin(osmids_with_path))].copy()
     filtered_edges = filtered_edges.set_index(["u", "v", "key"])
-    aup.log(f"--- Deleted {edges.shape[0] - filtered_edges.shape[0]} unconnected edges.")
+
+    aup.log(f"-- Filter osmnx network - Deleted {edges.shape[0] - filtered_edges.shape[0]} unconnected edges.")
+    return filtered_edges
+
+
+def main(mun_gdf, save=False, local_save=False):
+
+    # Creates query to download OSMNX nodes and edges from the DB
+    # by metropolitan area or capital using the municipality geometry
+    G,nodes,edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
+    aup.log(f"--- Downloaded {len(edges)} edges from database for {city}.")
+
+    # Deletes edges unconnected to main network (network that connects to city center)
+    filtered_edges = filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema='marco', ageb_table='ageb_2020')
 
     # Calculate walking speed for edges
     filtered_edges = aup.walk_speed(filtered_edges)
@@ -119,6 +147,12 @@ def main(mun_gdf, save=False):
 
     gdf_mrg = gdf_mrg[['hex_id_8','CVEGEO','walkspeed','geometry']]'''
 
+    # Tests
+    if local_save:
+        filtered_edges.reset_index(inplace=True)
+        filtered_edges.to_file(f"../data/processed/proximity_v2/test_mty_filtered_edges.gpkg", driver='GPKG')
+        aup.log(f"--- Saved edges speed gdf locally.")
+
     # Save
     if save:
         filtered_edges.reset_index(inplace=True)
@@ -128,7 +162,7 @@ def main(mun_gdf, save=False):
 
 if __name__ == "__main__":
     aup.log('--'*50)
-    aup.log('\n Starting script.')
+    aup.log('\n Starting script 09.')
 
     # --------------- PARAMETERS
     # City data
@@ -155,15 +189,15 @@ if __name__ == "__main__":
     if metro_table == 'metro_gdf_2020':
         city_list.remove('CDMX') 
 
-    # In case of a crash, must write processed_city_list manually 
-    # because column city is not saved to output.
-    processed_city_list = ['Aguascalientes','Ensenada', 'Mexicali', 'Tijuana', 'La Paz', 'Los Cabos', 'Campeche', 'Laguna', 'Monclova', 'Piedras Negras', 
+    # In case of a crash, must write processed_city_list manually because column city is not saved to output.
+    # Currently, all cities:
+    processed_city_list = ['Aguascalientes','Monterrey','Ensenada', 'Mexicali', 'Tijuana', 'La Paz', 'Los Cabos', 'Campeche', 'Laguna', 'Monclova', 'Piedras Negras', 
                            'Saltillo', 'Colima', 'Tapachula', 'Tuxtla', 'Chihuahua', 'Delicias', 'Juarez', 'Durango', 'Celaya', 'Guanajuato', 'Leon', 
                            'Irapuato', 'Acapulco', 'Chilpancingo', 'Pachuca', 'Tulancingo', 'Guadalajara', 'Vallarta', 'Piedad', 'Toluca', 'Morelia', 'Zamora', 
-                           'Uruapan', 'Cuautla', 'Cuernavaca', 'Tepic', 'Monterrey', 'Oaxaca', 'Puebla', 'San Martin', 'Tehuacan', 'Queretaro', 'Cancun', 'Chetumal',
+                           'Uruapan', 'Cuautla', 'Cuernavaca', 'Tepic', 'Oaxaca', 'Puebla', 'San Martin', 'Tehuacan', 'Queretaro', 'Cancun', 'Chetumal',
                            'Playa', 'SLP', 'Culiacan', 'Los Mochis', 'Mazatlan', 'Guaymas', 'Ciudad Obregon', 'Hermosillo', 'Nogales', 'Villahermosa', 'Victoria',
                            'Matamoros', 'Nuevo Laredo', 'Reynosa', 'Tampico', 'Tlaxcala', 'Coatzacoalcos', 'Cordoba', 'Minatitlan', 'Orizaba', 'Poza Rica', 'Veracruz', 
-                           'Xalapa', 'Merida', 'Zacatecas']
+                           'Xalapa', 'Merida', 'Zacatecas','ZMVM']
     
     # LOG - Print progress of script so far
     missing_cities_list = []
@@ -176,7 +210,7 @@ if __name__ == "__main__":
 
     # Create mun_gdf for each city and run main function
     for city in missing_cities_list:
-        aup.log("--"*40)
+        aup.log("--"*50)
         i = i + 1
         aup.log(f"--- Loading municipalities for city {i}/{k}:{city}.")
 
@@ -185,11 +219,11 @@ if __name__ == "__main__":
 
         if (metro_table =='metro_gdf_2020') and (city == 'ZMVM'):
             # Loads ZMVM
-            city = 'ZMVM'
+            city = 'CDMX'
             query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
             gdf_1 = aup.gdf_from_query(query, geometry_col='geometry')
             # Loads CDMX
-            city = 'CDMX'
+            city = 'ZMVM'
             query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
             gdf_2 = aup.gdf_from_query(query, geometry_col='geometry')
             # Concatenates both
@@ -204,6 +238,6 @@ if __name__ == "__main__":
 
         # Run main function
         aup.log(f"--- Starting Script 09 main function for {city}.")
-        main(mun_gdf, save=True)
+        main(mun_gdf, save=True, local_save=False)
 
 
