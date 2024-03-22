@@ -14,53 +14,64 @@ if module_path not in sys.path:
     import aup
 
 def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
-    # This function downloads the codigo_act denue poi requested for the analysis.
-    # If it is version 2.0, applies a filter to certain pois.
+    """Downloads denue points of interest and filters some data if requested.
 
-    # Download denue pois
+    Arguments:
+            denue_schema (str): database schema where table is located.
+            denue_table (str): database table where data will be fetched from.
+            poly_wkt (str): geometry of area of interest in Well-Known Text (WKT) format.
+            code (int): code to search for in denue table's column codigo_act.
+            version(int): as of this version (march 2024) accepts 1 or 2. 
+                          If version == 2, applies a filter to certain pois (denue_dif and denue_centro_cultural)
+
+    Returns:
+            code_pois: GeoDataFrame with the code and geometry of the denue points found.
+    """
+
+    # Download denue pois from database
     query = f"SELECT * FROM {denue_schema}.{denue_table} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\')) AND (\"codigo_act\" = \'{code}\')"
     code_pois = aup.gdf_from_query(query, geometry_col='geometry')
 
-    # Version 2.0 pois filter
+    # Filter denue pois, if requested
     if version == 1:
         aup.log("--- No filter applied.")
     elif version == 2:
-        if code == 931610: #denue_dif
-            aup.log(f"--- Applying filtering to code {code}.")
+        if code == 931610: #denue_dif's codigo_act
+            aup.log(f"--- Applying filtering to denue_dif pois, code {code}.")
             dif = code_pois.copy()
-            # Sets word of amenity to avoid in nom_estab
-            words_toavoid = [# Culturales
-                            'ARTE', #incluye ARTES, CONARTE
-                            'MEDIATECA', 'MUSICA','ORQUESTA', #incluye MUSICAL, ORQUESTAS
-                            # Instituciones
-                            'CONAFE','CONACYT', #incluye CULTURAL
+            # denue_dif's pois are filtered by avoiding certain words in nom_estab column:
+            words_toavoid = [#--- Culturales
+                            'ARTE', #incl. ARTES, CONARTE
+                            'MEDIATECA', 'MUSICA','ORQUESTA', #incl. MUSICAL, ORQUESTAS
+                            #--- Instituciones
+                            'CONAFE','CONACYT', #incl. CULTURAL
                             'TRIBUNAL','PROTECCION CIVIL','IMM',
-                            # Salud
-                            'IMMS','ISSTE','INAPAM','SEGURO','POPULAR','FOVI', #incluye FOVISSTE, FOVILEON, etc #
-                            'CAPASITIS',#Centro ambulatorio para la prevención y atención del SIDA e infecciones de transmision sexual
-                            'SANITARI', #SANITARIO/SANITARIA
-                            'MEDIC', #MEDICO/MEDICA
-                            # Educación
+                            #--- Salud
+                            'IMMS','ISSTE','INAPAM','SEGURO','POPULAR','FOVI', #incl. FOVISSTE, FOVILEON, etc #
+                            'CAPASITIS',#Centro Ambulatorio para la Prevención y Atención del SIDA e Infecciones de Transmision Sexual
+                            'SANITARI', #incl. SANITARIO/SANITARIA
+                            'MEDIC', #incl. MEDICO/MEDICA
+                            #--- Educación
                             'INEA','PRIMARIA','SECUNDARIA','PREPARATORIA','MAESTROS','BECA','ASESORIA','APOYO',
                             'USAER', #Unidad de Servicio de Apoyo a la Educación Regular
-                            'EDUCA', #EDUCACION, EDUCACIÓN, EDUCATIVO, EDUCATIVA
-                            # Vivienda
+                            'EDUCA', #incl. EDUCACION, EDUCACIÓN, EDUCATIVO, EDUCATIVA
+                            #--- Vivienda
                             'VIVIENDA','INFONAVIT',
-                            # Oficinas
-                            'COORDINA','CORDINA', #incluye COORDINACION, y typos (CORDINACION)
+                            #--- Oficinas
+                            'COORDINA','CORDINA', #incl. COORDINACION, y typos (CORDINACION)
                             'DIRECCION','DIVISION','INSPECCION','INSTITUTO','JEFATURA','JURISDICCION','OFICINA','PROGRAMA','PROCURADORIA','PROCURADURIA',
                             'RECAUDACION','PAPELERIA','REGION ','REGULACION','SECRETARIA','DELEGACION','SUPERVI',
-                            'ADMINISTRA',#ADMINISTRATIVO, ADMINISTRATIVA
+                            'ADMINISTRA',#incl. ADMINISTRATIVO, ADMINISTRATIVA
                             'ANALISIS', 'SEGUIMIENTO','MICRORED','MICRO RED',
-                            # Almacenes y bodegas
+                            #--- Almacenes y bodegas
                             'ALMACEN','BODEGA','ARCHIVO','ACTIVO',
-                            'PROVEED', #PROVEEDOR, PROVEEDORA
-                            # Otros
+                            'PROVEED', #incl. PROVEEDOR, PROVEEDORA
+                            #--- Otros
                             'JUNTA', # para juntas de mejoras
                             'POLIVALENTE',
                             'SERVICIO',
                             'GIMNASIO']
-            # Set checker
+            # Set checker (keeps, unless changed to 0)
             dif['keep'] = 1
             for word in words_toavoid:
                 # Reset word_coincidence_count column
@@ -69,29 +80,30 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
                 dif['word_coincidence_count'] = dif['nom_estab'].apply(lambda x: x.count(word))
                 # If the word is present, do not keep
                 dif.loc[dif.word_coincidence_count > 0,'keep'] = 0
-            # Filter and return to rest of function (Formats later)
+            # Filter and return to rest of function (Final format at the end)
             dif_filtered = dif.loc[dif['keep'] == 1]
             dif_filtered.drop_duplicates(inplace=True)
             code_pois = dif_filtered.copy()
         
         elif code == 711312: #denue_centro_cultural
-            aup.log(f"--- Applying filtering to code {code}.")
+            aup.log(f"--- Applying filtering to denue_centro_cultural, code {code}.")
             centro_cultural = code_pois.copy()
+            # denue_centro_cultural's pois are filtered by looking for certain words in nom_estab column:
             amenities_ofinterest = ['CENTRO',
-                                    'CULTURA', #incluye CULTURAL
+                                    'CULTURA', #incl. CULTURAL
                                     'LIENZO',
                                     'PLAZA',
                                     'ARENA',
                                     'AUDITORIO',
                                     'TEATRO',
-                                    'ARTE', # incluye ARTES
+                                    'ARTE', # incl. ARTES
                                     'MUSEO']
             # Filter 
             centro_cultural_filtered = gpd.GeoDataFrame()
             for amenity in amenities_ofinterest:
                 tmp = centro_cultural.loc[centro_cultural['nom_estab'].str.contains(amenity, regex=False)]
                 centro_cultural_filtered = pd.concat([centro_cultural_filtered, tmp])
-            # Return to rest of function
+            # Return to rest of function (Final format at the end)
             centro_cultural_filtered.drop_duplicates(inplace=True)
             code_pois = centro_cultural_filtered.copy()
         else:
@@ -101,7 +113,7 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
         aup.log("--- Must pass integers 1 or 2.")
         intended_crash
 
-    # Format denue pois
+    # Function final format for denue pois
     code_pois = code_pois[['codigo_act', 'geometry']]
     code_pois = code_pois.rename(columns={'codigo_act':'code'})
     code_pois['code'] = code_pois['code'].astype('int64')
@@ -109,34 +121,48 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
     return code_pois
 
 def two_method_check(row):
-    # This function is used to decide which time to choose for cultural amenities.
-    # Why:
-        # In version 2 we aded 'Bibliotecas'. The source contains plenty of pois.
-        # This might dilute other cultural sources. Therefore:
+    """This function is used to decide which time to choose for cultural amenities.
+       (As of march 2024, applies to version 2 only.) Explanation: 
+            In version 2 we added 'Bibliotecas'. The source contains plenty of pois, and not all of them are
+            in good condition. Therefore, 'Bibliotecas' are important but might dilute other cultural sources. 
+            Therefore it was decided that:
+            > If 2 or more cultural source amenities are within 15 minutes, 
+                choose max time of the sources within 15 minutes. 
+                (Measures proximity to the second amenity, which we know is close.)
+            > Else, if just 1 or 0 source amenities are within 15 minutes,
+                choose min time of the amenities outside 15 minutes. 
+                (Ignores if only one is close (most likely 'Bibliotecas'), takes next closest.)
 
-    # If 2 or more source amenities are within 15 minutes, 
-    # chooses max time of the sources within 15 minutes.
-    # (Measures proximity to an amenity which we know is close.)
+    Arguments:
+            row (pandas.Series): current row of DataFrame (function is used using .apply())
+
+    Returns:
+            row (pandas.Series): current row of DataFrame with chosen time.
+    """
+
+    # Case 1: 2 or more cultural source amenities are within 15 minutes.
+    #         choose max time of the sources within 15 minutes.
+    #         (Measures proximity to an amenity which we know is close.)
     if row['check_count'] > 1:
         # Identify sources within 15 minutes
-        prox_sources=[]
+        close_sources=[]
         for s in check_lst:
             if row[s] == 1:
-                prox_sources.append(s.replace('_check',''))
+                close_sources.append(s.replace('_check',''))
         # Find max of those sources
-        row['max_'+a.lower()] = row[prox_sources].max()
+        row['max_'+a.lower()] = row[close_sources].max()
 
-    # Else (just 1 or 0 source amenities are within 15 minutes),
-    # chooses min time of the amenities outside 15 minutes. 
-    # (Ignores if only one is close (most likely bibliotecas), takes next closest)
+    # Case 2: just 1 or 0 source amenities are within 15 minutes.
+    #         chooses min time of the amenities outside 15 minutes. 
+    #         (Ignores if only one is close (most likely 'Bibliotecas'), takes next closest)
     else:
         # Identify sources outside 15 minutes
-        prox_sources=[]
+        far_sources=[]
         for s in check_lst:
             if row[s] == 0:
-                prox_sources.append(s.replace('_check',''))
+                far_sources.append(s.replace('_check',''))
         # Find min of those sources
-        row['max_'+a.lower()] = row[prox_sources].min()
+        row['max_'+a.lower()] = row[far_sources].min()
         
     return row
 
@@ -149,7 +175,7 @@ def main(city, final_save=False, nodes_save=False, local_save=True):
     ###################################################### (PREV. SCRIPT 01 + 02) ########################################################
 
     # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
-    # ------------------- This first step downloads the area of interest and network used to measure distance.
+    # ------------------- This step downloads the area of interest and network used to measure distance.
     
     # Download area of interest (aoi)
     aup.log('--- Downloading area of interest.')
@@ -162,54 +188,55 @@ def main(city, final_save=False, nodes_save=False, local_save=True):
     aup.log('--- Downloading network.')
     G, nodes, edges = aup.graph_from_hippo(aoi, schema=network_schema, edges_folder=edges_table, nodes_folder=nodes_table)
 
-    # 1.2 --------------- DOWNLOAD POINTS OF INTEREST (clues and sip pois, not denue)
-    # ------------------- This step downloads SIP and CLUES points of interest (denue pois are downloaded later.)
+    # 1.2 --------------- DOWNLOAD ALL CLUES AND SIP POINTS OF INTEREST
+    # ------------------- This step downloads SIP and CLUES points of interest.
+    # ------------------- (denue pois are downloaded later code by code).
     sip_clues_gdf = gpd.GeoDataFrame()
 
     # CLUES (Salud)
     aup.log(f"--- Downloading CLUES pois for {city}.")
-    # Download
+    # Download and filter CLUES
     clues_gdf = aup.gdf_from_polygon(aoi, clues_schema, clues_table, geom_col="geometry")
-    # Filter
     clues_pois = clues_gdf.loc[clues_gdf['nivel_atencion'] == 'PRIMER NIVEL']
     del clues_gdf
-    # Format
+    # Format CLUES
     clues_pois.loc[:,'code'] = 8610
     clues_pois = clues_pois[['code','geometry']]
-    # Save to pois_tmp
+    # Save CLUES to sip_clues_gdf
     sip_clues_gdf = pd.concat([sip_clues_gdf,clues_pois])
     del clues_pois
 
-    # SIP (Marco geoestadistico)
+    # SIP (Marco geoestadístico)
     aup.log(f"--- Downloading SIP pois for {city}.")
     # Download
     sip_gdf = aup.gdf_from_polygon(aoi, sip_schema, sip_table, geom_col="geometry")
     sip_amenities = {'GEOGRAFICO':['Mercado','Plaza'], 
                      'TIPO':['Cancha','Unidad Deportiva','Áreas Verdes','Jardín','Parque']}
     # Filter - SIP pois of interest
-    sip_amenities_codes = {'Mercado':4721, #sip_mercado
-                           'Cancha':93110, #sip_cancha
-                           'Unidad Deportiva':93111, #sip_unidad_deportiva 
-                           'Áreas Verdes':9321, #sip_espacio_publico 
-                           'Jardín':9321, #sip_espacio_publico
-                           'Parque':9321, #sip_espacio_publico
-                           'Plaza':9321 #sip_espacio_publico
+    sip_amenities_codes = {'Mercado':4721, #assigned to sip_mercado
+                           'Cancha':93110, #assigned to sip_cancha
+                           'Unidad Deportiva':93111, #assigned to sip_unidad_deportiva 
+                           'Áreas Verdes':9321, #assigned to sip_espacio_publico 
+                           'Jardín':9321, #assigned to sip_espacio_publico
+                           'Parque':9321, #assigned to sip_espacio_publico
+                           'Plaza':9321 #assigned to sip_espacio_publico
                             }
-    # Filter - Iterate over sip_amenities and filter sip gdf
     sip_pois = gpd.GeoDataFrame()
     for col in sip_amenities:
         for amenity in sip_amenities[col]:
+            # Finds in sip_gdf
             sip_tmp = sip_gdf.loc[sip_gdf[col] == amenity]
+            # Assigns code
             sip_tmp.loc[:,'code'] = sip_amenities_codes[amenity]
             sip_pois = pd.concat([sip_pois,sip_tmp])
     del sip_gdf
     # Format
     sip_pois = sip_pois[['code','geometry']]
-    # Save to pois_tmp
+    # Save SIP to sip_clues_gdf
     sip_clues_gdf = pd.concat([sip_clues_gdf,sip_pois])
     del sip_pois
 
-    # 1.3 --------------- ANALYSE POINTS OF INTEREST (If denue, downloads)
+    # 1.3 --------------- ANALYSE POINTS OF INTEREST (downloads denue code by code)
     # ------------------- This step analysis times (and count of pois at given time proximity if requested) using function aup.pois_time.
 
     aup.log(f"""
@@ -222,7 +249,7 @@ STARTING source pois proximity to nodes analysis for {city}.""")
     # PREP. FOR ANALYSIS - List of columns used to deliver final format of Script part 1
     all_analysis_cols = []
 
-    # SOURCE ANALYSIS
+    # SOURCE LOOP
     for eje in parameters.keys():
         for amenity in parameters[eje]:
             for source in parameters[eje][amenity]:
@@ -231,24 +258,26 @@ STARTING source pois proximity to nodes analysis for {city}.""")
                 aup.log(f"""
 Analysing source {source}.""")
                 
-                # ANALYSIS COLS - Add source col to lists
+                # a) SAVE ANALYSIS COLUMN NAMES
+                # Source col to lists
                 source_analysis_cols.append(source)
                 all_analysis_cols.append(source)
-
-                # ANALYSIS COLS  - If counting pois, create and append column (count_col formated example: 'denue_preescolar_15min')
+                # If counting pois, create and append column 
+                # count_col formated example: 'denue_preescolar_15min'
                 if count_pois[0]:
                     count_col = f'{source}_{count_pois[1]}min'
                     source_analysis_cols.append(count_col)
                     all_analysis_cols.append(count_col)
 
-                # GET POIS - Select source points of interest (concats all data of current source's codes in source_pois)
+                # b) GET POIS - Select source points of interest 
+                # (concats all data corresponding to current source in source_pois)
                 source_pois = gpd.GeoDataFrame()
                 for code in parameters[eje][amenity][source]:
-                    #If source is denue:
+                    #If source is denue, download:
                     if source[0] == 'd':
                         aup.log(f'--- Downloading denue source pois code {code} from db.')
                         code_pois = get_denue_pois(denue_schema,denue_table,poly_wkt,code,version)
-                    #If source is clues or sip:
+                    #If source is clues or sip, fetch from previously generated sip_clues_gdf:
                     elif source[0] == 'c' or source[0] == 's':
                         aup.log(f'--- Getting clues/sip source pois code {code} from previously downloaded.')
                         code_pois = sip_clues_gdf.loc[sip_clues_gdf['code'] == code]
@@ -256,18 +285,18 @@ Analysing source {source}.""")
                         aup.log(f'--- Error, check parameters dicctionary.')
                         aup.log(f'--- Sources must start with denue_, clues_ or sip_.')
                         intended_crash
-                        
                     source_pois = pd.concat([source_pois,code_pois])
-
                 aup.log(f"--- {source_pois.shape[0]} {source} pois. Analysing source pois proximity to nodes.")
                 
-                # ANALYSIS - Calculate time data from nodes to source
+                # c) SOURCE ANALYSIS
+                # Calculate time data from nodes to source
                 source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois)
-                # ANALYSIS - Format
+                # Format
                 source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
                 source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
 
-                # SOURCE MERGE - Merge all sources time data in final output nodes gdf
+                # d) OUTPUT MERGE
+                # Merge all sources time data in final output nodes gdf
                 if i == 0: # For the first analysed source
                     nodes_analysis = source_nodes_time.copy()
                 else: # For the following
@@ -289,14 +318,14 @@ Analysing source {source}.""")
         nodes_analysis['city'] = city
         aup.gdf_to_db_slow(nodes_timeanalysis_filter, nodes_save_table, save_schema, if_exists='append')
         aup.log(f"--- Saved {city} nodes gdf in database.")
-
-    if stop:
-        aup.log('Stopped.')
-        return city
     
     aup.log(f"""
 ------------------------------------------------------------
 FINISHED source pois proximity to nodes analysis for {city}.""")
+    
+    if stop: # Used to run script until this point
+        aup.log('Stopped.')
+        return city
     
     ############################################################### PART 2 ###############################################################
     ######################################################### AMENITIES ANALYSIS #########################################################
@@ -745,7 +774,7 @@ if __name__ == "__main__":
     # Hexagon resolutions of output
     res_list = [8]
 
-    # Stop at any given point of main function?
+    # Stop at any given point of script's main function?
     stop = False
 
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
@@ -763,7 +792,7 @@ if __name__ == "__main__":
 
     # ---------------------------- SCRIPT START ----------------------------
     aup.log('--'*50)
-    aup.log(f"--- STARTING SCRIPT USING VERSION {version}.")
+    aup.log(f"--- STARTING SCRIPT 21 USING VERSION {version}.")
 
     # PARAMETERS DICTIONARY
     # This dicctionary sets the ejes, amenidades, sources and codes for analysis
