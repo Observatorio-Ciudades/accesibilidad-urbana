@@ -177,6 +177,8 @@ if __name__ == "__main__":
     local_save = True #------ Set True if test
     save = False #------ Set True if full analysis
 
+    mun_gdf = gpd.read_file('../data/raw/colombia/medellin_gcs.geojson')
+
 
     ###############################
     # Create folder to store city skip_list
