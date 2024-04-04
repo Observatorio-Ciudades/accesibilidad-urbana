@@ -177,12 +177,12 @@ if __name__ == "__main__":
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
-    end_date = '2022-12-31'
+    end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = True
     query_sat = {"eo:cloud_cover": {"lt": 10}}
 
-    local_save = True #------ Set True if test
+    local_save = False #------ Set True if test
     save = True #------ Set True if full analysis
 
     ###############################
@@ -244,9 +244,10 @@ if __name__ == "__main__":
                 else:
                     df_raster = pd.read_csv(df_file_dir)
                     missing_months = len(df_raster.loc[df_raster.data_id==0])
-                    not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
+                    # not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
+                    not_downloadable = -1
                     df_skip.loc[len(df_skip),'missing_months'] = missing_months
-                    df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
+                    df_skip.loc[len(df_skip),'unable_to_download'] = not_downloadable
                 df_skip.to_csv(df_skip_dir, index=False)
                 if del_data:
                     # delete raster files
