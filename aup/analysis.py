@@ -969,9 +969,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	
 	##########################################################################################
 	# STEP 1: CHECK FOR DIFFERENCES IN AVAILABLE AGEBs (PREVENTS CRASH)
+	print("INSPECTING AGEBs.")
 
 	# --------------- 1.1 SET COLUMNS TO .UPPER() EXCEPT FOR GEOMETRY
-	# (When the equations were written, we used UPPER names, easier to change it this way and then return output with .lower columns)
+	# (When the equations were written, we used UPPER names, easier to read and also
+	# easier to change it this way and then return output with .lower columns)
 	pop_ageb_gdf.columns = pop_ageb_gdf.columns.str.upper()
 	pop_ageb_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
 
@@ -987,7 +989,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		print("Error: Area of interest has no pop data.")
 		intended_crash
 
-	# Test for AGEBs present in mza_gdf but not in AGEB_gdf
+	# Test for AGEBs present in mza_gdf but not in AGEB_gdf (could crash if unchecked)
 	missing_agebs = list(set(agebs_in_mza_gdf) - set(agebs_in_ageb_gdf))
 	if len(missing_agebs) > 0:
 		print(f'WARNING: AGEBs {missing_agebs} present in mza_gdf but missing from ageb_gdf.')
@@ -995,16 +997,15 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 	##########################################################################################
 	# STEP 2: CALCULATE NAN VALUES
-	
 	print("STARTING NANs calculation.")
 
-	# STATISTICS - LOG DATA
+	# LOG CODE - Progress logs
 	# Will create progress logs when progress reaches these percentages:
 	progress_logs = [10,20,30,40,50,60,70,80,90,100]
 	# This df stores accumulative (All AGEBs) statistics for logs.
 	acc_statistics = pd.DataFrame()
 
-	# --------------- NaNs CALCULATION 2.0) Start
+	# --------------- 2.0 NaNs CALCULATION Start
 	i = 1
 	for ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB
 
@@ -1012,7 +1013,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			print('--'*20)
 			print(f'Calculating NaNs for AGEB {ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
 		
-		# STATISTICS - PROGRESS LOG DATA
+		# LOG CODE - Progress logs
 		# Measures current progress, prints if passed a checkpoint of progress_logs list.
 		current_progress = (i / len(agebs_in_mza_gdf))*100
 		for checkpoint in progress_logs:
@@ -1021,10 +1022,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				progress_logs.remove(checkpoint)
 				break
 
-		# --------------- NaNs CALCULATION 2.1) FIND CURRENT AGEB BLOCK DATA
+		# --------------- 2.1 FIND CURRENT AGEB BLOCK DATA
 		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVE_AGEB'] == ageb].copy()
 
-		# --------------- NaNs CALCULATION 2.2) KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (ALL values are NaNs)
+		# --------------- 2.2 KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (ALL values are NaNs)
 		# 2.2a) Set columns to be analysed
 		columns_of_interest = ['POBFEM','POBMAS',
 							'P_0A2','P_0A2_F','P_0A2_M',
@@ -1067,8 +1068,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		blocks_nans.drop(columns=['found_values'],inplace=True)
 
 		del blocks
-		
-		# --------------- NaNs CALCULATION 3) CALCULATE NaN values in blocks
+
+		# --------------- 2.3 CALCULATE NaN values in blocks
 		if extended_logs:
 			print(f'Calculating NaNs using block data for AGEB {ageb}.')
 
@@ -1077,10 +1078,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		
 		# 2.3b) Set a start and finish nan value for while loop and run
 		start_nan_values = original_nan_values
-		finish_nan_values = start_nan_values - 1
+		finish_nan_values = start_nan_values - 1 #To kick start while loop, will be calculated within loop
 		loop_count = 1
 		while start_nan_values > finish_nan_values:
-			# ROUND STARTING DATA
+			# Amount of nans starting while loop round
 			start_nan_values = blocks_values.isna().sum().sum()
 
 			# 2.3c) Set of equation with structure [PARENT] = [SUB] + [SUB]
@@ -1221,7 +1222,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			# --> POB0_14 = POBTOT - P_15YMAS
 			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS, inplace=True)
 			
-			# ROUND FINISHING DATA
+			# Amount of nans finishing while loop round
 			finish_nan_values = blocks_values.isna().sum().sum()
 
 			if extended_logs:
@@ -1229,6 +1230,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			
 			loop_count += 1
 		
+		# LOG CODE - Statistics
 		nan_reduction = round(((1-(finish_nan_values/original_nan_values))*100),2)
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
@@ -1236,15 +1238,17 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		# 2.3f) Join back blocks with all nan values
 		blocks_calc = pd.concat([blocks_values,blocks_nans])
 		
-		# --------------- NaNs CALCULATION 4) FOR THE NAN VALUES THAT COULDN'T BE SOLVED, DISTRIBUTE AGEB VALUES.
+		# --------------- 2.4 CALCULATE NaN values using AGEBs.
+  		# For the nan values that couldn't be solved, distributes AGEB data.
 		
 		# 2.4a) Prepare for second loop
-		# Remove masc/fem relation from analysis. 
-		# It complicates this and further processes, when needed calculate using (REL_H_M = (POBMAS/POBFEM)*100)
+		# Remove masc/fem relation from analysis as it complicates this and further processes
+    	# If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)
 		ageb_filling_cols = columns_of_interest.copy()
 		ageb_filling_cols.remove('REL_H_M')
 		blocks_calc.drop(columns=['REL_H_M'],inplace=True)
 
+		# If not in crash check from STEP 1:
 		if ageb not in missing_agebs:
 
 			if extended_logs:
@@ -1253,6 +1257,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			# Locate AGEB data in pop_ageb_gdf
 			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVE_AGEB'] == ageb]
 
+			# LOG CODE - Statistics
 			# Solving method used to solve column
 			solved_using_blocks = 0 # for log statistics
 			solved_using_ageb = 0 # for log statistics
@@ -1293,7 +1298,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 					blocks_calc.drop(columns=['dist_factor'],inplace=True)
 					solved_using_ageb += 1 # for log statistics
 
-			# Logs Statistics - How was this AGEB solved?
+			# LOG CODE - Statistics - How was this AGEB solved?
 			if extended_logs:
 				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
 				pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100
@@ -1319,7 +1324,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			solved_using_blocks = 0 # for log statistics
 			unable_tosolve = 0 # for log statistics
 			
-			# # Statistical Loop
+			# LOG CODE - Statistics - Register how columns where solved.
 			for col in ageb_filling_cols:
 				# Find number of nan values in current col
 				col_nan_values = blocks_calc.isna().sum()[col]
@@ -1347,10 +1352,9 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			# Columns which couldn't be solved because there was no AGEB filling
 			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve
 
-		# --------------- NaNs CALCULATION 5) Return calculated data from this AGEB to original block gdf (mza_ageb_gdf)
+		# --------------- 2.5 Return calculated data from this AGEB to original block gdf (mza_ageb_gdf)
 		# 2.5a) Change original cols for calculated cols
 		calculated_cols = ['POBTOT'] + ageb_filling_cols
-		
 		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols) #Drops current block pop cols
 		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO') #Replaces with blocks_calc cols
 
@@ -1358,7 +1362,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		column_order = list(pop_mza_gdf.columns.values)
 		mza_ageb_gdf = mza_ageb_gdf[column_order]
 
-		# 2.5c) Save to mza_calc gdf (Function output)
+		# 2.5c) Save to mza_calc gdf (Function's output)
 		if i == 1:
 			mza_calc = mza_ageb_gdf.copy()
 		else:
@@ -1366,13 +1370,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 		i += 1
 
-	# Format final output and release final log statistics.
+	# Format final output and 
 	mza_calc.reset_index(inplace=True)
 	mza_calc.drop(columns=['index'],inplace=True)
-
 	# Delivers output cols as .lower()
 	mza_calc.columns = mza_calc.columns.str.lower()
 
+	# Release final log statistics.
 	print("Finished calculating NaNs.")
 	print(f"Percentage of NaNs found using blocks gdf: {round(acc_statistics['nans_calculated'].mean(),2)}%.")
 	print(f"Columns which could be solved entirely using equations in block_gdf: {acc_statistics['block_calculated'].sum()}.")
@@ -1382,7 +1386,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	return mza_calc
 
 def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissible_error = 0.01):
-	""" Creates voronoi polygons for n given points within a given area of interest (aoi).
+	""" Creates voronoi polygons within a given area of interest (aoi) from n given points.
 	Args:
 		area_of_interest (geopandas.GeoDataFrame): GeoDataFrame with area of interest (Determines output extents).
 		points (geopandas.GeoDataFrame): GeoDataFrame with points of interest.
@@ -1392,7 +1396,7 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 		geopandas.GeoDataFrame: GeoDataFrame with voronoi polygons (each containing the point ID it originated from) extending all up to the area of interest extent.
 	"""
 
-	# Set area of interest and points of interest for voronoi analysis to crs:6372
+	# Set area of interest and points of interest for voronoi analysis to crs:6372 (Proyected)
 	aoi = area_of_interest.to_crs('EPSG:6372')
 	pois = points.to_crs('EPSG:6372')
 
@@ -1402,14 +1406,13 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 	distance = 100
 
     # Goal area (Area of aoi)
+	# Objective is that diff between sum of all voronois polygons and goal area is within admissible error.
 	goal_area_gdf = aoi.copy()
 	goal_area_gdf['area'] = goal_area_gdf.geometry.area
 	goal_area = goal_area_gdf['area'].sum()
 	
-	# Loop starter 
+	# Kick start while loop by creating area_diff 
 	area_diff = admissible_error + 1 
-	
-	# Will repeat process while difference between voronoi polygons area and goal_area is more than admissible_error.
 	while area_diff > admissible_error:
 		# Create a rectangular bound for the area of interest with a {distance} buffer.
 		polygon = aoi['geometry'].unique()[0]
