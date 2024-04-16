@@ -13,12 +13,21 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
+""" 
+    For each city in Mexico's metropolis list, this script is an updated version of 
+    what Script 01, Script 02 and Script 15 do.
+
+    The script loads proximity analysis's points of interest and a OSMnx network for each city,
+    calculates the source proximity by node (and saves to db if requested), creates an output for the
+    complete proximity (ejes-amenities) analysis (and saves to db if requested).
+"""
+
 def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
     """Downloads denue points of interest and filters some data if requested.
 
     Arguments:
-            denue_schema (str): database schema where table is located.
-            denue_table (str): database table where data will be fetched from.
+            denue_schema (str): database schema where denue table is located.
+            denue_table (str): database table where denue data will be fetched from.
             poly_wkt (str): geometry of area of interest in Well-Known Text (WKT) format.
             code (int): code to search for in denue table's column codigo_act.
             version(int): as of this version (march 2024) accepts 1 or 2. 
@@ -37,7 +46,7 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
         aup.log("--- No filter applied.")
     elif version == 2:
         if code == 931610: #denue_dif's codigo_act
-            aup.log(f"--- Applying filtering to denue_dif pois, code {code}.")
+            aup.log(f"--- Applying filtering to denue_dif pois.")
             dif = code_pois.copy()
             # denue_dif's pois are filtered by avoiding certain words in nom_estab column:
             words_toavoid = [#--- Culturales
@@ -86,7 +95,7 @@ def get_denue_pois(denue_schema,denue_table,poly_wkt,code,version):
             code_pois = dif_filtered.copy()
         
         elif code == 711312: #denue_centro_cultural
-            aup.log(f"--- Applying filtering to denue_centro_cultural, code {code}.")
+            aup.log(f"--- Applying filtering to denue_centro_cultural pois.")
             centro_cultural = code_pois.copy()
             # denue_centro_cultural's pois are filtered by looking for certain words in nom_estab column:
             amenities_ofinterest = ['CENTRO',
@@ -125,7 +134,7 @@ def two_method_check(row):
        (As of march 2024, applies to version 2 only.) Explanation: 
             In version 2 we added 'Bibliotecas'. The source contains plenty of pois, and not all of them are
             in good condition. Therefore, 'Bibliotecas' are important but might dilute other cultural sources. 
-            Therefore it was decided that:
+            It was decided that:
             > If 2 or more cultural source amenities are within 15 minutes, 
                 choose max time of the sources within 15 minutes. 
                 (Measures proximity to the second amenity, which we know is close.)
@@ -140,7 +149,7 @@ def two_method_check(row):
             row (pandas.Series): current row of DataFrame with chosen time.
     """
 
-    # Case 1: 2 or more cultural source amenities are within 15 minutes.
+    # Case 1: Two or more cultural source amenities are within 15 minutes.
     #         choose max time of the sources within 15 minutes.
     #         (Measures proximity to an amenity which we know is close.)
     if row['check_count'] > 1:
@@ -258,7 +267,7 @@ STARTING source pois proximity to nodes analysis for {city}.""")
                 aup.log(f"""
 Analysing source {source}.""")
                 
-                # a) SAVE ANALYSIS COLUMN NAMES
+                # 1.3a) SAVE ANALYSIS COLUMN NAMES
                 # Source col to lists
                 source_analysis_cols.append(source)
                 all_analysis_cols.append(source)
@@ -269,7 +278,7 @@ Analysing source {source}.""")
                     source_analysis_cols.append(count_col)
                     all_analysis_cols.append(count_col)
 
-                # b) GET POIS - Select source points of interest 
+                # 1.3b) GET POIS - Select source points of interest 
                 # (concats all data corresponding to current source in source_pois)
                 source_pois = gpd.GeoDataFrame()
                 for code in parameters[eje][amenity][source]:
@@ -288,14 +297,14 @@ Analysing source {source}.""")
                     source_pois = pd.concat([source_pois,code_pois])
                 aup.log(f"--- {source_pois.shape[0]} {source} pois. Analysing source pois proximity to nodes.")
                 
-                # c) SOURCE ANALYSIS
+                # 1.3c) SOURCE ANALYSIS
                 # Calculate time data from nodes to source
                 source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois)
                 # Format
                 source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
                 source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
 
-                # d) OUTPUT MERGE
+                # 1.3d) OUTPUT MERGE
                 # Merge all sources time data in final output nodes gdf
                 if i == 0: # For the first analysed source
                     nodes_analysis = source_nodes_time.copy()
@@ -306,7 +315,7 @@ Analysing source {source}.""")
 
                 aup.log(f"--- FINISHED source {source}. Mean city time = {nodes_analysis[source].mean()}")
             
-    # Final format for nodes
+    # 1.3d) Final format for nodes
     column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
     nodes_analysis = nodes_analysis[column_order]
 
@@ -774,6 +783,10 @@ if __name__ == "__main__":
     # Hexagon resolutions of output
     res_list = [8]
 
+    # Do not process city-list
+    # If intentionally skipping cities, add here. Else, leave empty list.
+    skip_city_list = ['ZMVM','CDMX']
+
     # Stop at any given point of script's main function?
     stop = False
 
@@ -857,32 +870,42 @@ if __name__ == "__main__":
                                         'Cultural':cultural_weight} # ////////////////// Depends on version (v1 will choose min, v2 two-method.)
                     }
     
-    # Load city list
+    # Script mode
     if local_save: # Local save activates test mode (Aguascalientes only)
         city_list = ['Aguascalientes']
-    else: #script run
+        processed_city_list = []
+        i = 0
+        k = len(city_list)
+    
+    else: # Else, script's goal is to run all cities
         cities_gdf = aup.gdf_from_db(metro_table, metro_schema)
         cities_gdf = cities_gdf.sort_values(by='city')
         city_list = list(cities_gdf.city.unique())
-
         del cities_gdf
-    
-    # Prevent cities being analyzed several times in case of a crash
-    aup.log('--- Looking for alredy saved data in db.')
-    processed_city_list = []
-    try:
-        query = f"SELECT city FROM {save_schema}.{final_save_table}"
-        processed_city_list = aup.df_from_query(query)
-        processed_city_list = list(processed_city_list.city.unique())
-    except:
-        pass
-    
-    # If intentionally skipping cities, add here:
-    #processed_city_list.append('city')
-    processed_city_list.append('ZMVM')
-    processed_city_list.append('CDMX')
+
+        # Prevent cities being analyzed several times in case of a crash
+        aup.log('--- Looking for alredy saved data in db.')
+        processed_city_list = []
+        try:
+            query = f"SELECT city FROM {save_schema}.{final_save_table}"
+            processed_city_list = aup.df_from_query(query)
+            processed_city_list = list(processed_city_list.city.unique())
+        except:
+            pass
+        
+        # Add to processed_city_list all cities in skip_city_list
+        for skip_city in skip_city_list:
+            processed_city_list.append(skip_city)
+
+        # Current progress
+        i = len(processed_city_list)
+        # Sum of all cities to be processed
+        k = len(city_list)
 
     # Run
     for city in city_list:
         if city not in processed_city_list:
+            aup.log("--"*40)
+            i = i + 1
+            aup.log(f"--- Running Script city {i}/{k}: {city}")
             main(city, final_save, nodes_save, local_save)

@@ -858,15 +858,15 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		##########################################################################################
 		# STEP 2: DISTANCE NEAREST POI. 
 		# Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
-			
-		# --------------- 2.1 FORMAT NETWORK DATA
+		
+		# 2.1 --------------- FORMAT NETWORK DATA
 		# Fill NANs with mean times (prevents crash)
 		edges[prox_measure].fillna(edges[prox_measure].mean(),inplace=True)
 		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/4000
 
-		# --------------- 2.2 ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
+		# 2.2 --------------- ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
 		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
 
 		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
@@ -940,7 +940,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		print(f"Finished time analysis for {poi_name}.")
 
 		##########################################################################################
-		# Step 3: FINAL FORMAT. Organices and filters output data.
+		# Step 3: FINAL FORMAT. 
+  		# Organices and filters output data.
+		
 		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 
