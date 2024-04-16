@@ -26,12 +26,12 @@ def main(city,save=False):
     aup.log("--"*30)
     aup.log("--- LOADING CITY POP DATA.")
     
-    # --------------- 1.1 CREATE AREA OF INTEREST FOR CITY
+    # 1.1 --------------- CREATE AREA OF INTEREST FOR CITY 
     city_gdf = metro_gdf.loc[metro_gdf.city == city]
     city_gdf = city_gdf.set_crs("EPSG:4326")
     aoi = city_gdf.dissolve()
     
-    # --------------- 1.2 LOAD POP DATA (AGEBs and Blocks)
+    # 1.2 --------------- LOAD POP DATA (AGEBs and Blocks)
     aup.log("--- Loading blocks and AGEBs for area of interest.")
     pop_ageb_gdf = gpd.GeoDataFrame()
     pop_mza_gdf = gpd.GeoDataFrame()
@@ -70,7 +70,7 @@ def main(city,save=False):
     aup.log("--"*30)
     aup.log(f"--- CALCULATING NAN VALUES FOR POP FIELDS IN {city.upper()}.")
     
-    # --------------- 2.1 CALCULATE_CENSO_NAN_VALUES FUNCTION
+    # 2.1 --------------- CALCULATE_CENSO_NAN_VALUES FUNCTION
     pop_mza_gdf_calc = aup.calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False)
 
     ##########################################################################################
@@ -78,7 +78,7 @@ def main(city,save=False):
     aup.log("--"*30)
     aup.log("--- DISTRIBUTING POP DATA FROM BLOCKS TO NODES")
 
-    # --------------- 3.0 LOAD OSMNX NODES
+    # 3.0 --------------- LOAD OSMNX NODES
     aup.log("--- Loading nodes for area of interest.")
     
     if year == '2010':
@@ -96,14 +96,14 @@ def main(city,save=False):
     nodes.reset_index(inplace=True)
     nodes = nodes.to_crs("EPSG:4326")
 
-    # --------------- 3.1 CREATE VORONOI POLYGONS USING NODES
+    # 3.1 --------------- CREATE VORONOI POLYGONS USING NODES
     aup.log("--- Creating voronois with nodes osmid data.")
 
     # Create voronois
     voronois_gdf = aup.voronoi_points_within_aoi(aoi,nodes,'osmid')
     nodes_voronoi_gdf = voronois_gdf[['osmid','geometry']]
 
-    # --------------- 3.2 SPATIAL INTERSECTION OF POLYGONS WITH BLOCKS
+    # 3.2 --------------- SPATIAL INTERSECTION OF POLYGONS WITH BLOCKS
     aup.log("--- Creating spatial join between voronoi polygons and blocks.")
     
     # Calculate block area
@@ -126,7 +126,7 @@ def main(city,save=False):
     # Drop used columns
     mza_voronoi.drop(columns=['area_mza','area_voronoi'],inplace=True)
 
-    # --------------- 3.3 SUM POP DATA THAT CORRESPONDS TO EACH NODE (Groups mza_voronoi data by osmid)
+    # 3.3 --------------- SUM POP DATA THAT CORRESPONDS TO EACH NODE (Groups mza_voronoi data by osmid)
     aup.log("--- Adding pop data by node.")
     
     # List to be similar to columns_of_interest inside function calculate_censo_nan_values_v1,
@@ -174,7 +174,7 @@ def main(city,save=False):
     hex_socio_gdf = gpd.GeoDataFrame()
     
     for res in res_list:
-        # --------------- 4.1 LOAD HEXGRID
+        # 4.1 --------------- LOAD HEXGRID
         # Load hexgrid from db
         aup.log(f"--- Loading hexgrid res {res} for area of interest.")
         query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'"
@@ -185,7 +185,7 @@ def main(city,save=False):
         hex_res_gdf['res'] = res
         aup.log(f"--- Created hex_grid with {res} resolution")
 
-        # --------------- 4.2 GROUP POPDATA IN HEXGRID
+        # 4.2 --------------- GROUP POPDATA IN HEXGRID
         # Group pop data
         string_columns = ['osmid'] # Nodes string columns are not used in aup.group_sociodemographic_data. The rest are turned into numeric and processed.
         hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns,include_nearest=(True,'osmid')) 
@@ -193,7 +193,7 @@ def main(city,save=False):
         # Hexagons data to hex_gdf GeoDataFrame
         hex_socio_gdf_tmp = hex_res_gdf.merge(hex_socio_df, on='hex_id')
 
-        # --------------- 4.3 Add additional common fields
+        # 4.3 --------------- Add additional common fields
         # Calculate population density
         hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
         hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
