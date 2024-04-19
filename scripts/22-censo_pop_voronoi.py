@@ -143,7 +143,8 @@ def main(city,save=False):
                            'p_12ymas','p_12ymas_f','p_12ymas_m',
                            'p_15ymas','p_15ymas_f','p_15ymas_m',
                            'p_18ymas','p_18ymas_f','p_18ymas_m',
-                           'pob0_14','pob15_64','pob65_mas'] 
+                           'pob0_14','pob15_64','pob65_mas',
+                           'pcon_disc'] 
 
     # Create pop_nodes_gdf (Will store nodes pop output by node)
     pop_nodes_gdf = nodes.copy()
@@ -221,6 +222,10 @@ def main(city,save=False):
         aup.gdf_to_db_slow(hex_socio_gdf, save_table, save_schema, if_exists='append')
         aup.log(f"--- Uploaded pop hexs for {city}")
 
+    if test:
+        pop_nodes_gdf.to_file(nodes_local_save_dir, driver='GPKG')
+        hex_socio_gdf.to_file(final_local_save_dir, driver='GPKG')
+
 
 if __name__ == "__main__":
     aup.log('--'*50)
@@ -242,8 +247,10 @@ if __name__ == "__main__":
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
     save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
     
-    # Test (If testing, Script runs res 8 for Aguascalientes ONLY and does not save it)
-    test = False
+    # Test - (If testing, Script runs res 8 for Aguascalientes ONLY and saves it ONLY locally. (Make sure directory exists)
+    test = True
+    nodes_local_save_dir = f"../data/processed/pop_data/test_ags_script22_nodes.gpkg"
+    final_local_save_dir = f"../data/processed/pop_data/test_ags_script22_hex.gpkg"
 
     # ------------------------------ SCRIPT ------------------------------
     # If test, simplifies script parameters:
@@ -251,9 +258,16 @@ if __name__ == "__main__":
         missing_cities_list = ['Aguascalientes']
         skip_city_list = []
         res_list = [8,9]
-        save = True
-        i = 1
+        save = False
+        local_save = True
+        i = 0
         k = len(missing_cities_list)
+
+        city = 'Aguascalientes'
+        query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
+        metro_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        metro_gdf = metro_gdf.set_crs("EPSG:4326")
+
         aup.log(f"Processing test for {missing_cities_list} at res {res_list}.")
 
     # If not test, runs Mexico's cities
