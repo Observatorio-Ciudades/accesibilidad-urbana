@@ -966,7 +966,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
-								P_8A14, P_8A14_F, P_8A14_M)
+								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC.
 	"""
 	
 	##########################################################################################
@@ -976,9 +976,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	# --------------- 1.1 SET COLUMNS TO .UPPER() EXCEPT FOR GEOMETRY
 	# (When the equations were written, we used UPPER names, easier to read and also
 	# easier to change it this way and then return output with .lower columns)
+	pop_ageb_gdf = pop_ageb_gdf.copy()
 	pop_ageb_gdf.columns = pop_ageb_gdf.columns.str.upper()
 	pop_ageb_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
 
+	pop_mza_gdf = pop_mza_gdf.copy()
 	pop_mza_gdf.columns = pop_mza_gdf.columns.str.upper()
 	pop_mza_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
 
@@ -1041,7 +1043,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 							'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
 							'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
 							'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-							'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+							'REL_H_M','POB0_14','POB15_64','POB65_MAS',
+							'PCON_DISC'] #Added later
 		blocks = mza_ageb_gdf[['CVEGEO','POBTOT'] + columns_of_interest].copy()
 		
 		# 2.2b) Set found values to 0
