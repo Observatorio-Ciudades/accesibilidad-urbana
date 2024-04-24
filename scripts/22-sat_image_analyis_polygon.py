@@ -173,18 +173,18 @@ if __name__ == "__main__":
     freq = 'MS'
     start_date = '2019-01-01'
     end_date = '2023-12-31'
-    # satellite = "landsat-c2-l2"
-    satellite = 'sentinel-2-l2a'
-    # query_sat = {'plataform':{'in':['landsat-8','landsat-9']}}
+    satellite = "landsat-c2-l2"
+    # satellite = 'sentinel-2-l2a'
+    query_sat = {'plataform':{'in':['landsat-8','landsat-9']}}
     query_sat = {}
     del_data = False
-    city = 'Santiago'
-    # city = 'Medellin'
+    # city = 'Santiago'
+    city = 'Medellin'
     local_save = True #------ Set True if test
     save = False #------ Set True if full analysis
 
-    mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
-    # mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
+    # mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
+    mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
 
 
     ###############################
