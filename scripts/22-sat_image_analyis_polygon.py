@@ -16,13 +16,15 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
+def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat, save=False, del_data=False):
 
     ###############################
     ### Create city area of interest with biggest hexs
     big_res = min(res)
 
     poly = mun_gdf.to_crs("EPSG:32618").buffer(500).reset_index()
+    poly = poly.rename(columns={0:'geometry'})
+    poly = gpd.GeoDataFrame(poly, geometry='geometry')
     poly = poly.to_crs("EPSG:4326")
     hex_city = aup.create_hexgrid(poly, big_res)
 
@@ -30,7 +32,7 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
     
     ### Download and process rasters
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite, query=query_sat)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -162,22 +164,27 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+    band_name_dict = {'nir08':[False], #If GSD(resolution) of band is different, set True.
                       'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-red)/(nir+red)']} 
+                      'eq':['(nir08-red)/(nir08+red)']} 
     index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2019-01-01'
     end_date = '2023-12-31'
-    satellite = "sentinel-2-l2a"
+    # satellite = "landsat-c2-l2"
+    satellite = 'sentinel-2-l2a'
+    # query_sat = {'plataform':{'in':['landsat-8','landsat-9']}}
+    query_sat = {}
     del_data = False
-    city = 'Medellin'
+    city = 'Santiago'
+    # city = 'Medellin'
     local_save = True #------ Set True if test
     save = False #------ Set True if full analysis
 
-    mun_gdf = gpd.read_file('../data/raw/colombia/medellin_gcs.geojson')
+    mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
+    # mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
 
 
     ###############################
@@ -202,4 +209,4 @@ if __name__ == "__main__":
     # run script
     
     main(mun_gdf, index_analysis, city, band_name_dict, start_date,
-                end_date, freq, satellite, save, del_data)
+                end_date, freq, satellite, query_sat,  save, del_data)
