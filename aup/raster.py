@@ -441,7 +441,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
 
         # filter dates by missing values or outliers according to cloud and no_data values
         for c in range(len(column_list)):
-            df_tile.loc[df_tile[column_list[c]]>q3[c],column_list[c]] = np.nan
+            df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
     else:
         log('Fixed filter applied')
         column_list = df_tile.columns.to_list()
@@ -453,6 +453,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     # arrange by cloud coverage average
     df_tile['avg_cloud'] = df_tile.mean(axis=1)
     df_tile = df_tile.sort_values(by='avg_cloud')
+    log(f'Updated average cloud coverage: {df_tile.avg_cloud.mean()}')
 
     # create list of dates within normal distribution and without missing values
     date_list = df_tile.dropna().index.to_list()
@@ -782,17 +783,19 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
         # binary id - checks if month could be processed
         checker = 0
-
-        if df_raster.iloc[i].data_id==0:
-            continue
-            
-        # gather month and year from df to save raster
+	
+	# gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
         
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
+            df_raster.loc[i,'data_id'] = 1
+            df_raster.to_csv(df_file_dir, index=False)
             continue
-        
+
+        if df_raster.iloc[i].data_id==0:
+            continue
+
         log(f'\n Starting new analysis for {month_}/{year_}')
         
         # gather links for raster images
