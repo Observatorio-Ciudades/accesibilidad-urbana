@@ -496,113 +496,114 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             
     ######################################################################################################################################
     # UPDATED CODE FOR 2.3, WORK IN PROGRESS, MUST TEST
+    # 2.4 --------------- GROUP DATA BY HEX
+    # ------------------- This step groups nodes data by hexagon.
+    # ------------------- If pop output, also adds pop data. Else, creates hexgrid.
+
     run_update = False
     if run_update:
 
-        if pop_output:
-            # 2.3a) 1. Prevent crashing from trying not allowed resolutions.
-            checked_res_list = []
-            allowed_res = [8,9] ##### WIP: INSERT RESOLUTIONS AVAILABLE TO NEW POP GDF #####
-            for res in res_list: 
+        # 2.3) 0. Resolution check. Prevent crashing from trying not available resolutions.
+        checked_res_list = []
+        for res in res_list:
+            # Pop gdf in database is available in res 8 and 9
+            if pop_output:
+                allowed_res = [8,9]
                 if res in allowed_res:
                     checked_res_list.append(res)
                 else:
-                    print(f"--- Resolution {res} removed from res_list. This res is not available in pop output.")
-            res_list = checked_res_list.copy()
-    
-            # 2.3a) 2. Load all pop data
-            hex_socio_gdf = gpd.GeoDataFrame()
-            # Downloads hex_socio_gdf for city area
-            pop_schema = 'censo'
-            pop_table = f'pobcenso_inegi_20_mzaageb_hex'
-            for res in res_list:
-                # Download
-                hex_socio_gdf_tmp = aup.gdf_from_polygon(aoi, pop_schema, pop_table, geom_col="geometry")
-                hex_socio_gdf_tmp = hex_socio_gdf_tmp.set_crs("EPSG:4326")
-                aup.log(f"--- Downloaded pop gdf res {res}.")
-                # Calculate age groups [Childhood (pob_6a11) and Young adult (pob_18a24) already exist]
-                hex_socio_gdf_tmp['pob_0a5'] = hex_socio_gdf_tmp['p_0a2'] + hex_socio_gdf_tmp['p_3a5'] #Early childhood
-                hex_socio_gdf_tmp['pob_12a17'] = hex_socio_gdf_tmp['p_12a14'] + hex_socio_gdf_tmp['p_15a17'] # Pub-adolescence
-                hex_socio_gdf_tmp['pob_25a59'] = hex_socio_gdf_tmp['p_18ymas'] - (hex_socio_gdf_tmp['p_18a24'] + hex_socio_gdf_tmp['p_60ymas']) #Adult
-                # Calculate population density
-                hex_socio_gdf_tmp = hex_socio_gdf_tmp.to_crs("EPSG:6372")
-                hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / (hex_socio_gdf_tmp.area / 10000)
-                # Merge pop fields of interest to hex_socio_gdf
-                pop_fields = ['pobtot','pob_0a5','pob_6a11','pob_12a17','pob_18a24','pob_25a59','dens_pob_ha']
-                hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp[[f'hex_id','res']+pop_fields+['geometry']]])
-
-                aup.log(f"--- Saved pop gdf res {res}.")
-
-            # 2.3a) 3. Prepare hexagons for function group_by_hex_mean
-            hexgrid = gpd.GeoDataFrame()
-            for res in res_list:
-                # Load hexgrid res by res
-                hexgrid_tmp = hex_socio_gdf.loc[hex_socio_gdf['res'] == res]
-                # Function group_by_hex_mean requires res inside hex ID
-                hexgrid_tmp.rename(columns={'hex_id':f'hex_id_{res}'},inplace=True)
-                # Prepare with columns hex_id_{res}, res and geometry
-                hexgrid_tmp = hexgrid_tmp.to_crs("EPSG:4326")
-                hexgrid_tmp = hexgrid_tmp[[f'hex_id_{res}','res','geometry']].copy()
-                # Merge current res to hexgrid gdf
-                hexgrid = pd.concat([hexgrid,hexgrid_tmp])
-
-                aup.log(f"--- Hexgrid of resolution {res} for grouping proximity data by hex.")
-
-            
-        else: #if pop_output=False
-            # 2.3b) 1. Prevent crashing from trying not allowed resolutions.
-            checked_res_list = []
-            allowed_res = [8,9,10,11] #Available hexs 2020 resolutions on schema 'hexgrid'
-            for res in res_list:
+                    aup.log(f"--- Resolution {res} removed from res_list. This res is not available in pop output.")
+            # Hexgrid 2020 gdf in database is available in res 8,9,10 and 11
+            else:
+                allowed_res = [8,9,10,11]
                 if res in allowed_res:
                     checked_res_list.append(res)
                 else:
-                    print(f"--- Resolution {res} removed from res_list. This res is not available in hexgrid 2020.")
-            res_list = checked_res_list.copy()
-            
-            # 2.3b) 2. Prepare hexagons for function group_by_hex_mean
-            hexgrid = gpd.GeoDataFrame()
-            for res in res_list:
-                # Query for each particular res
+                    aup.log(f"--- Resolution {res} removed from res_list. This res is not available in hexgrid 2020.")
+        # Remove not allowed resolutions from hexgrid by copying checked_res_list.
+        res_list = checked_res_list.copy()
+
+        aup.log(f"Processing data to hex for resolutions {res_list}.")
+
+        hex_idx = gpd.GeoDataFrame()
+        # For each approved resolution
+        for res in res_list:
+
+            # (a) If not adding population data, just group proximity data by hex.
+            if not pop_output:
+                # 2.3a) (1) Load res hexagons for function group_by_hex_mean
+                # Query and load for each particular res (table name has res)
                 hex_table = f'hexgrid_{res}_city_2020'
                 query = f"SELECT * FROM {hex_schema}.{hex_table} WHERE \"city\" LIKE \'{city}\'"
-                # Load hexgrid (which already has ID_res)
-                hexgrid_tmp = aup.gdf_from_query(query, geometry_col='geometry')
-                # Prepare with columns hex_id_{res}, res and geometry
-                hexgrid_tmp = hexgrid_tmp.set_crs("EPSG:4326")
-                hexgrid_tmp['res'] = res
-                hexgrid_tmp = hexgrid_tmp[[f'hex_id_{res}','res','geometry']].copy()
-                # Merge current res to hexgrid gdf
-                hexgrid = pd.concat([hexgrid,hexgrid_tmp])
-                aup.log(f"--- Hexgrid of resolution {res} for grouping proximity data by hex.")
+                hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
+                hex_tmp = hex_tmp.set_crs("EPSG:4326")
+                # Fields of interest for group_by_mean
+                hex_tmp = hex_tmp[[f'hex_id_{res}','geometry']]
+                aup.log(f"--- Loaded hexgrid of resolution {res}.")
 
-    ######################################################################################################################################            
-    # UPDATED CODE FOR 2.4, WORK IN PROGRESS, MUST TEST
-    if run_update:
-        hex_idx = gpd.GeoDataFrame()
-        for res in res_list:
-            # Load current res hexgrid
-            hex_tmp = hexgrid.loc[hexgrid['res'] == res]
-            # Group proximity data by hex
-            hex_tmp = hex_tmp[[f'hex_id_{res}','geometry']]
-            hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
-            hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
-            aup.log(f"--- Grouped nodes data by hexagons res {res}.")
-            # Now that proximity data was added, we can return to the use of hex_id and res col
-            hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
-            hex_res_idx['res'] = res
-            # If pop_output is true, add pop data to hex_res_idx
-            if pop_output:
-                pop_list = pop_fields.copy()
-                pop_list.append(f'hex_id')
-                # hex_res_idx has hex_id, res, prox data and geometry for current res
-                # hex_socio_gdf has hex_id and pop data for current res
-                hex_res_ready = pd.merge(hex_res_idx, hex_socio_gdf[pop_list], on=f'hex_id')
+                #2.3a) (2) Group data by hex
+                hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+                # Filter for hexagons with data
+                hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
+                aup.log(f"--- Grouped nodes data by hexagons res {res}.")
+
+                #2.3a) (3) Format col {hex_id_res} to cols {hex_id, res}
+                hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+                hex_res_idx['res'] = res
+
+                #2.3a) (4) Add currently processed resolution to hex_id
+                hex_idx = pd.concat([hex_idx,hex_res_idx])
+                aup.log(f"--- Saved proximity data by hexagons res {res}.")
+            
+            # (b) If adding population data, load and calculate pop data, group proximity data by hex and format.
             else:
-                hex_res_ready = hex_res_idx.copy()
-            # Finally, add to hex_idx each resolution processing
-            hex_idx = pd.concat([hex_idx,hex_res_ready])
-            aup.log(f"--- Saved grouped data by hexagons res {res}.")
+                # Downloads hex_socio_gdf for city area
+                pop_schema = 'censo'
+                pop_table = f'pobcenso_inegi_20_mzaageb_hex'
+                
+                # 2.3b) (1) Load res hexagons with pop data
+                hex_tmp_pop = aup.gdf_from_polygon(aoi, pop_schema, pop_table, geom_col="geometry")
+                hex_tmp_pop = hex_tmp_pop.set_crs("EPSG:4326")
+                aup.log(f"--- Loaded hexgrid with pop data of resolution {res}.")
+                
+                # 2.3b) (2) Calculate additional pop fields
+                # Calculate age groups [Childhood (pob_6a11) and Young adult (pob_18a24) already exist]
+                hex_tmp_pop['pob_0a5'] = hex_tmp_pop['p_0a2'] + hex_tmp_pop['p_3a5'] #Early childhood
+                hex_tmp_pop['pob_12a17'] = hex_tmp_pop['p_12a14'] + hex_tmp_pop['p_15a17'] # Pub-adolescence
+                hex_tmp_pop['pob_25a59'] = hex_tmp_pop['p_18ymas'] - (hex_tmp_pop['p_18a24'] + hex_tmp_pop['p_60ymas']) #Adult
+                # Calculate population density in hex
+                hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:6372")
+                hex_tmp_pop['dens_pob_ha'] = hex_tmp_pop['pobtot'] / (hex_tmp_pop.area / 10000)
+                hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:4326")
+                # Keep fields of interest
+                pop_fields = ['pobtot','pobfem','pobmas',
+                              'pob_0a5','pob_6a11','pob_12a17','pob_18a24','pob_25a59','p_60ymas',
+                              'pcon_disc','dens_pob_ha']
+                hex_tmp_pop = hex_tmp_pop[[f'hex_id','res']+pop_fields+['geometry']]
+                aup.log(f"--- Calculated pop data by hex for res {res}.")
+
+                #2.3b) (3) Group data by hex
+                # Difference with just loading hexgrid: pop gdf has columns {hex_id, res} separate,
+                # but function group_data_by_hex requires col to be named {hex_id_res}.
+                hex_tmp = hex_tmp_pop[['hex_id','geometry']].copy()
+                hex_tmp.rename(columns={f'hex_id':'hex_id_{res}'},inplace=True)
+                hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+                # Filter for hexagons with data
+                hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
+                aup.log(f"--- Grouped nodes data by hexagons res {res}.")
+
+                #2.3b) (4) Format back from col {hex_id_res} to cols {hex_id, res}
+                hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+                hex_res_idx['res'] = res
+
+                #2.3b) (5) Add downloaded and calculated pop data to hex_res_idx
+                merge_list = pop_fields.copy()
+                merge_list.append(f'hex_id')
+                hex_res_idx_pop = pd.merge(hex_res_idx, hex_tmp_pop[merge_list], on=f'hex_id')
+
+                #2.3a) (6) Add currently processed resolution to hex_id
+                hex_idx = pd.concat([hex_idx,hex_res_idx_pop])
+                aup.log(f"--- Saved proximity and pop data by hexagons res {res}.")
 
     ######################################################################################################################################
     # CURRENT CODE
