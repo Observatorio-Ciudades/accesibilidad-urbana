@@ -325,7 +325,7 @@ Analysing source {source}.""")
 
     if nodes_save:
         nodes_analysis['city'] = city
-        aup.gdf_to_db_slow(nodes_timeanalysis_filter, nodes_save_table, save_schema, if_exists='append')
+        aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
         aup.log(f"--- Saved {city} nodes gdf in database.")
     
     aup.log(f"""
@@ -346,7 +346,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     
     definitions = {}
     for eje in parameters.keys():
-        # tmp_dicc is {amenity:[source_list]} for each eje
+        # tmp_dicc stores all {amenity:[source_list]} for each eje
         tmp_dicc = {}
         for amenity in parameters[eje]:
             items_lst = []
@@ -433,7 +433,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             else:
                 # Crash on purpose and raise error
                 aup.log("--- Error in source_weight dicc.")
-                aup.log("--- Must pass 'min', 'max' or 'two-method'")
+                aup.log("--- Must pass 'min', 'max' or 'two-method'.")
                 intended_crash
 
         #Calculates time to currently examined eje (max time of its amenities):
@@ -551,7 +551,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
                 hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
                 hex_res_idx['res'] = res
 
-                #2.3a) (4) Add currently processed resolution to hex_id
+                #2.3a) (4) Add currently processed resolution to hex_idx
                 hex_idx = pd.concat([hex_idx,hex_res_idx])
                 aup.log(f"--- Saved proximity data by hexagons res {res}.")
             
@@ -601,7 +601,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
                 merge_list.append(f'hex_id')
                 hex_res_idx_pop = pd.merge(hex_res_idx, hex_tmp_pop[merge_list], on=f'hex_id')
 
-                #2.3a) (6) Add currently processed resolution to hex_id
+                #2.3b) (6) Add currently processed resolution to hex_idx
                 hex_idx = pd.concat([hex_idx,hex_res_idx_pop])
                 aup.log(f"--- Saved proximity and pop data by hexagons res {res}.")
 
@@ -915,11 +915,8 @@ if __name__ == "__main__":
     nodes_local_save_dir = f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_nodes.gpkg"
     final_local_save_dir = f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_hex.gpkg"
 
-    # ---------------------------- SCRIPT START ----------------------------
-    aup.log('--'*50)
-    aup.log(f"--- STARTING SCRIPT 21 USING VERSION {version}.")
-
-    # PARAMETERS DICTIONARY
+    # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE ----------------------------
+    # PARAMETERS DICTIONARY (Required)
     # This dicctionary sets the ejes, amenidades, sources and codes for analysis
             #{Eje (e):
             #            {Amenity (a):
@@ -963,7 +960,7 @@ if __name__ == "__main__":
                                     } 
                 }
 
-    # WEIGHT DICTIONARY
+    # WEIGHT DICTIONARY (Required)
     # If need to measure nearest source for amenity, doesn't matter which, choose 'min'
     # If need to measure access to all of the different sources in an amenity, choose 'max'
     source_weight = {'Escuelas':{'Preescolar':'max', #There is only one source, no effect.
@@ -981,8 +978,12 @@ if __name__ == "__main__":
                                         'Actividad física':'min', # //////////////////// Will choose min time to source because measuring access to nearest source, doesn't matter which.
                                         'Cultural':cultural_weight} # ////////////////// Depends on version (v1 will choose min, v2 two-method.)
                     }
+
+    # ---------------------------- SCRIPT START ----------------------------
+    aup.log('--'*50)
+    aup.log(f"--- STARTING SCRIPT 21 USING VERSION {version}.")
     
-    # Script mode
+    # Script mode:
     if local_save: # Local save activates test mode (Aguascalientes only)
         city_list = ['Aguascalientes']
         processed_city_list = []

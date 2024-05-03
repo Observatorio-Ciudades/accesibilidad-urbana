@@ -732,11 +732,17 @@ def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
 
 	# Read pop GeoDataFrame
 	pop_gdf = gpd.read_file(pop_dir)
-
-	# Format and set columns of interest
 	pop_gdf = pop_gdf.to_crs("EPSG:4326")
+	print(f"Loaded pop_gdf.")
+
+	# Make sure all data is in .lower()
 	pop_gdf.columns = pop_gdf.columns.str.lower()
-	columns_ofinterest = pop_columns.copy()
+	index_column = index_column.lower()
+	columns_ofinterest = []
+	for col in pop_columns:
+		columns_ofinterest.append(col.lower())
+
+	# Format gdf with all columns of interest
 	columns_ofinterest.append(index_column)
 	columns_ofinterest.append('geometry')
 	block_pop = pop_gdf[columns_ofinterest]
