@@ -35,9 +35,12 @@ def main(pop_output, db_save=False, local_save=True, save_space=False):
     aoi = aoi.to_crs("EPSG:4326")
     aup.log(f"--- Starting creation of osmnx network.")
 
-    # Download osmnx network (G, nodes and edges from bounding box of aoi)
-    G, nodes, edges = aup.create_osmnx_network(aoi,how='from_bbox')
-    aup.log(f"--- Finished creating osmnx network.")
+    if database_network:
+        G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table)
+    else:
+        # Download osmnx network (G, nodes and edges from bounding box of aoi)
+        G, nodes, edges = aup.create_osmnx_network(aoi,how='from_bbox')
+        aup.log(f"--- Finished creating osmnx network.")
 
     ##########################################################################################
     # STEP 2: ANALYSE POINTS OF INTEREST
@@ -80,7 +83,7 @@ Analysing source {source}.""")
                     source_analysis_cols.append(count_col)
                     all_analysis_cols.append(count_col)
 
-                # 2.2 --------------- GET POIS - Select source points of interest 
+                # 2.2 --------------- GET POIS - Select source points of interest
                 # (concats all data corresponding to current source in source_pois)
                 source_pois = gpd.GeoDataFrame()
                 for code in parameters[eje][amenity][source]:
@@ -90,7 +93,12 @@ Analysing source {source}.""")
                 
                 # 2.3 --------------- SOURCE ANALYSIS
                 # Calculate time data from nodes to source
-                source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure='length', count_pois=count_pois)
+                if database_network:
+                    #Uses Network available in database, which has time_min field.
+                    source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure='time_min', count_pois=count_pois)
+                else:
+                    #Uses OSMnx created network 
+                    source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure='length', count_pois=count_pois)
                 # Format
                 source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
                 source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
@@ -449,11 +457,6 @@ if __name__ == "__main__":
     pois_dir = "../data/external/temporal_todocker/prox_aoi/pois_ags.gpkg"
     
     # ---------------------------- SCRIPT CONFIGURATION - ANALYSIS AND OUTPUT OPTIONS ----------------------------
-    # IMPORTANT NOTE:
-    # Network distance method used in function pois_time will always be 'length' since
-    # this notebook creates its own OSMnx Network ('time_min' is the result of pre-processing)
-    # Therefore, this script assumes pedestrian speed of 4km/hr
-
     # Resolutions of hexgrid output (Required)
     res_list = [8,9]
     # Count available amenities at given time proximity (minutes)? (Required)
@@ -461,7 +464,16 @@ if __name__ == "__main__":
     # Save disk space by deleting used data that will not be used after? (Required)
     save_space = True
 
-    # OPTIONAL 
+    # OPTIONAL - Network
+    # If true, will download a network from database (Allows us to calculate times using previously processed edges with walking speed - edges_speed)
+    # If false, will create a OSMnx Network and use a pedestrian speed of 4km/hr to calculate times
+    database_network = True
+    # Database locations
+    network_schema = 'osmnx' #(Required if database_network = True)
+    nodes_table = 'nodes' #(Required if database_network = True)
+    edges_table = 'edges_speed' #(Required if database_network = True)
+
+    # OPTIONAL - Population data
     pop_output = True
     # Pop data by block file directory (Required if pop_output = True)
     # Pop data is converted to hex data by using centroids.
