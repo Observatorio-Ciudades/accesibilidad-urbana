@@ -85,7 +85,7 @@ Analysing source {source}.""")
                 source_pois = gpd.GeoDataFrame()
                 for code in parameters[eje][amenity][source]:
                     code_pois = pois.loc[pois['code'] == code]
-                source_pois = pd.concat([source_pois,code_pois])
+                    source_pois = pd.concat([source_pois,code_pois])
                 aup.log(f"--- {source_pois.shape[0]} {source} pois. Analysing source pois proximity to nodes.")
                 
                 # 2.3 --------------- SOURCE ANALYSIS
@@ -114,7 +114,7 @@ Analysing source {source}.""")
         nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
         aup.log(f"--- Saved {city} nodes gdf locally.")
 
-    if save:
+    if db_save:
         nodes_analysis['city'] = city
         aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
         aup.log(f"--- Saved {city} nodes gdf in database.")
@@ -321,7 +321,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
         hex_res_pop['res'] = res
 
         # 4.5) Add currently processed resolution to hex_idx
-        hex_idx = hex_idx.append(hex_res_pop)
+        hex_idx = pd.concat([hex_idx,hex_res_pop])
  
         aup.log(f"Saved grouped data by hexagons res {res}")
         
@@ -442,15 +442,15 @@ if __name__ == "__main__":
     # Name of area of interest (Required)
     city = 'Aguascalientes'
     # Shape of the area of interest (Required directory)
-    aoi_dir = "../data/external/prox_latam/aoi_ags.gpkg"
+    aoi_dir = "../data/external/temporal_todocker/prox_aoi/aoi_ags.gpkg"
     # Points of interest (Required directory)
     # pois gdf must have a col named 'code' with a unique ID for each type of point of interest.
     # This code will be searched in dicc parameters to be assigned to a source-->amenity-->eje.
-    pois_dir = "../data/external/prox_latam/pois_ags.gpkg"
+    pois_dir = "../data/external/temporal_todocker/prox_aoi/pois_ags.gpkg"
     
     # ---------------------------- SCRIPT CONFIGURATION - ANALYSIS AND OUTPUT OPTIONS ----------------------------
     # IMPORTANT NOTE:
-    # Network distance method used in function pois_time will always be 'lenght' since
+    # Network distance method used in function pois_time will always be 'length' since
     # this notebook creates its own OSMnx Network ('time_min' is the result of pre-processing)
     # Therefore, this script assumes pedestrian speed of 4km/hr
 
@@ -463,11 +463,12 @@ if __name__ == "__main__":
 
     # OPTIONAL 
     pop_output = True
-    # Pop data file directory (Required if pop_output = True)
-    pop_dir = "../../data/external/prox_latam/pop_gdf_ags.gpkg"
+    # Pop data by block file directory (Required if pop_output = True)
+    # Pop data is converted to hex data by using centroids.
+    pop_dir = "../data/external/temporal_todocker/prox_aoi/pop_gdf_ags.gpkg"
     # List of columns with pop data. with total pop data (Required if pop_output = True)
     # First item of list must be name of total population column in order to calculate density.
-    pop_columns = ['pobtot']
+    pop_columns = ['pobtot','pobfem','pobmas']
     # Pop gdf index column (Required if pop_output = True)
     pop_index_column = 'cvegeo'
 
