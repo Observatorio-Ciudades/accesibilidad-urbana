@@ -396,7 +396,7 @@ def delete_files_from_folder(delete_dir):
             utils.log('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
-def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
+def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', projected_crs="EPSG:6372"):
     """
     Download OSMnx edges and nodes from DataBase according to GeoDataFrame boundary
 
@@ -405,6 +405,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
         schema (str): schema from DataBase where edges and nodes are stored
         edges_folder (str): folder name whithin schema where edges stored. Defaults to edges
         nodes_folder (str): folder name whithin schema where nodes stored. Defaults to nodes
+        projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 
     Returns:
         G (networkx.MultiDiGraph): Graph with edges and nodes from DataBase
@@ -412,7 +413,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
 		edges (geopandas.GeoDataFrame): GeoDataFrame for edges within boundaries
     """
 
-    gdf = gdf.to_crs("EPSG:6372")
+    gdf = gdf.to_crs(projected_crs)
     gdf = gdf.buffer(1).reset_index().rename(columns={0: "geometry"})
     gdf = gdf.set_geometry("geometry")
     gdf = gdf.to_crs("EPSG:4326")
@@ -482,6 +483,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes'):
 
 def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
     """Download OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
+       Based on Script07-download_osmnx.py located in database.
 
     Args:
         aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
@@ -586,4 +588,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
             edges[col] = edges[col].astype('string')
             print(f"Column: {col} in nodes gdf, has a list in it, the column data was converted to string.")
 
-    return G,nodes,edges
+    # Final format
+    nodes_gdf = nodes.set_crs("EPSG:4326")
+    edges_gdf = edges.set_crs("EPSG:4326")
+    nodes_gdf = nodes_gdf.set_index('osmid')
+    edges_gdf = edges_gdf.set_index(["u", "v", "key"])
+
+    return G,nodes_gdf,edges_gdf
