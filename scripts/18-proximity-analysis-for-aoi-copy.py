@@ -36,7 +36,7 @@ def main(pop_output, db_save=False, local_save=True, save_space=False):
     aup.log(f"--- Starting creation of osmnx network.")
 
     if database_network:
-        G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table)
+        G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
     else:
         # Download osmnx network (G, nodes and edges from bounding box of aoi)
         G, nodes, edges = aup.create_osmnx_network(aoi,how='from_bbox')
@@ -282,7 +282,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     
     # If pop_output = True, will create a hexgrid that contains population data for all res in res_list.
     if pop_output:
-        hex_socio_gdf = aup.create_popdata_hexgrid(aoi,pop_dir,pop_index_column,pop_columns,res_list)
+        hex_socio_gdf = aup.create_popdata_hexgrid(aoi,pop_dir,pop_index_column,pop_columns,res_list,projected_crs)
 
     hex_idx = gpd.GeoDataFrame()
 
@@ -449,8 +449,11 @@ if __name__ == "__main__":
     # ------------------------------ BASE DATA REQUIRED ------------------------------
     # Name of area of interest (Required)
     city = 'Aguascalientes'
+    # Projected coordinate reference system depending on the global location of the area of interest
+    projected_crs = "EPSG:6372" # (For this Script, required. Normally defaults to "EPSG:6372.")
     # Shape of the area of interest (Required directory)
     aoi_dir = "../data/external/temporal_todocker/prox_aoi/aoi_ags.gpkg"
+
     # Points of interest (Required directory)
     # pois gdf must have a col named 'code' with a unique ID for each type of point of interest.
     # This code will be searched in dicc parameters to be assigned to a source-->amenity-->eje.

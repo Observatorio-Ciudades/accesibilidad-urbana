@@ -209,7 +209,8 @@ def socio_points_to_polygon(
 	string_columns,
 	wgt_dict=None,
 	avg_column=None,
-	include_nearest=(False, '_')):
+	include_nearest=(False, '_'),
+	projected_crs="EPSG:6372"):
 
 	"""Group sociodemographic point data in polygons
     Arguments:
@@ -223,6 +224,7 @@ def socio_points_to_polygon(
 		include_nearest (tuple,optional): tuple containing boolean. If False, ignores points that fall outside gdf_polygon.
 																	If True, find closest poly vertex to point and assigns the point to it.
 																	Defaults to (False, '_')
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
     Returns:
         pd.DataFrame: DataFrame with group sociodemographic data and polygon id
 
@@ -243,8 +245,8 @@ def socio_points_to_polygon(
 		gdf_poly_edges = gdf_polygon.copy()
 		gdf_poly_edges['geometry'] = gdf_poly_edges.geometry.boundary
         # Find nearest gdf1 to each gdf2
-		gdf1 = gdf_socio_outside.to_crs('EPSG:6372')
-		gdf2 = gdf_poly_edges.to_crs('EPSG:6372')
+		gdf1 = gdf_socio_outside.to_crs(projected_crs)
+		gdf2 = gdf_poly_edges.to_crs(projected_crs)
 		nearest = gpd.sjoin_nearest(gdf1, gdf2,lsuffix="left", rsuffix="right")
 		gdf_tmp_2 = nearest.to_crs('EPSG:4326')
 		
@@ -715,7 +717,7 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 	return int_value
 
 
-def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
+def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, projected_crs="EPSG:6372"):
 	""" Function originally designed for proximity analysis in Latinamerica. It takes an area of interest, a population directory, 
 		index and pop columns and a list of desired hex res outputs and groups sociodemographic data by hex.
 	Args:
@@ -725,6 +727,7 @@ def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
 		pop_columns (list): List of names of columns to be added by hexagon. 
 							First item of list must be name of total population column in order to calculate density.
 		res_list (list): List of integers containing hex resolutions for output.
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with grouped sociodemographic data, hex_id and its resolution.
@@ -749,7 +752,7 @@ def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
 	print(f"Filtered pop_gdf.")
 
 	# Extract point from polygon
-	block_pop = block_pop.to_crs("EPSG:6372")
+	block_pop = block_pop.to_crs(projected_crs)
 	block_pop = block_pop.set_index(index_column)
 	point_within_polygon = gpd.GeoDataFrame(geometry=block_pop.representative_point())
 	print(f"Extracted pop_gdf centroids.")
@@ -772,7 +775,7 @@ def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
 	# Create buffer for aoi to include outer blocks when creating hexgrid
 	aoi_buffer = aoi.copy()
 	aoi_buffer = aoi_buffer.dissolve()
-	aoi_buffer = aoi_buffer.to_crs("EPSG:6372").buffer(2500)
+	aoi_buffer = aoi_buffer.to_crs(projected_crs).buffer(2500)
 	aoi_buffer = gpd.GeoDataFrame(geometry=aoi_buffer)
 	aoi_buffer = aoi_buffer.to_crs("EPSG:4326")
 
@@ -790,14 +793,14 @@ def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
 
 		# Group pop data
 		string_columns = [index_column]
-		hex_socio_df = socio_points_to_polygon(hex_gdf, centroid_block_pop,'hex_id', string_columns) 
+		hex_socio_df = socio_points_to_polygon(hex_gdf, centroid_block_pop,'hex_id', string_columns, projected_crs=projected_crs) 
 		print(f"Agregated socio data to hex with a total of {hex_socio_df.pobtot.sum()} population for resolution {res}.")
 
 		# Hexagons data to hex_gdf GeoDataFrame
 		hex_socio_gdf_tmp = hex_gdf.merge(hex_socio_df, on='hex_id')
 		
 		# Calculate population density
-		hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
+		hectares = hex_socio_gdf_tmp.to_crs(projected_crs).area / 10000
 		hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
 		print(f"Calculated an average density of {hex_socio_gdf_tmp.dens_pob_ha.mean()}")
 		
