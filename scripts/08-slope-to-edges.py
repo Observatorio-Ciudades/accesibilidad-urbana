@@ -112,7 +112,7 @@ if __name__ == "__main__":
     metro_schema = 'projects_research' # proxanalysis mexico: 'metropolis'
     metro_table = 'femsainfancias_missingcities_metrogdf2020' # proxanalysis mexico: 'metro_gdf_2015' or 'metro_gdf_2020'
     # Network data
-    schema = 'projects_research'
+    schema = 'projects_research' # proxanalysis mexico: 'osmnx'
     nodes_table = 'femsainfancias_missingcities_nodes' # proxanalysis mexico: 'nodes' or 'nodes_osmnx_23_point'
     edges_table = 'femsainfancias_missingcities_edges' #  proxanalysis mexico: 'edges' or 'edges_osmnx_23_line'
     # Location of unzipped MDE data by state obtained from https://www.inegi.org.mx/app/geo2/elevacionesmex/
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     # In metro_gdf_2020 CDMX was separated from the rest of ZMVM. 
     # For current edges elevation analysis, it's better if they are joined together.
-    # Remove CDMX, when ZMVM runs, will include CDMX.
+    # Remove CDMX, when ZMVM runs include CDMX.
     if metro_table == 'metro_gdf_2020':
         city_list.remove('CDMX') 
 
