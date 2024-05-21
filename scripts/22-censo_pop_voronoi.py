@@ -239,8 +239,8 @@ if __name__ == "__main__":
     # Save info
     save = True
     save_schema = 'censo'
-    nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
-    save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
+    nodes_save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_node'
+    save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_hex'
     
     # Test - (If testing, Script runs res 8 for Aguascalientes ONLY and saves it ONLY locally. (Make sure directory exists)
     test = True
