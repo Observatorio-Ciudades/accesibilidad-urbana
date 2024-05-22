@@ -688,6 +688,18 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 
 	return int_value
 
+def weighted_average(df, weight_column, value_column):
+	"""
+	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
+	Arguments:
+		df (pandas.DataFrame): DataFrame containing the data to be averaged
+		weight_column (str): Column name with weight data
+		value_column (str): Column name with value data
+	Returns:
+		weighted_average (float): Weighted average of the value column
+	"""
+	weighted_average = (df[weight_column] * df[value_column]).sum() / df[weight_column].sum()
+	return weighted_average
 
 def create_popdata_hexgrid(aoi,pop_dir,index_column,pop_columns,res_list):
 	"""
@@ -923,6 +935,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		else:
 			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]		
 			return nodes_time
+
+
 def weighted_average(df, weight_column, value_column):
 	"""
 	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
