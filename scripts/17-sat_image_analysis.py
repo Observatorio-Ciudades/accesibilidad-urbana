@@ -43,8 +43,8 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     aup.log(f'Downloaded {len(hex_city)} hexagon features')
     
     ### Download and process rasters
-    df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite)
+    df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq, start_date, end_date, 
+                                         tmp_dir, band_name_dict, query=sat_query, satellite=satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -71,7 +71,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
         
         # Load hexgrid
         table_hex = f'hexgrid_{r}_city_2020'
-        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
         hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
         # Format hexgrid
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
@@ -177,20 +177,21 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
-                      'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-red)/(nir+red)']} 
-    index_analysis = 'ndvi'
+    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True to lowest GSD
+                      'swir16':[False], #If GSD(resolution) of band is different, set True to lowest GSD
+                      'eq':["(nir-swir16)/(nir+swir16)"]} 
+    index_analysis = 'ndmi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
-    start_date = '2018-01-01'
-    end_date = '2022-12-31'
+    start_date = '2024-01-01'
+    end_date = '2024-03-19'
     satellite = "sentinel-2-l2a"
     del_data = False
+    sat_query = {"eo:cloud_cover": {"lt": 10}}
 
-    local_save = False #------ Set True if test
-    save = True #------ Set True if full analysis
+    local_save = True #------ Set True if test
+    save = False #------ Set True if full analysis
 
     ###############################
     # Create folder to store city skip_list
@@ -225,12 +226,13 @@ if __name__ == "__main__":
         pass
 
     #---------------------------------------
-    #------ Set following if test
-    #city_list = ['Aguascalientes']
-    #for city in city_list:
+    #------ Set following if test or running specific cities, else comment
+    city_list = ['CDMX']
+    processed_city_list=[]
+    for city in city_list:
 
-    #------ Set following if full analysis
-    for city in gdf_mun.city.unique():
+    #------ Set following if all-cities analysis, else comment
+    #for city in gdf_mun.city.unique():
     #---------------------------------------
 
         # if city not in processed_city_list and city not in skip_list:
