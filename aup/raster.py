@@ -1,3 +1,9 @@
+################################################################################
+# Module: Raster
+# Set of raster data treatment and analysis functions, mainly using Planetary Computer
+# updated: 13/11/2023
+################################################################################
+
 from .utils import *
 from .data import *
 from tqdm import tqdm
@@ -38,7 +44,7 @@ class NanValues(Exception):
     def __init__(self, message):
         self.message = message
 
-def available_data_check(df_len, missing_months, pct_limit=50, window_limit=5):
+def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
     pct_missing = round(missing_months/len(df_len),2)*100
     log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
     if pct_missing >= pct_limit: 
@@ -117,6 +123,12 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # analyze available data according to raster properties
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
                                            band_name_list, freq)
+    
+    # save original df_len (to review found and missing months in case of not passing available_data_check)
+    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
+    if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
+        df_len.to_csv(df_file_dir, index=False)
+
     available_data_check(df_len, missing_months) # test for missing months
 
     # creates raster and analyzes percentage of missing data points
@@ -228,7 +240,7 @@ def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentin
             )
 
             # Check how many items were returned
-            items.extend(list(search.get_items()))
+            items.extend(list(search.items()))
         except:
             log('No items found')
             continue
@@ -348,9 +360,12 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     # calculate missing months
     missing_months = len(df_complete_dates.loc[df_complete_dates.data_id==0])
     
+    # create empty able_to_download to avoid crash
+    df_complete_dates['able_to_download'] = np.nan
+    
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
+def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     """
     Filters dates per quantile and finds available ones.
 
@@ -378,26 +393,26 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
                     date_dict[i.datetime.date()].update(
                         {i.properties['s2:mgrs_tile']+'_cloud':
                         i.properties['s2:high_proba_clouds_percentage']})
-                    date_dict[i.datetime.date()].update(
-                        {i.properties['s2:mgrs_tile']+'_nodata':
-                        i.properties['s2:nodata_pixel_percentage']})
+                    #date_dict[i.datetime.date()].update(
+                    #    {i.properties['s2:mgrs_tile']+'_nodata':
+                    #    i.properties['s2:nodata_pixel_percentage']})
                 
                 else:
                     date_dict[i.datetime.date()].update(
                         {i.properties['s2:mgrs_tile']+'_cloud':
                         i.properties['s2:high_proba_clouds_percentage']})
-                    date_dict[i.datetime.date()].update(
-                        {i.properties['s2:mgrs_tile']+'_nodata':
-                        i.properties['s2:nodata_pixel_percentage']})
+                    #date_dict[i.datetime.date()].update(
+                    #    {i.properties['s2:mgrs_tile']+'_nodata':
+                    #    i.properties['s2:nodata_pixel_percentage']})
             # create new date key and add properties to it
             else:
                 date_dict[i.datetime.date()] = {}
                 date_dict[i.datetime.date()].update(
                     {i.properties['s2:mgrs_tile']+'_cloud':
                     i.properties['s2:high_proba_clouds_percentage']})
-                date_dict[i.datetime.date()].update(
-                    {i.properties['s2:mgrs_tile']+'_nodata':
-                    i.properties['s2:nodata_pixel_percentage']})
+                #date_dict[i.datetime.date()].update(
+                #    {i.properties['s2:mgrs_tile']+'_nodata':
+                #    i.properties['s2:nodata_pixel_percentage']})
         elif satellite == "landsat-c2-l2":
             # check and add raster properties to dictionary by tile and date
             # if date is within dictionary append properties from item to list
@@ -422,8 +437,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
     
     # determine third quartile for each tile
     df_tile = pd.DataFrame.from_dict(date_dict, orient='index')
-    q3 = [np.percentile(df_tile[c].dropna(), 
-                        [75]) for c in df_tile.columns.to_list()]
+    q3 = [np.percentile(df_tile[c].dropna(),[75]) for c in df_tile.columns.to_list() if 'cloud' in c]
     q3 = [v[0] for v in q3]
 
     # check if q3 analysis is necessary
@@ -442,11 +456,12 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
 
         # filter dates by missing values or outliers according to cloud and no_data values
         for c in range(len(column_list)):
-            df_tile.loc[df_tile[column_list[c]]>20,column_list[c]] = np.nan
+            df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
 
     # arrange by cloud coverage average
     df_tile['avg_cloud'] = df_tile.mean(axis=1)
     df_tile = df_tile.sort_values(by='avg_cloud')
+    log(f'Updated average cloud coverage: {df_tile.avg_cloud.mean()}')
 
     # create list of dates within normal distribution and without missing values
     date_list = df_tile.dropna().index.to_list()
@@ -777,14 +792,19 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # binary id - checks if month could be processed
         checker = 0
 
-        if df_raster.iloc[i].data_id==0:
-            continue
-            
         # gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
         
+        # check if raster already exists
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
+            df_raster.loc[i,'data_id'] = 1
+            df_raster.loc[i,'able_to_download'] = 1
+            df_raster.to_csv(df_file_dir, index=False)
+            continue
+        
+        # check if month is available
+        if df_raster.iloc[i].data_id==0:
             continue
         
         log(f'\n Starting new analysis for {month_}/{year_}')
