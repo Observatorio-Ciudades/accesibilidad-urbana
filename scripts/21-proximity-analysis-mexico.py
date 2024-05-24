@@ -501,9 +501,10 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
         keep_count_columns = all_count_columns.copy()
         keep_count_columns.append('osmid') # Column used for merging
         nodes_count_analysis_filter = nodes_analysis[keep_count_columns]
-        nodes_analysis_filter = pd.merge(nodes_time_analysis_filter, nodes_count_analysis_filter, on='osmid')
-
         aup.log("--- Counted close amenities by node.")
+
+        # Merge time analysis and count amenities analysis
+        nodes_analysis_filter = pd.merge(nodes_time_analysis_filter, nodes_count_analysis_filter, on='osmid')
 
     else:
         aup.log("--- Not counting close amenities by node (count_pois=(False,)).")
@@ -535,7 +536,7 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
                 aup.log(f"--- Resolution {res} removed from res_list. This res is not available in hexgrid 2020.")
     # Remove not allowed resolutions from hexgrid by copying checked_res_list.
     res_list = checked_res_list.copy()
-    aup.log(f"--- Processing data to hex for resolutions {res_list}.")
+    aup.log(f"--- Processing data to hexagons for resolutions {res_list}.")
 
     hex_idx = gpd.GeoDataFrame()
     # For each approved resolution
@@ -570,32 +571,51 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
         # (b) If adding population data, load and calculate pop data, group proximity data by hex and format.
         else:
             # 2.3b) (1) Load res hexagons with pop data
-            hex_tmp_pop = aup.gdf_from_polygon(aoi, pop_schema, pop_table, geom_col="geometry")
+            query = f"SELECT * FROM {pop_schema}.{pop_table} WHERE \"city\" LIKE \'{city}\' AND \"res\"={res}"
+            hex_tmp_pop = aup.gdf_from_query(query, geometry_col='geometry')
             hex_tmp_pop = hex_tmp_pop.set_crs("EPSG:4326")
-            aup.log(f"--- Loaded hexgrid with pop data of resolution {res}.")
-            
-            # 2.3b) (2) Calculate additional pop fields
-            # Calculate age groups [Childhood (p_6a11) and Young adult (p_18a24) already exist]
-            hex_tmp_pop['p_0a5'] = hex_tmp_pop['p_0a2'] + hex_tmp_pop['p_3a5'] #Early childhood
-            hex_tmp_pop['p_12a17'] = hex_tmp_pop['p_12a14'] + hex_tmp_pop['p_15a17'] # Pub-adolescence
-            hex_tmp_pop['p_25a59'] = hex_tmp_pop['p_18ymas'] - (hex_tmp_pop['p_18a24'] + hex_tmp_pop['p_60ymas']) #Adult
-            # Calculate population density in hex
-            hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:6372")
-            hex_tmp_pop['dens_pob_ha'] = hex_tmp_pop['pobtot'] / (hex_tmp_pop.area / 10000)
-            hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:4326")
-            # Keep fields of interest
-            pop_fields = ['pobtot','pobfem','pobmas',
-                            'p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas',
-                            'pcon_disc','dens_pob_ha']
-            hex_tmp_pop = hex_tmp_pop[[f'hex_id','res']+pop_fields+['geometry']]
-            aup.log(f"--- Calculated pop data by hex for res {res}.")
+            aup.log(f"--- Loaded {city}'s hexgrid with pop data of resolution {res}.")
+
+            # 2.3b) (2) Calculate additional pop fields (Depends on version)
+            # Prox analysis 2020 version uses three big age groups, and does not use population with disability (pcon_disc)
+            if version == 1: 
+                # 2.3b) (2) Calculate additional pop fields
+                # Calculate age groups used in original prox analysis
+                hex_tmp_pop['p_0a14'] = hex_tmp_pop['p_0a2'] + hex_tmp_pop['p_3a5'] + hex_tmp_pop['p_6a11'] + hex_tmp_pop['p_12a14']
+                hex_tmp_pop['p_15a24'] = hex_tmp_pop['p_15a17'] + hex_tmp_pop['p_18a24']
+                hex_tmp_pop['p_25a59'] = hex_tmp_pop['p_18ymas'] - + hex_tmp_pop['p_18a24'] - hex_tmp_pop['p_60ymas']
+                # Calculate population density in hex
+                hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:6372")
+                hex_tmp_pop['dens_pob_ha'] = hex_tmp_pop['pobtot'] / (hex_tmp_pop.area / 10000)
+                hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:4326")
+                # Keep fields of interest
+                pop_fields = ['pobtot','pobfem','pobmas',
+                              'p_0a14','p_15a24','p_25a59','p_60ymas',
+                              'dens_pob_ha']
+            # New version uses 5 age groups, each linked to a stage in life, and adds disability data (pcon_disc)
+            elif version == 2: 
+                # Calculate age groups [Childhood (p_6a11) and Young adult (p_18a24) already exist]
+                hex_tmp_pop['p_0a5'] = hex_tmp_pop['p_0a2'] + hex_tmp_pop['p_3a5'] #Early childhood
+                hex_tmp_pop['p_12a17'] = hex_tmp_pop['p_12a14'] + hex_tmp_pop['p_15a17'] # Pub-adolescence
+                hex_tmp_pop['p_25a59'] = hex_tmp_pop['p_18ymas'] - (hex_tmp_pop['p_18a24'] + hex_tmp_pop['p_60ymas']) #Adult
+                # Calculate population density in hex
+                hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:6372")
+                hex_tmp_pop['dens_pob_ha'] = hex_tmp_pop['pobtot'] / (hex_tmp_pop.area / 10000)
+                hex_tmp_pop = hex_tmp_pop.to_crs("EPSG:4326")
+                # Keep fields of interest
+                pop_fields = ['pobtot','pobfem','pobmas',
+                              'p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas',
+                              'pcon_disc','dens_pob_ha']
+                
+            hex_tmp_pop = hex_tmp_pop[['hex_id','res']+pop_fields+['geometry']]
+            aup.log(f"--- Calculated pop data by hexagons for res {res}.")
 
             #2.3b) (3) Group data by hex
             # Difference with just loading hexgrid: pop gdf has columns {hex_id, res} separate,
             # but function group_data_by_hex requires col to be named {hex_id_res}.
             # Therefore, create hex_tmp that has {hex_id, res} separate.
             hex_tmp = hex_tmp_pop[['hex_id','geometry']].copy()
-            hex_tmp.rename(columns={f'hex_id':'hex_id_{res}'},inplace=True)
+            hex_tmp.rename(columns={'hex_id':f'hex_id_{res}'},inplace=True)
             hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
             # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
@@ -663,7 +683,7 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
     hex_idx['idx_sum'] = hex_idx[idx_amenities_cols].sum(axis=1)
     hex_idx['city'] = city
 
-    aup.log('--- Finished calculating index, mean, median and max time.')
+    aup.log('--- Finished calculating index, mean, median and max time in hexagons.')
     
     # 3.3 --------------- FINAL FORMAT
     # ------------------- This step gives final format to the gdf
@@ -700,117 +720,106 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
     # Filter/reorder final output    
     hex_idx_city = hex_idx[final_column_ordered_list]
         
-    aup.log('--- Finished final format for gdf.')   
+    aup.log('--- Finished final format for hex gdf.')   
 
     # 3.4 --------------- SAVING
     # ------------------- This step saves (locally for tests, to db for script running)
 
     if local_save:
         hex_idx_city.to_file(final_local_save_dir, driver='GPKG')
-        aup.log(f"--- Saved {city} gdf locally.")
+        aup.log(f"--- Saved {city} hex gdf locally.")
 
     if final_save:
         aup.gdf_to_db_slow(hex_idx_city, final_save_table, save_schema, if_exists='append')
-        aup.log(f"--- Saved {city} gdf in database.")
+        aup.log(f"--- Saved {city} hex gdf in database.")
 
 
 if __name__ == "__main__":
  
     # ---------------------------- SCRIPT CONFIGURATION - VERSION ----------------------------
     # Prox analysis version (Must pass integers 1 or 2)
-    # If version = 1, does proximity analysis as it was done in 2020.
+    # If version = 1, does proximity analysis as it was done at first (Script 01 + 02 + 15).
     # If version = 2:
-        # > Filters denue_dif for reviewed points of interest
-        # > Introduces new method to choose times (used in cultural amenity) 
-        # > Includes and filters pois to cultural amenity: 
-        #   denue_bibliotecas --> "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
-        #   denue_centrocultural --> "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
+        # > Version 2 filters denue_dif for reviewed points of interest, version 1 doesn't (uses without filtering).
+        # > Version 2 introduces new method to choose times ('two-method', used in cultural amenity instead of using 'min') .
+        # > Version 2 includes and filters pois to cultural amenity, version 1 doesn't include them.
+        #   > denue_bibliotecas --> "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
+        #   > denue_centrocultural --> "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
+        # > Version 2 returns different population groups ('p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas','pcon_disc') than version 1 ('p_0a14','p_15a24','p_25a59','p_60ymas').
+    
     version = 1
 
-    if version == 1: #Prox analysis 2020 version
-        cultural_dict = {'denue_cines':[512130],
-                         'denue_museos':[712111, 712112]}
-        cultural_weight =  'min' # Will choose min time to source because measuring access to nearest source, doesn't matter which.
-
-    elif version == 2: #Prox analysis 2024 version
-        cultural_dict = {'denue_cines':[512130],
-                        'denue_museos':[712111, 712112],
-                        'denue_bibliotecas':[519121,519122],
-                        'denue_centrocultural':[711312]}
-        cultural_weight =  'two-method'
-    else:
-        aup.log("--- Error in specified proximity analysis version.")
-        aup.log("--- Must pass integers 1 or 2.")
-        intended_crash
-
     # ---------------------------- SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ----------------------------
-    # Area of interest (city)
+    # DATABASE - Area of interest (city)
     metro_schema = 'projects_research' #metropolis_analysis: 'metropolis'
     metro_table = 'femsainfancias_missingcities_metrogdf2020' #metropolis_analysis: 'metro_gdf_2020'
 
-    # Network data (nodes and edges table for distance analysis,
+    # DATABASE - Network data (nodes and edges table for distance analysis,
     # also used to generate the network G with which the nearest OSMID is assigned to each poi)
     network_schema = 'projects_research' #metropolis_analysis: 'osmnx'
     nodes_table = 'femsainfancias_missingcities_nodes' #metropolis_analysis: 'nodes' or 'nodes_osmnx_23_point'
     edges_table = 'femsainfancias_missingcities_edgesspeed' #metropolis_analysis: 'edges_speed' or 'edges_speed_23_line'
 
-    # Points of interest - DENUE
+    # DATABASE - Points of interest - DENUE
     denue_schema = 'denue'
     denue_table = 'denue_2020' #metropolis_analysis: 'denue_2020' or 'denue_23_point'
 
-    # Points of interest - CLUES
+    # DATABASE - Points of interest - CLUES
     clues_schema = 'denue'
     clues_table = 'clues' #metropolis_analysis: 'clues' or 'clues_23_point'
 
-    # Points of interest - SIP
+    # DATABASE - Points of interest - SIP
     sip_schema = 'denue'
     sip_table = 'sip_2020' #metropolis_analysis: 'sip_2020' or 'sip_23_point'
 
-    # Hexgrid
+    # DATABASE - Hexgrid
     hex_schema = 'hexgrid'
     # VERIFY ON SCRIPT hex_table.
     # metropolis analysis's data depends on res ['hexgrid_{res}_city_2020' (deprecated: 'hexgrid_{res}_city')], 
     # Verify table name (created inside Main function for each res output).
 
     ######### POP DATA IS WORK IN PROGRESS
-    # Population data 
+    # DATABASE - Population data 
     pop_schema = 'projects_research' #metropolis_analysis: censo
     pop_table = 'femsainfancias_missingcities_censoageb_hex' #metropolis_analysis: 'pobcenso_inegi_20_mzaageb_hex' or 'censo_inegi_20_ageb_hex' (deprecated:'hex_bins_pop_2020', had res8 only)
     ######### POP DATA IS WORK IN PROGRESS
 
     # ---------------------------- SCRIPT CONFIGURATION - ANALYSIS AND OUTPUT OPTIONS ----------------------------
-    # Network distance method used in function pois_time. (If length, assumes pedestrian speed of 4km/hr.)
+    # ANALYSIS AND OUTPUT - Network distance method used in function pois_time. (If length, assumes pedestrian speed of 4km/hr.)
     prox_measure = 'time_min' # Must pass 'length' or 'time_min'
 
-    # Count available amenities at given time proximity (minutes)?
+    # ANALYSIS AND OUTPUT - Count available amenities at given time proximity (minutes)?
     count_pois = (False,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
 
-    # If pop_output = True, loads pop data from pop_schema and pop_table.
-    # If pop_output = False, loads empty hexgrid.
+    # ANALYSIS AND OUTPUT - If pop_output = True, loads pop data from pop_schema and pop_table.
+    # ANALYSIS AND OUTPUT - If pop_output = False, loads empty hexgrid.
     pop_output = True
 
-    # Hexagon resolutions of output
+    # ANALYSIS AND OUTPUT - Hexagon resolutions of output
     res_list = [8,9]
 
-    # Do not process city-list
-    # If intentionally skipping cities, add here. Else, leave empty list.
+    # ANALYSIS AND OUTPUT - Do not process city-list
+    # ANALYSIS AND OUTPUT - If intentionally skipping cities, add here. Else, leave empty list.
     skip_city_list = []
 
-    # Stop at any given point of script's main function?
+    # ANALYSIS AND OUTPUT - Stop at any given point of script's main function? (Used in tests)
     stop = False
+
+    # ANALYSIS AND OUTPUT - Testing Script? If activated, script runs Aguascalientes only.
+    test = False
 
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
     save_schema = 'projects_research' #metropolis_analysis: 'prox_analysis'
-    # Save nodes with proximity data to db?
-    nodes_save = False
-    nodes_save_table = 'femsainfancias_missingcities_proxnodes' #metropolis_analysis: 'nodesproximity_24'
-    # Save final output to db?
+    # SAVING - Save nodes with proximity data to db?
+    nodes_save = True
+    nodes_save_table = 'femsainfancias_missingcities_proxnode' #metropolis_analysis: 'nodesproximity_24'
+    # SAVING - Save final output to db?
     final_save = True 
-    final_save_table = 'femsainfancias_missingcities_proxhexs' #metropolis_analysis: 'proximityanalysis_24_ageb_hex'
-    # If local_save is activated, script runs Aguascalientes only.
+    final_save_table = 'femsainfancias_missingcities_proxhex' #metropolis_analysis: 'proximityanalysis_24_ageb_hex'
+    # SAVING - Save final output (nodes and hexs) to db?
     local_save = False
-    nodes_local_save_dir = f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_nodes.gpkg"
-    final_local_save_dir = f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_hex.gpkg"
+    nodes_local_save_dir = f"../data/processed/proximity_v2/proxtest_femsainfancias_nodes.gpkg" #f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_nodes.gpkg"
+    final_local_save_dir = f"../data/processed/proximity_v2/proxtest_femsainfancias_hex.gpkg" #f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_hex.gpkg"
 
     # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE ----------------------------
     # PARAMETERS DICTIONARY (Required)
@@ -822,6 +831,23 @@ if __name__ == "__main__":
             #                           }
             #             }
             #}
+
+    if version == 1: #Prox analysis 2020 version
+        cultural_dict = {'denue_cines':[512130],
+                         'denue_museos':[712111, 712112]}
+        cultural_weight =  'min' # Will choose min time to source because measuring access to nearest source, doesn't matter which.
+
+    elif version == 2: #Prox analysis 2024 update
+        cultural_dict = {'denue_cines':[512130],
+                        'denue_museos':[712111, 712112],
+                        'denue_bibliotecas':[519121,519122],
+                        'denue_centrocultural':[711312]}
+        cultural_weight =  'two-method'
+    else:
+        aup.log("--- Error in specified proximity analysis version.")
+        aup.log("--- Must pass integers 1 or 2.")
+        intended_crash
+
     parameters = {'Escuelas':{'Preescolar':{'denue_preescolar':[611111, 611112]},
                             'Primaria':{'denue_primaria':[611121, 611122]},
                             'Secundaria':{'denue_secundaria':[611131, 611132]}
@@ -881,7 +907,7 @@ if __name__ == "__main__":
     aup.log(f"--- STARTING SCRIPT 21 USING VERSION {version}.")
     
     # Script mode:
-    if local_save: # Local save activates test mode (Aguascalientes only)
+    if test: # Test mode runs Aguascalientes only
         city_list = ['Aguascalientes']
         processed_city_list = []
         i = 0
@@ -893,7 +919,8 @@ if __name__ == "__main__":
         city_list = list(cities_gdf.city.unique())
         del cities_gdf
 
-        # Prevent cities being analyzed several times in case of a crash
+        # Prevent cities being analyzed several times in case of a crash 
+        # (by checking hexs uploaded to database)
         aup.log('--- Looking for alredy saved data in db.')
         processed_city_list = []
         try:
