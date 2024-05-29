@@ -26,7 +26,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
 
     # Download hexagons with type=urban
     type = 'urban'
-    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\'"
+    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = \'{city}\' AND \"type\" = \'{type}\'"
     hex_urban = aup.gdf_from_query(query, geometry_col='geometry')
     
     # Download hexagons with type=rural within 500m buffer
@@ -71,7 +71,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
         
         # Load hexgrid
         table_hex = f'hexgrid_{r}_city_2020'
-        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE \"city\"=\'{city}\' AND  (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
         hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
         # Format hexgrid
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
-    end_date = '2022-12-31'
+    end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = False
 
@@ -226,7 +226,9 @@ if __name__ == "__main__":
 
     #---------------------------------------
     #------ Set following if test
-    #city_list = ['Aguascalientes']
+    # city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon','Colima','Culiacan','Delicias','Durango','Guadalajara','Guanajuato','Hermosillo','Oaxaca','Pachuca','Piedad','Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula','Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla','Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
+    # city_list = ['CDMX']
+    city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
 
     #------ Set following if full analysis
@@ -234,7 +236,8 @@ if __name__ == "__main__":
     #---------------------------------------
 
         # if city not in processed_city_list and city not in skip_list:
-        if city not in processed_city_list and city not in skip_list:
+        if city not in processed_city_list and city in city_list:
+        # if city in city_list:
 
             aup.log(f'\n Starting city {city}')
 
