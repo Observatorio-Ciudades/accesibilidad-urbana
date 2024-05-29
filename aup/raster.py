@@ -113,7 +113,10 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     items = gather_items(time_of_interest, area_of_interest, query=query, satellite=satellite)
     log(f'Fetched {len(items)} items')
 
-    date_list = available_datasets(items, satellite)
+    log('Checking available tiles for area of interest')
+    df_clouds, date_list = arrange_items(items, satellite="sentinel-2-l2a")
+    #date_list = available_datasets(items, satellite) Removed due to problems created with cloud filtering.
+    log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # create dictionary from links
     band_name_list = list(band_name_dict.keys())[:-1]
@@ -356,6 +359,61 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     missing_months = len(df_complete_dates.loc[df_complete_dates.data_id==0])
     
     return df_complete_dates, missing_months
+
+def arrange_items(items, satellite="sentinel-2-l2a"):
+    """
+    Previously function available_datasets. 
+    Filters for dates where all tiles (rasters) that compose the area of interest are available.
+
+    Arguments:
+        items (np.array): items intersecting time and area of interest
+        satellite (str): satellite used to download imagery
+
+    Returns:
+        date_list (list): List of dates with full image available
+    """
+    # test raster outliers by date    
+    date_dict = {}
+
+    # iterate over raster tiles by date
+    for i in items:
+        # check and add raster properties (ID to identify tiles and cloud coverage to order dates by cloud coverage) to dictionary by tile and date 
+        # (items have different depending on satellite)
+        
+        # General explanation: date_dict[current date].update({current tile ID : current tile cloud coverage})
+        
+        if satellite == "sentinel-2-l2a":
+            if i.datetime.date() in list(date_dict.keys()):
+                # if date already exists in date_dict, update
+                date_dict[i.datetime.date()].update({i.properties['s2:mgrs_tile']:i.properties['s2:high_proba_clouds_percentage']})
+            else:
+                # else, create and update
+                date_dict[i.datetime.date()] = {}
+                date_dict[i.datetime.date()].update({i.properties['s2:mgrs_tile']:i.properties['s2:high_proba_clouds_percentage']})
+
+        elif satellite == "landsat-c2-l2":
+            if i.datetime.date() in list(date_dict.keys()):
+                # if date already exists in date_dict, update
+                date_dict[i.datetime.date()].update({i.properties['landsat:wrs_row']:i.properties['landsat:cloud_cover_land']})
+            else:
+                 # else, create and update
+                date_dict[i.datetime.date()] = {}
+                date_dict[i.datetime.date()].update({i.properties['landsat:wrs_row']:i.properties['landsat:cloud_cover_land']})
+                
+    # Turn into DataFrame
+    df_tile = pd.DataFrame.from_dict(date_dict, orient='index')
+
+    # Drop rows where there are NaNs (Unavailable raster tiles)
+    df_tile = df_tile.dropna()
+
+    # Arrange by cloud coverage average
+    df_tile['avg_cloud'] = df_tile.mean(axis=1)
+    df_tile = df_tile.sort_values(by='avg_cloud')
+    
+    # Create list of dates
+    date_list = df_tile.index.to_list()
+    
+    return df_tile, date_list
 
 def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     """
