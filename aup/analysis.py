@@ -823,7 +823,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)):
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0), projected_crs="EPSG:6372"):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
 		G (networkx.MultiDiGraph): Graph with edge bearing attributes
@@ -835,7 +835,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 							calculate time between nodes and points of interest.
 							If "length", will assume a walking speed of 4km/hr.
 							If "time_min", edges with time information must be provided.
-		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0) 
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
@@ -882,7 +883,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		
 		# 2.1 --------------- FORMAT NETWORK DATA
 		# Fill NANs with mean times (prevents crash)
-		edges[prox_measure].fillna(edges[prox_measure].mean(),inplace=True)
+		edges = edges.to_crs(projected_crs)
+		edges[prox_measure].fillna(edges.length,inplace=True)
+		edges = edges.to_crs("EPSG:4326")
 		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/4000
