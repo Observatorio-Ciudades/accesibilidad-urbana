@@ -18,7 +18,7 @@ log_name = "ObsCd"
 log_filename = "ObsCd"
 
 # Database settings
-url = os.getenv('url')
-user = os.getenv('user')
-pw = os.getenv('pw')
-db = os.getenv('db')
+url = 'hippocampus.cswst4rid7eb.us-east-2.rds.amazonaws.com'
+user = 'odc_writer'
+pw = 'writejacobs1918'
+db = 'postgres'
