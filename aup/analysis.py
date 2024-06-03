@@ -883,9 +883,12 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		
 		# 2.1 --------------- FORMAT NETWORK DATA
 		# Fill NANs with mean times (prevents crash)
+		no_length = len(edges.loc[edges['length'].isna()])
 		edges = edges.to_crs(projected_crs)
 		edges[prox_measure].fillna(edges.length,inplace=True)
 		edges = edges.to_crs("EPSG:4326")
+		print(f"Calculated length for {no_length} edges that had no length.")
+
 		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/4000
