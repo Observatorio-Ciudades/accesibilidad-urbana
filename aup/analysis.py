@@ -882,16 +882,21 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		# Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
 		
 		# 2.1 --------------- FORMAT NETWORK DATA
-		# Fill NANs with mean times (prevents crash)
+		# Fill NANs in length with calculated length (prevents crash)
 		no_length = len(edges.loc[edges['length'].isna()])
 		edges = edges.to_crs(projected_crs)
 		edges[prox_measure].fillna(edges.length,inplace=True)
 		edges = edges.to_crs("EPSG:4326")
-		print(f"Calculated length for {no_length} edges that had no length.")
+		print(f"Calculated length for {no_length} edges that had no length data.")
 
 		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/4000
+		else:
+			# NaNs in time_min? --> Assume walking speed = 4km/hr
+			no_time = len(edges.loc[edges['time_min'].isna()])
+			edges['time_min'].fillna((edges['length']*60)/4000,inplace=True)
+			print(f"Calculated time for {no_time} edges that had no time data.")
 
 		# 2.2 --------------- ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
 		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
