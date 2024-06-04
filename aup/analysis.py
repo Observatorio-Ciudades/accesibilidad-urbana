@@ -975,6 +975,20 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 			return nodes_time
 
 
+def weighted_average(df, weight_column, value_column):
+	"""
+	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
+	Arguments:
+		df (pandas.DataFrame): DataFrame containing the data to be averaged
+		weight_column (str): Column name with weight data
+		value_column (str): Column name with value data
+	Returns:
+		weighted_average (float): Weighted average of the value column
+	"""
+	weighted_average = (df[weight_column] * df[value_column]).sum() / df[weight_column].sum()
+	return weighted_average
+
+
 def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
