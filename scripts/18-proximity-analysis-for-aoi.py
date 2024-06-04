@@ -118,10 +118,11 @@ Analysing source {source}.""")
                     aup.log("Saved space by deleting used data.")
 
                 aup.log(f"--- FINISHED source {source}. Mean city time = {nodes_analysis[source].mean()}")
-            
+
     # 2.5 --------------- Final format for nodes
     column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
     nodes_analysis = nodes_analysis[column_order]
+    aup.log(f"--- Final nodes column order: {column_order}.")
 
     if local_save:
         nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
@@ -315,13 +316,13 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             # 4.2a) (1) Create res hexagons for function group_by_hex_mean
             hex_tmp = aup.create_hexgrid(aoi,res)
             hex_tmp = hex_tmp.set_crs("EPSG:4326")
-            aup.log(f"Created hexgrid of resolution {res}")
+            aup.log(f"--- Created hexgrid of resolution {res}")
             
             # 4.2a) (2) Group data by hex
             hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
             # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
-            aup.log(f"Grouped nodes data by hexagons res {res}")
+            aup.log(f"--- Grouped nodes data by hexagons res {res}")
 
             # 4.2a) (3) Format col {hex_id_res} to cols {hex_id, res}
             hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
@@ -336,7 +337,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             # 4.2b) (1) Load res hexagons with pop data
             # Load hex_pop for current resolution
             hex_tmp_pop = hex_socio_gdf.loc[hex_socio_gdf['res'] == res]
-            aup.log(f"Loaded {city}'s hexgrid with pop data of resolution {res}.")
+            aup.log(f"--- Loaded {city}'s hexgrid with pop data of resolution {res}.")
             
             # 4.2b) (2) Calculate pop fields (Write if applicable)
 
@@ -350,7 +351,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
             hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
             # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
-            aup.log(f"Grouped nodes data by hexagons res {res}")            
+            aup.log(f"--- Grouped nodes data by hexagons res {res}")            
             
             # 4.2b) (4) Format back from col {hex_id_res} to cols {hex_id, res}
             hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
@@ -396,7 +397,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
         #Re-calculates time to currently examined eje (max time of its amenities):        
         hex_idx['max_'+ e.lower()] = hex_idx[amenity_time_columns].max(axis=1)
 
-    aup.log('Finished recalculating times in hexagons')
+    aup.log('--- Finished recalculating times in hexagons')
 
     # 5.2 --------------- CALCULATE AND ADD ADDITIONAL AND FINAL DATA
     # ------------------- This step adds mean, median, city and idx data to each hex
@@ -454,7 +455,8 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # Filter/reorder final output    
     hex_idx_city = hex_idx[final_column_ordered_list]
 
-    aup.log('Finished final format for hex gdf.')
+    aup.log('--- Finished final format for hex gdf.')
+    aup.log(f"--- Final hexs column order: {final_column_ordered_list}.")
          
     if save_space:
         del hex_idx
@@ -492,7 +494,7 @@ if __name__ == "__main__":
     # Resolutions of hexgrid output (Required)
     res_list = [8,9]
     # Count available amenities at given time proximity (minutes)? (Required)
-    count_pois = (False,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
+    count_pois = (True,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
     # Save disk space by deleting used data that will not be used after? (Required)
     save_space = True
 
@@ -522,7 +524,7 @@ if __name__ == "__main__":
     save_schema = 'prox_analysis'
     nodes_save_table = 'nodesproximity_aoi'
     hex_save_table = 'proximityanalysis_aoi'
-    # Test - (If testing, Script saves it ONLY locally. (Make sure directory exists)
+    # Test - (If testing, Script saves it ONLY locally. (Overrides db_save, make sure directory exists)
     test = True
     nodes_local_save_dir = f"../data/processed/prox_aoi/test_script18_{city}_nodes.gpkg"
     hex_local_save_dir = f"../data/processed/prox_aoi/test_script18_{city}_hex.gpkg"
