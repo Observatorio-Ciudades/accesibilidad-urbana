@@ -885,7 +885,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		# Fill NANs in length with calculated length (prevents crash)
 		no_length = len(edges.loc[edges['length'].isna()])
 		edges = edges.to_crs(projected_crs)
-		edges[prox_measure].fillna(edges.length,inplace=True)
+		edges['length'].fillna(edges.length,inplace=True)
 		edges = edges.to_crs("EPSG:4326")
 		print(f"Calculated length for {no_length} edges that had no length data.")
 
