@@ -823,7 +823,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)):
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0), projected_crs="EPSG:6372"):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
 		G (networkx.MultiDiGraph): Graph with edge bearing attributes
@@ -835,7 +835,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 							calculate time between nodes and points of interest.
 							If "length", will assume a walking speed of 4km/hr.
 							If "time_min", edges with time information must be provided.
-		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0) 
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
@@ -881,11 +882,21 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		# Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
 		
 		# 2.1 --------------- FORMAT NETWORK DATA
-		# Fill NANs with mean times (prevents crash)
-		edges[prox_measure].fillna(edges[prox_measure].mean(),inplace=True)
+		# Fill NANs in length with calculated length (prevents crash)
+		no_length = len(edges.loc[edges['length'].isna()])
+		edges = edges.to_crs(projected_crs)
+		edges['length'].fillna(edges.length,inplace=True)
+		edges = edges.to_crs("EPSG:4326")
+		print(f"Calculated length for {no_length} edges that had no length data.")
+
 		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/4000
+		else:
+			# NaNs in time_min? --> Assume walking speed = 4km/hr
+			no_time = len(edges.loc[edges['time_min'].isna()])
+			edges['time_min'].fillna((edges['length']*60)/4000,inplace=True)
+			print(f"Calculated time for {no_time} edges that had no time data.")
 
 		# 2.2 --------------- ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
 		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
@@ -1496,3 +1507,82 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 
 	# Out of the while loop:
 	return voronois_gdf
+
+
+def proximity_isochrone(G, nodes, edges, point_of_interest, trip_time, prox_measure="length", projected_crs="EPSG:6372"):
+	
+	""" This should be a TEMPORARY FUNCTION. It was developed on the idea that isochrones can be created using the code from proximity analysis,
+		particularly, count_pois functionality. 
+		
+		The function analyses proximity to a point of interest, filters for nodes located at a trip_time or less minutes
+		from the point of interest (count_pois functionality) and returns a convex hull geometry around those nodes.
+
+	Args:
+		G (networkx.MultiDiGraph): Graph with edge bearing attributes.
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes within boundaries.
+		edges (geopandas.GeoDataFrame): GeoDataFrame with edges within boundaries.
+		point_of_interest (geopandas.GeoDataFrame): GeoDataFrame with point of interest to which to find an isochrone.
+		trip_time (int): maximum travel time allowed (minutes).
+		prox_measure (str): Text ("length" or "time_min") used to choose a way to calculate time between nodes and points of interest.
+							If "length", will assume a walking speed of 4km/hr.
+							If "time_min", edges with time information must be provided.
+							Defaults to "length".
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
+
+	Returns:
+		geometry (geometry): with the covered area.
+	"""
+	
+    # Define projection for downloaded data
+	nodes = nodes.set_crs("EPSG:4326")
+	edges = edges.set_crs("EPSG:4326")
+	point_of_interest = point_of_interest.set_crs("EPSG:4326")
+
+    # 1.0 --------------- ASSIGN CENTER NODE TO NEAREST OSMnx NODE
+    # Find nearest osmnx node to center node
+	nearest = find_nearest(G, nodes, point_of_interest, return_distance= True)
+	nearest = nearest.set_crs("EPSG:4326")
+
+    # 2.0 --------------- FORMAT NETWORK DATA
+    # Fill NANs in length with calculated length (prevents crash)
+	no_length = len(edges.loc[edges['length'].isna()])
+	edges = edges.to_crs(projected_crs)
+	edges['length'].fillna(edges.length,inplace=True)
+	edges = edges.to_crs("EPSG:4326")
+	if no_length > 0:
+		print(f"Calculated length for {no_length} edges that had no length data.")
+
+    # If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
+	if prox_measure == 'length':
+		edges['time_min'] = (edges['length']*60)/4000
+	else:
+        # NaNs in time_min? --> Assume walking speed = 4km/hr
+		no_time = len(edges.loc[edges['time_min'].isna()])
+		edges['time_min'].fillna((edges['length']*60)/4000,inplace=True)
+		if no_time > 0:
+			print(f"Calculated time for {no_time} edges that had no time data.")
+
+    # 3.0 --------------- PROCESS DISTANCE
+	count_pois = (True,trip_time)
+	nodes_analysis = nodes.reset_index().copy()
+	nodes_time = nodes.copy()
+
+    # Calculate distances
+	poi_name = 'poi' #Required by function, has no effect on output
+	nodes_distance_prep = calculate_distance_nearest_poi(nearest, nodes_analysis, edges, poi_name,'osmid', wght='time_min',count_pois=count_pois)
+    # Extract from nodes_distance_prep the calculated pois count.
+	nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+
+    # Organice and filter output data
+	nodes_time.reset_index(inplace=True)
+	nodes_time = nodes_time.set_crs("EPSG:4326")
+	nodes_time = nodes_time[['osmid',f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
+    
+    # 4.0 --------------- GET ISOCHRONE FOR CURRENT CENTER NODE    
+    # Keep only nodes where nearest was found at an _x_ time distance
+	nodes_at_15min = nodes_time.loc[nodes_time[f"{poi_name}_{count_pois[1]}min"]>0]
+    
+    # Create isochrone using convex hull to those nodes and add osmid from which this isochrone formed
+	hull_geometry = nodes_at_15min.unary_union.convex_hull
+	
+	return hull_geometry
