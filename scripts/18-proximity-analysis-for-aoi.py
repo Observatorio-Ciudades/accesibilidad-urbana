@@ -28,24 +28,25 @@ def main(pop_output, db_save=False, local_save=True, save_space=False):
 
     ##########################################################################################
     # STEP 1: CREATE OSMNX NETWORK
-    # ------------------- This step downloads the osmnx network for the area of interest.
+    # ------------------- This step downloads the area of interest and osmnx network.
 
     # Read area of interest (aoi)
     aoi = gpd.read_file(aoi_dir)
     aoi = aoi.to_crs("EPSG:4326")
-    aup.log(f"--- Starting creation of osmnx network.")
+    aup.log(f"--- Starting creation of OSMnx network.")
 
     if database_network:
         G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
+        aup.log(f"--- Finished creating OSMnx network.")
     else:
         # Download osmnx network (G, nodes and edges from bounding box of aoi)
         G, nodes, edges = aup.create_osmnx_network(aoi,how='from_bbox')
-        aup.log(f"--- Finished creating osmnx network.")
+        aup.log(f"--- Finished creating OSMnx network.")
 
     ##########################################################################################
     # STEP 2: ANALYSE POINTS OF INTEREST
     # ------------------- This step analysis times (and count of pois at given time proximity if requested) 
-    # ------------------- using function aup.pois_time. This step is based on script 21.
+    # ------------------- using function analysis/pois_time(). Step is based on script 21.
     # ------------------- Main difference lies in how pois are read.
 
     # Read points of interest (pois)
@@ -63,7 +64,7 @@ STARTING source pois proximity to nodes analysis for {city}.""")
     # PREP. FOR ANALYSIS - List of columns used to deliver final format of Script part 1
     all_analysis_cols = []
     
-    # SOURCE LOOP
+    # SOURCE LOOP - Calculates source proximity looping over sources from parameters dict.
     for eje in parameters.keys():
         for amenity in parameters[eje]:
             for source in parameters[eje][amenity]:
@@ -72,7 +73,7 @@ STARTING source pois proximity to nodes analysis for {city}.""")
                 aup.log(f"""
 Analysing source {source}.""")
                 
-                # 2.1 --------------- SAVE ANALYSIS COLUMN NAMES
+                # 2.1 --------------- SAVE COL NAMES - Register current source's analysis col names
                 # Source col to lists
                 source_analysis_cols.append(source)
                 all_analysis_cols.append(source)
@@ -117,12 +118,13 @@ Analysing source {source}.""")
                     aup.log("Saved space by deleting used data.")
 
                 aup.log(f"--- FINISHED source {source}. Mean city time = {nodes_analysis[source].mean()}")
-            
+
     # 2.5 --------------- Final format for nodes
     column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
     nodes_analysis = nodes_analysis[column_order]
+    aup.log(f"--- Final nodes column order: {column_order}.")
 
-    if test:
+    if local_save:
         nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
         aup.log(f"--- Saved {city} nodes gdf locally.")
 
@@ -159,7 +161,6 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # 3.1 --------------- FILL FOR MISSING AMENITIES
     # ------------------- This step originates on script 15, where each cities nodes time data was loaded from db.
     # ------------------- Even though its no longer needed, it remains usefull for avoiding crashes.
-    # ------------------- Definitions dicc (Previously, on script 15, called idx_15_min dictionary) is also used in the next steps.
 
     all_sources = []
     # Gather all possible sources
@@ -174,7 +175,7 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     for s in all_sources:
             if s not in column_list:
                 nodes_analysis[s] = np.nan
-                aup.log(f"--- {s} source amenity is not present in {city}.")
+                aup.log(f"--- {s} source amenity is not present in {city}. Filled up with nans.")
                 missing_sourceamenities.append(s)
                 
     aup.log(f"--- Finished missing source amenities analysis. {len(missing_sourceamenities)} not present source amenities were added as np.nan columns.")
@@ -186,23 +187,23 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
 
     aup.log("--- Starting proximity to amenities analysis by node.")
 
-    column_max_all = [] # list with all max times column names
-    column_max_ejes = [] # list with ejes max times column names
+    all_time_columns = [] # list with all max times column names, previously called 'column_max_all'
+    ejes_time_columns = [] # list with ejes max times column names, previously called 'column_max_ejes'
 
     #Goes through each eje in dictionary:
     for e in definitions.keys():
 
         #Appends to lists currently examined eje
-        column_max_all.append('max_'+ e.lower())
-        column_max_ejes.append('max_'+ e.lower())
-        column_max_amenities = [] # list with amenities in current eje
+        all_time_columns.append('max_'+ e.lower())
+        ejes_time_columns.append('max_'+ e.lower())
+        amenity_time_columns = [] # list with amenities in current eje, previously called 'column_max_amenities'
 
         #Goes through each amenity of current eje:
         for a in definitions[e].keys():
 
             #Appends to lists currently examined amenity:
-            column_max_all.append('max_'+ a.lower())
-            column_max_amenities.append('max_'+ a.lower())
+            all_time_columns.append('max_'+ a.lower())
+            amenity_time_columns.append('max_'+ a.lower())
 
             #Calculates time to currently examined amenity:
             #Uses source_weight dictionary to decide which time to use.
@@ -222,18 +223,18 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
                 intended_crash
 
         #Calculates time to currently examined eje (max time of its amenities):
-        nodes_analysis['max_'+ e.lower()] = nodes_analysis[column_max_amenities].max(axis=1) 
+        nodes_analysis['max_'+ e.lower()] = nodes_analysis[amenity_time_columns].max(axis=1) 
 
     # Set and calculate max time
     index_column = 'max_time' # column name for maximum time data
-    column_max_all.append(index_column) #Adds to column_max_all list the attribute 'max_time'
-    nodes_analysis[index_column] = nodes_analysis[column_max_ejes].max(axis=1) #Assigns "max_time" the max time for all ejes   
+    all_time_columns.append(index_column) #Adds to all_time_columns list the attribute 'max_time'
+    nodes_analysis[index_column] = nodes_analysis[ejes_time_columns].max(axis=1) #Assigns "max_time" the max time for all ejes   
 
-    # Add to column_max_all list the attributes 'osmid' and 'geometry' to filter nodes_analysis.
-    # Looking for data of importance: columns in column_max_all list
-    column_max_all.append('osmid')
-    column_max_all.append('geometry')
-    nodes_timeanalysis_filter = nodes_analysis[column_max_all].copy()
+    # Keep in nodes_analysis all_time_columns + node data (osmid + geometry)
+    keep_time_columns = all_time_columns.copy()
+    keep_time_columns.append('osmid')
+    keep_time_columns.append('geometry')
+    nodes_time_analysis_filter = nodes_analysis[keep_time_columns].copy()
 
     aup.log("--- Calculated proximity to amenities data by node.")
 
@@ -242,50 +243,58 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # ------------------- calculates how many amenities there are at a given time proximity (count_pois = (Boolean,time))
 
     if count_pois[0]:
-        column_count_all = []
+
+        aup.log("--- Starting counting close amenities by node.")
+
+        all_count_columns = []
         
         # Go through each eje
         for eje in definitions.keys():
             # Name of count eje column
             eje_count_colname = f'{eje}_{count_pois[1]}min'.lower()
             # Append to lists
-            column_count_all.append(eje_count_colname)
+            all_count_columns.append(eje_count_colname)
         
             # Go through eje's amenities
-            column_count_amenities = []
+            amenities_count_columns = []
             for amenity in definitions[eje]:
                 # Name of count amenity
                 amenity_count_colname = f'{amenity}_{count_pois[1]}min'.lower()
                 # Append to lists
-                column_count_all.append(amenity_count_colname)
-                column_count_amenities.append(amenity_count_colname)
+                all_count_columns.append(amenity_count_colname)
+                amenities_count_columns.append(amenity_count_colname)
         
                 # Gather amenities sources
-                column_count_sources = [] # Just used for sum function, not added at final output
+                sources_count_columns = [] # Just used for sum function, not added at final output
                 for source in definitions[eje][amenity]:
                     # Add to sources list
                     source_count_colname = f'{source}_{count_pois[1]}min'
-                    column_count_sources.append(source_count_colname)
+                    sources_count_columns.append(source_count_colname)
                 # Find sum of all sources found within given time of each node (For current amenity)
-                nodes_analysis[amenity_count_colname] = nodes_analysis[column_count_sources].sum(axis=1)
+                nodes_analysis[amenity_count_colname] = nodes_analysis[sources_count_columns].sum(axis=1)
             # Find sum of all sources found within given time of each node (For current eje)
-            nodes_analysis[eje_count_colname] = nodes_analysis[column_count_amenities].sum(axis=1)
+            nodes_analysis[eje_count_colname] = nodes_analysis[amenities_count_columns].sum(axis=1)
         
-        # Filter for columns of interest
-        column_count_all.append('osmid') # Column used for merging
-        nodes_countanalysis_filter = nodes_analysis[column_count_all]
-        nodes_analysis_filter = pd.merge(nodes_timeanalysis_filter,nodes_countanalysis_filter,on='osmid')
+        # Keep in nodes_analysis all_count_columns + node data for merging (osmid)
+        keep_count_columns = all_count_columns.copy()
+        keep_count_columns.append('osmid') # Column used for merging
+        nodes_count_analysis_filter = nodes_analysis[keep_count_columns]
+        aup.log("--- Counted close amenities by node.")
+
+        # Merge time analysis and count amenities analysis
+        nodes_analysis_filter = pd.merge(nodes_time_analysis_filter,nodes_count_analysis_filter,on='osmid')
 
         if save_space:
-            del nodes_timeanalysis_filter
-            del nodes_countanalysis_filter
+            del nodes_time_analysis_filter
+            del nodes_count_analysis_filter
             aup.log("Saved space by deleting used data.")
 
     else:
-        nodes_analysis_filter = nodes_timeanalysis_filter.copy()
+        aup.log("--- Not counting close amenities by node (count_pois=(False,)).")
+        nodes_analysis_filter = nodes_time_analysis_filter.copy()
 
         if save_space:
-            del nodes_timeanalysis_filter
+            del nodes_time_analysis_filter
             aup.log("Saved space by deleting used data.")
 
     ##########################################################################################
@@ -293,58 +302,71 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # ------------------- This step groups nodes data by hexagon.
     # ------------------- If pop output, also adds pop data. Else, creates hexgrid.
     
-    # If pop_output = True, will create a hexgrid that contains population data for all res in res_list.
+    # 4.1) If pop_output = True, will create a hexgrid that contains population data for all res in res_list.
     if pop_output:
         hex_socio_gdf = aup.create_popdata_hexgrid(aoi,pop_dir,pop_index_column,pop_columns,res_list,projected_crs)
+        hex_socio_gdf = hex_socio_gdf.set_crs("EPSG:4326")
 
     hex_idx = gpd.GeoDataFrame()
-
+    # For each resolution
     for res in res_list:
         
         # (a) If not adding population data, just group proximity data by hex.
         if not pop_output:
-            # 4a) (1) Create empty hex_tmp of current resolution (already has hex_ID_res col)
+            # 4.2a) (1) Create res hexagons for function group_by_hex_mean
             hex_tmp = aup.create_hexgrid(aoi,res)
             hex_tmp = hex_tmp.set_crs("EPSG:4326")
-            aup.log(f"Created hexgrid of resolution {res}")
+            aup.log(f"--- Created hexgrid of resolution {res}")
             
-            # 4a) (2) Group proximity data by hex
+            # 4.2a) (2) Group data by hex
             hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+            # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
-            aup.log(f"Grouped nodes data by hexagons res {res}")
+            aup.log(f"--- Grouped nodes data by hexagons res {res}")
 
-            # 4a) (3) Does not add pop data, just renames
-            hex_res_pop = hex_res_idx.copy()
+            # 4.2a) (3) Format col {hex_id_res} to cols {hex_id, res}
+            hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+            hex_res_idx['res'] = res
+
+            # 4.2a) (4) Add currently processed resolution to hex_idx
+            hex_idx = pd.concat([hex_idx,hex_res_idx])
+            aup.log(f"--- Saved proximity data by hexagons res {res}.")
         
         # (b) If adding population data, load and calculate pop data, group proximity data by hex and format.
         else:
-            # 4b) (1) Load hexgrid that contains population data and create empty hex_tmp
+            # 4.2b) (1) Load res hexagons with pop data
             # Load hex_pop for current resolution
-            hex_pop = hex_socio_gdf.loc[hex_socio_gdf['res'] == res]
-            # Prepare for function aup.group_by_hex_mean (Requires hex_ID_res col)
-            hex_pop.rename(columns={'hex_id':f'hex_id_{res}'},inplace=True)
-            hex_pop = hex_pop.set_crs("EPSG:4326")
-            hex_tmp = hex_pop[[f'hex_id_{res}','geometry']].copy()
-            aup.log(f"Loaded pop hexgrid of resolution {res}")
+            hex_tmp_pop = hex_socio_gdf.loc[hex_socio_gdf['res'] == res]
+            aup.log(f"--- Loaded {city}'s hexgrid with pop data of resolution {res}.")
             
-            # 4b) (2) Group proximity data by hex
+            # 4.2b) (2) Calculate pop fields (Write if applicable)
+
+
+            # 4.2b) (3) Group proximity data by hex
+            # Difference with just creating hexgrid: pop gdf has columns {hex_id, res} separate,
+            # but function group_data_by_hex requires col to be named {hex_id_res}.
+            # Therefore, create hex_tmp that has {hex_id, res} separate.
+            hex_tmp = hex_tmp_pop[['hex_id','geometry']].copy()
+            hex_tmp.rename(columns={'hex_id':f'hex_id_{res}'},inplace=True)
             hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+            # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
-            aup.log(f"Grouped nodes data by hexagons res {res}")
+            aup.log(f"--- Grouped nodes data by hexagons res {res}")            
+            
+            # 4.2b) (4) Format back from col {hex_id_res} to cols {hex_id, res}
+            hex_res_idx.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+            hex_res_idx['res'] = res
 
-            # 4b (3) Add previously calculated pop data
+            # 4.2b (5) Add downloaded and calculated pop data to hex_res_idx
+            # dens_pob_ha is calculated inside function create_popdata_hexgrid() 
+            # using the first value of pop_columns (must be name of total population column)
             pop_fields = pop_columns+['dens_pob_ha']
-            pop_list = [f'hex_id_{res}'] + pop_fields
-            hex_res_pop = pd.merge(hex_res_idx, hex_pop[pop_list], on=f'hex_id_{res}')
+            merge_list = [f'hex_id'] + pop_fields
+            hex_res_idx_pop = pd.merge(hex_res_idx, hex_tmp_pop[merge_list], on=f'hex_id')
 
-        # 4.4) Format back from col {hex_id_res} to cols {hex_id, res}
-        hex_res_pop.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
-        hex_res_pop['res'] = res
-
-        # 4.5) Add currently processed resolution to hex_idx
-        hex_idx = pd.concat([hex_idx,hex_res_pop])
- 
-        aup.log(f"Saved grouped data by hexagons res {res}")
+            # 4.2b (6) Add currently processed resolution to hex_idx
+            hex_idx = pd.concat([hex_idx,hex_res_idx_pop])
+            aup.log(f"--- Saved proximity and pop data by hexagons res {res}.")
         
     if save_space:
         del hex_tmp
@@ -352,8 +374,8 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
         del hex_res_idx
         if pop_output:
             del hex_socio_gdf #pop_output=True
-            del hex_pop #pop_output=True
-            del hex_res_pop #pop_output=True      
+            del hex_tmp_pop #pop_output=True
+            del hex_res_idx_pop #pop_output=True      
         aup.log("Saved space by deleting used data.")
 
     ##########################################################################################
@@ -367,24 +389,22 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     
     #Goes (again) through each eje in dictionary:
     for e in definitions.keys():
-        column_max_amenities = [] # list with amenities in current eje
+        amenity_time_columns = [] # list with amenities in current eje
 
         #Goes (again) through each amenity of current eje:    
         for a in definitions[e].keys():
-            column_max_amenities.append('max_'+ a.lower())
+            amenity_time_columns.append('max_'+ a.lower())
         #Re-calculates time to currently examined eje (max time of its amenities):        
-        hex_idx['max_'+ e.lower()] = hex_idx[column_max_amenities].max(axis=1)
+        hex_idx['max_'+ e.lower()] = hex_idx[amenity_time_columns].max(axis=1)
 
-    aup.log('Finished recalculating times in hexagons')
+    aup.log('--- Finished recalculating times in hexagons')
 
     # 5.2 --------------- CALCULATE AND ADD ADDITIONAL AND FINAL DATA
     # ------------------- This step adds mean, median, city and idx data to each hex
 
-    # Create all amenities list (previosly we had amenities list by eje) from column_max_ejes
-    max_amenities_cols = [i for i in column_max_all if i not in column_max_ejes]
+    # Extract all amenities (previosly we had amenities list by eje, not all) from all_time_columns
+    max_amenities_cols = [i for i in all_time_columns if i not in ejes_time_columns]
     max_amenities_cols.remove('max_time')
-    max_amenities_cols.remove('osmid')
-    max_amenities_cols.remove('geometry')
     # Create list with idx column names
     idx_amenities_cols = []
     for ac in max_amenities_cols:
@@ -392,13 +412,13 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
         hex_idx[idx_col] = hex_idx[ac].apply(apply_sigmoidal)
         idx_amenities_cols.append(idx_col)
     # Add final data
-    hex_idx[index_column] = hex_idx[column_max_ejes].max(axis=1)
+    hex_idx[index_column] = hex_idx[ejes_time_columns].max(axis=1)
     hex_idx['mean_time'] = hex_idx[max_amenities_cols].mean(axis=1)
     hex_idx['median_time'] = hex_idx[max_amenities_cols].median(axis=1)
     hex_idx['idx_sum'] = hex_idx[idx_amenities_cols].sum(axis=1)
     hex_idx['city'] = city
 
-    aup.log('--- Finished calculating index, mean, median and max time.')
+    aup.log('--- Finished calculating index, mean, median and max time in hexagons.')
     
     # 3.3 --------------- FINAL FORMAT
     # ------------------- This step gives final format to the gdf
@@ -408,17 +428,14 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
 
     # Second elements of ordered column list - max_ejes and max_amenities 
     # removing max_time, osmid and geometry.
-    column_max_ejes_amenities = column_max_all.copy()
-    column_max_ejes_amenities.remove('max_time')
-    column_max_ejes_amenities.remove('osmid')
-    column_max_ejes_amenities.remove('geometry')
-    final_column_ordered_list = final_column_ordered_list + column_max_ejes_amenities
+    ejes_time_columns_amenities = all_time_columns.copy()
+    ejes_time_columns_amenities.remove('max_time')
+    final_column_ordered_list = final_column_ordered_list + ejes_time_columns_amenities
 
     # Third elements of ordered column list - count pois columns (if requested)
     # removing osmid and geometry.
     if count_pois[0]:
-        third_elements = column_count_all.copy()
-        third_elements.remove("osmid")
+        third_elements = all_count_columns.copy()
         final_column_ordered_list = final_column_ordered_list + third_elements
 
     # Fourth elements of ordered list are listed in idx_amenities_cols
@@ -438,7 +455,8 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # Filter/reorder final output    
     hex_idx_city = hex_idx[final_column_ordered_list]
 
-    aup.log('Finished final format for gdf.')
+    aup.log('--- Finished final format for hex gdf.')
+    aup.log(f"--- Final hexs column order: {final_column_ordered_list}.")
          
     if save_space:
         del hex_idx
@@ -448,10 +466,10 @@ FINISHED source pois proximity to nodes analysis for {city}.""")
     # ------------------- This step saves (locally for tests, to db for script running)
     
     if local_save:
-        hex_idx_city.to_file(final_local_save_dir, driver='GPKG')
+        hex_idx_city.to_file(hex_local_save_dir, driver='GPKG')
         aup.log(f"--- Saved {city} gdf locally.")
     if db_save:
-        aup.gdf_to_db_slow(hex_idx_city, final_local_save_dir, save_schema, if_exists='append')
+        aup.gdf_to_db_slow(hex_idx_city, hex_save_table, save_schema, if_exists='append')
         aup.log(f"--- Saved {city} gdf in database.")
 
 
@@ -476,7 +494,7 @@ if __name__ == "__main__":
     # Resolutions of hexgrid output (Required)
     res_list = [8,9]
     # Count available amenities at given time proximity (minutes)? (Required)
-    count_pois = (False,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
+    count_pois = (True,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
     # Save disk space by deleting used data that will not be used after? (Required)
     save_space = True
 
@@ -506,10 +524,10 @@ if __name__ == "__main__":
     save_schema = 'prox_analysis'
     nodes_save_table = 'nodesproximity_aoi'
     hex_save_table = 'proximityanalysis_aoi'
-    # Test - (If testing, Script saves it ONLY locally. (Make sure directory exists)
+    # Test - (If testing, Script saves it ONLY locally. (Overrides db_save, make sure directory exists)
     test = True
     nodes_local_save_dir = f"../data/processed/prox_aoi/test_script18_{city}_nodes.gpkg"
-    final_local_save_dir = f"../data/processed/prox_aoi/test_script18_{city}_hex.gpkg"
+    hex_local_save_dir = f"../data/processed/prox_aoi/test_script18_{city}_hex.gpkg"
 
     # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE ----------------------------
     # PARAMETERS DICTIONARY (Required)
