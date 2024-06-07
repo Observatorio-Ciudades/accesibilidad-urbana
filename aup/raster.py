@@ -365,7 +365,7 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
+def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
     """
     Filters dates per quantile and finds available ones.
 
