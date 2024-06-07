@@ -117,7 +117,7 @@ if __name__ == "__main__":
     ##### WARNING ##### WARNING ##### WARNING #####
 
     # Test mode overrides db_save (Does not save to database), 
-    # creates isochrones for the first 100 isochrones only,
+    # creates isochrones for the first 100 nodes only,
     # and saves to local only (Make sure directory exists).
     test = True
 
