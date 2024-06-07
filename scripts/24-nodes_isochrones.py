@@ -11,6 +11,7 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
+import multiprocessing
 
 def main(trip_time, prox_measure, projected_crs, db_save=False, local_save=False):
     aup.log("--"*40)
@@ -38,12 +39,40 @@ def main(trip_time, prox_measure, projected_crs, db_save=False, local_save=False
     aup.log("--- Considering all nodes as pois.")
     pois = nodes.reset_index().copy()[['osmid','geometry']]
     osmid_list = list(pois.osmid.unique())
-    # Test mode creates the first 100 isochrones only and saves to local only.
+    '''# Test mode creates the first 100 isochrones only and saves to local only.
     if test:
-        osmid_list = osmid_list[0:100]
+        osmid_list = osmid_list[0:100]'''
 
     k = len(osmid_list)
 
+    # Integrate multiprocessor here
+    isochrones_gdf = gpd.GeoDataFrame()
+
+    # Create a multiprocessing input list
+    input_list = [(G, nodes, edges, point_of_interest, trip_time, prox_measure, projected_crs) for point_of_interest in pois.itertuples()]
+
+    # Define a function to be executed by each process
+    def create_isochrone(input_tuple):
+        G, nodes, edges, point_of_interest, trip_time, prox_measure, projected_crs = input_tuple
+        return aup.proximity_isochrone(G, nodes, edges, point_of_interest, trip_time, prox_measure, projected_crs)
+
+    # Create a multiprocessing pool
+    pool = multiprocessing.Pool()
+
+    # Map the create_isochrone function to the input list using the multiprocessing pool
+    results = pool.map(create_isochrone, input_list)
+
+    # Close the multiprocessing pool
+    pool.close()
+    pool.join()
+
+    # Iterate over the results and assign osmid and geometry to the isochrones_gdf
+    for i, result in enumerate(results):
+        isochrones_gdf.loc[i, 'osmid'] = pois.loc[i, 'osmid']
+        isochrones_gdf.loc[i, 'geometry'] = result
+
+    # Single process version
+    '''
     # Iterate over each node and create an isochrones
     aup.log("--- Iterating over all pois.")
     isochrones_gdf = gpd.GeoDataFrame()
@@ -63,6 +92,7 @@ def main(trip_time, prox_measure, projected_crs, db_save=False, local_save=False
         isochrones_gdf.loc[i,'geometry'] = hull_geom
 
         i += 1
+    '''
 
     # 1.3 --------------- SAVING
     if local_save:
