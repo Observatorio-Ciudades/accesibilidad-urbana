@@ -127,7 +127,7 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
                             'raster_analysis', if_exists='append')
 
         else:
-            limit_len = 5000000
+            limit_len = 2500000
             if len(df_raster_analysis)>limit_len:
                 c_upload = len(df_raster_analysis)/limit_len
                 for k in range(int(c_upload)+1):
@@ -153,16 +153,16 @@ if __name__ == "__main__":
 
     band_name_dict = {'lwir11':[False],
                  'eq':["((lwir11*0.00341802) + 149.0)-273.15"]}
-    query_sat = {"eo:cloud_cover": {"lt": 20},
+    query_sat = {"eo:cloud_cover": {"lt": 15},
               "platform": {"in": ["landsat-8", "landsat-9"]}}
     index_analysis = 'temperature'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
-    end_date = '2022-12-31'
+    end_date = '2023-12-31'
     satellite = 'landsat-c2-l2'
-    save = False # True
+    save = True  # True
     del_data = False # True
 
     # check if a skip city csv exists
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     skip_list = list(df_skip.city.unique())
 
     # download the cities GeoDataFrames from the database
-    gdf_mun = aup.gdf_from_db('metro_gdf', 'metropolis')
+    gdf_mun = aup.gdf_from_db('metro_gdf_2020', 'metropolis')
     gdf_mun = gdf_mun.sort_values(by='city')
 
     # prevent cities being analyzed several times in case of a crash
@@ -189,21 +189,18 @@ if __name__ == "__main__":
     except:
         pass
 
-    city_analysis = ['Monterrey']
+    city_analysis = ['Culiacan']
 
     for city in gdf_mun.city.unique():
 
-        # if city not in processed_city_list and city not in skip_list:
-        if city in city_analysis and city not in processed_city_list and city not in skip_list:
+        if city not in processed_city_list and city not in skip_list:
+        # if city in city_analysis and city not in processed_city_list and city not in skip_list:
+        # if city in city_analysis and city not in skip_list:
 
             aup.log(f'\n Starting city {city}')
 
             cvegeo_list = list(gdf_mun.loc[gdf_mun.city==city]["CVEGEO"].unique())
-            if city == 'ZMVM':
-                cvegeo_list = ["09002", "09003", "09004", "09005", "09006", 
-                            "09007", "09008", "09009", "09010", "09011", 
-                            "09012", "09013", "09014", "09015", "09016", "09017"]
-
+            
             try:
                 main(index_analysis, city, cvegeo_list, band_name_dict, start_date,
                     end_date, freq, satellite, query_sat, save, del_data)
