@@ -5,6 +5,7 @@ import folium
 from folium.plugins import FeatureGroupSubGroup
 import streamlit as st
 import streamlit_folium as stf
+from folium import GeoJson
 
 # Configuración inicial de Streamlit
 st.set_page_config(
@@ -13,9 +14,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-with open('style.css') as f:
-    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 # Título y descripción
 st.title('Avenida Libertador Bernardo O\'Higgins (Nueva Alameda), Santiago, Chile')
@@ -105,5 +103,5 @@ with tab1:
 
         
     st.title("Geovisor Eje Nueva Alameda con servicios")
-    st_data = st_folium(m, width=700, height=500)
+    st_data = stf.st_folium(m, width=700, height=500)
 
