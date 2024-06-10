@@ -1436,20 +1436,21 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	
 	return mza_calc
 
-def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissible_error = 0.01):
+def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissible_error=0.01, projected_crs="EPSG:6372"):
 	""" Creates voronoi polygons within a given area of interest (aoi) from n given points.
 	Args:
 		area_of_interest (geopandas.GeoDataFrame): GeoDataFrame with area of interest (Determines output extents).
 		points (geopandas.GeoDataFrame): GeoDataFrame with points of interest.
 		points_id_col (str): Name of points ID column (Will be assigned to each resulting voronoi polygon)
 		admissible_error (int, optional): Percentage of error (difference) between the input area (area_of_interest) and output area (dissolved voronoi polygons).
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with voronoi polygons (each containing the point ID it originated from) extending all up to the area of interest extent.
 	"""
 
 	# Set area of interest and points of interest for voronoi analysis to crs:6372 (Proyected)
-	aoi = area_of_interest.to_crs('EPSG:6372')
-	pois = points.to_crs('EPSG:6372')
+	aoi = area_of_interest.to_crs(projected_crs)
+	pois = points.to_crs(projected_crs)
 
     # Distance is a number used to create a buffer around the polygon and coordinates along a bounding box of that buffer.
     # Starts at 100 (works for smaller polygons) but will increase itself automatically until the diference between the area of 
@@ -1483,7 +1484,7 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 		vor = Voronoi(points=all_coords)
 		lines = [shapely.geometry.LineString(vor.vertices[line]) for line in vor.ridge_vertices if -1 not in line]
 		polys = shapely.ops.polygonize(lines)
-		unbounded_voronois = gpd.GeoDataFrame(geometry=gpd.GeoSeries(polys), crs='epsg:6372')
+		unbounded_voronois = gpd.GeoDataFrame(geometry=gpd.GeoSeries(polys), crs=projected_crs)
 
 		# Add nodes ID data to voronoi polygons
 		unbounded_voronois = gpd.sjoin(unbounded_voronois,pois[[points_id_col,'geometry']])
@@ -1495,7 +1496,7 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 		voronois_gdf = bounded_voronois.to_crs('EPSG:4326')
 
 		# Area check for while loop
-		voronois_area_gdf = voronois_gdf.to_crs('EPSG:6372')
+		voronois_area_gdf = voronois_gdf.to_crs(projected_crs)
 		voronois_area_gdf['area'] = voronois_area_gdf.geometry.area
 		voronois_area = voronois_area_gdf['area'].sum()
 		area_diff = ((goal_area - voronois_area)/(goal_area))*100
