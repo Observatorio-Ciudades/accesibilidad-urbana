@@ -69,7 +69,7 @@ def main(trip_time, prox_measure, projected_crs, nodes_list, nodes, edges, G, db
     # Single process version
     
     # Iterate over each node and create an isochrones
-    aup.log("--- Iterating over {k} nodes.")
+    aup.log(f"--- Iterating over {k} nodes.")
     isochrones_gdf = gpd.GeoDataFrame()
 
     # change crs
