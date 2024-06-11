@@ -123,8 +123,14 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # analyze available data according to raster properties
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
                                            band_name_list, freq)
-
-    available_data_check(df_len, missing_months) # test for missing months
+    
+    # save original df_len (to review found and missing months in case of not passing available_data_check)
+    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe_{query}.csv'
+    if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
+        df_len.to_csv(df_file_dir, index=False)
+    
+    # test for missing months
+    available_data_check(df_len, missing_months) 
 
     # creates raster and analyzes percentage of missing data points
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
