@@ -12,7 +12,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
-def main(source_list, aoi, nodes, edges, G, local_save=False, save=False):
+def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=False):
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
     
@@ -52,7 +52,7 @@ def main(source_list, aoi, nodes, edges, G, local_save=False, save=False):
         aup.log(f"--- Calculating nodes proximity.")
         # Calculate time data from nodes to source
         source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',
-                                          walking_speed, count_pois, projected_crs)
+                                          walk_speed, count_pois, projected_crs)
         source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
         nodes_analysis = source_nodes_time.copy()
 
@@ -175,9 +175,12 @@ if __name__ == "__main__":
     aup.log("--- Downloading network.")
     G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
 
+    # add length data to edges
+    edges['length'] = edges.to_crs(projected_crs).length
+
     for walk_speed in walking_speed:
-        str_walking_speed = str(walk_speed).replace('.','_')
-        nodes_save_table = f'santiago_nodesproximity_{str_walking_speed}_kmh'
+        str_walk_speed = str(walk_speed).replace('.','_')
+        nodes_save_table = f'santiago_nodesproximity_{str_walk_speed}_kmh'
     
         # general pois local dir
         gral_dir = f'../data/processed/00_pois_formated/'
@@ -207,4 +210,4 @@ if __name__ == "__main__":
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_list, aoi, nodes, edges, G, local_save, save)
+        main(source_list, aoi, nodes, edges, G, walk_speed,local_save, save)
