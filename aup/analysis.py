@@ -823,7 +823,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0), projected_crs="EPSG:6372"):
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372"):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
 		G (networkx.MultiDiGraph): Graph with edge bearing attributes
@@ -831,10 +831,11 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		edges (geopandas.GeoDataFrame): GeoDataFrame with edges within boundaries
 		pois (geopandas.GeoDataFrame): GeoDataFrame with points of interest
 		poi_name (str): Text containing name of the point of interest being analysed
-		prox_measure (str): Text ("length" or "time_min") used to choose a way to 
-							calculate time between nodes and points of interest.
-							If "length", will assume a walking speed of 4km/hr.
+		prox_measure (str): Text ("length" or "time_min") used to choose a way to calculate time between nodes and points of interest.
+							If "length", will use walking speed.
 							If "time_min", edges with time information must be provided.
+		walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
+							   or if prox_measure="time_min" but needing to fill time_min NaNs.
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 
@@ -889,13 +890,13 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		edges = edges.to_crs("EPSG:4326")
 		print(f"Calculated length for {no_length} edges that had no length data.")
 
-		# If prox_measure = 'length', calculates time_min assuming walking speed = 4km/hr
+		# If prox_measure = 'length', calculates time_min using walking_speed
 		if prox_measure == 'length':
-			edges['time_min'] = (edges['length']*60)/4000
+			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
 		else:
-			# NaNs in time_min? --> Assume walking speed = 4km/hr
+			# NaNs in time_min? --> Use walking speed
 			no_time = len(edges.loc[edges['time_min'].isna()])
-			edges['time_min'].fillna((edges['length']*60)/4000,inplace=True)
+			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
 			print(f"Calculated time for {no_time} edges that had no time data.")
 
 		# 2.2 --------------- ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
@@ -972,7 +973,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure,count_pois=(False,0)
 		print(f"Finished time analysis for {poi_name}.")
 
 		##########################################################################################
-		# Step 3: FINAL FORMAT. 
+		# STEP 3: FINAL FORMAT. 
   		# Organices and filters output data.
 		
 		nodes_time.reset_index(inplace=True)
@@ -1665,3 +1666,217 @@ def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, pro
 	hull_geometry = nodes_at_15min.unary_union.convex_hull
 	
 	return hull_geometry
+
+def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, goi_id, count_pois=(False,0), projected_crs="EPSG:6372"):
+	""" Finds time from each node to nearest poi (point of interest). Function to be used when pois came from another geometry.
+		Function id_pois_time takes into account an ID column that contains information of origin of each poi.
+        The original geometry of interest (goi)'s unique ID is called goi_id.
+		[e.g. parks with a unique park ID converted to vertexes, or bike lanes with a unique bike lane ID divided in several points].
+	Args:
+		G (networkx.MultiDiGraph): Graph with edge bearing attributes
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes within boundaries
+		edges (geopandas.GeoDataFrame): GeoDataFrame with edges within boundaries
+		pois (geopandas.GeoDataFrame): GeoDataFrame with points of interest
+		poi_name (str): Text containing name of the point of interest being analysed
+		prox_measure (str): Text ("length" or "time_min") used to choose a way to calculate time between nodes and points of interest.
+							If "length", will use walking speed.
+							If "time_min", edges with time information must be provided.
+		walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
+							   or if prox_measure="time_min" but needing to fill time_min NaNs.
+        goi_id (str): Text containing name of column with unique ID for the geometry of interest from which pois where created.
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
+		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
+    
+	Returns:
+		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
+	"""
+    # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # DIFFERENCES WITH POIS_TIME() EXPLANATION:
+    # Whenever pois are extracted from other types of geometries or interest (goi)s (e.g. lines, polygons), a unique ID could be assigned.
+    # That's because when wanting to find access to one geometry of interest (goi) (e.g. one bike lane or one park), we tend to consider that geometry as one poi,
+    # and do not want to measure access to ALL pois created from that one geometry of interest. 
+    # (e.g. all the vertexes of a park or a every point every 100 meters for a bike lane)
+    # Without this ADAPTATION of function pois_time(), when using count_pois we would be counting every vertex, every subdivision.
+    
+    # Since one geometry of interest (goi) has several pois (e.g. extracted parks vertices or divided a bike lane in several points),
+    # any OSMnx node would get assigned (STEP 1: NEAREST) to several pois even if they all belong to the same geometry of interest (goi).
+    # The **first main ADAPTATION** works so that after nearest function, a given node gets assigned to the **closest** poi of 
+    # the geometry of interest (goi) only (Considers a given geometry of interest (goi) once and discard the rest).
+    # The **second main ADAPTATION** (STEP 2: DISTANCE NEAREST POI) works so that proximity is measured for each geometry of interest (goi) and data is not repeated.
+    
+    # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
+    
+    ##########################################################################################
+    # STEP 1: NEAREST.
+    # Finds and assigns nearest node OSMID to each point of interest.
+     
+    # Defines projection for downloaded data
+	pois = pois.set_crs("EPSG:4326")
+	nodes = nodes.set_crs("EPSG:4326")
+	edges = edges.set_crs("EPSG:4326")
+    
+    # In case there are no amenities of the type in the city, prevents it from crashing if len = 0
+	if len(pois) == 0:
+		nodes_time = nodes.copy()
+    
+        # Format
+		nodes_time.reset_index(inplace=True)
+		nodes_time = nodes_time.set_crs("EPSG:4326")
+    
+        # As no amenities were found, output columns are set to nan.
+		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
+		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
+		if count_pois[0]: 
+			nodes_time[f'{poi_name}_{count_pois[1]}min'] = np.nan # If requested pois_count, value is set to np.nan.
+			print(f"0 {poi_name} found. Pois count set to nan for all nodes.")
+			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
+			return nodes_time
+		else:
+			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
+			return nodes_time
+	else:
+        ### Find nearest osmnx node for each DENUE point.
+		nearest = find_nearest(G, nodes, pois, return_distance= True)
+		nearest = nearest.set_crs("EPSG:4326")
+		print(f"Found and assigned nearest node osmid to each {poi_name}.")
+    
+    # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # ADAPTATION - FOLLOWING CODE DOES NOT EXIST IN POIS_TIME()
+        
+        # Up to this point 'nearest' has all osmnx nodes closest to a given poi (Originated from a given geometry of interest (goi)), 
+        # one osmnx node might be assigned to 2 or more poi of the SAME geometry of interest (goi). 
+        # (For example, node 54 is closest to poi 12 and poi 13, both vertexes from the same park).
+        
+        # If we leave it like that, that nearest will be repeted (e.g. the same park assigned twice to the same node) even if it is just close to 1 goi.
+        # This step keeps the minimum distance (distance_node) from node osmid to each poi when originating from the same geometry of interest (goi), 
+        # so that if one node is close to 5 pois of the same goi, it keeps only 1 node assigned to 1 poi, not 5.
+        
+        # Group by node (osmid) and polygon (green space) considering only the closest vertex (min)
+		groupby = nearest.groupby(['osmid',goi_id]).agg({'distance_node':np.min})
+        
+        # Turns back into gdf merging back with nodes geometry
+		geom_gdf = nodes.reset_index()[['osmid','geometry']]
+		groupby.reset_index(inplace=True)
+		nearest = pd.merge(groupby,geom_gdf,on='osmid',how='left')
+		nearest = gpd.GeoDataFrame(nearest, geometry="geometry")
+        
+        # Filters for pois assigned to nodes at a maximum distance of 80 meters (aprox. 1 minute)
+        # That is to consider a 1 minute additional walk as acceptable (if goi is inside a park, e.g. a bike lane).
+		nearest = nearest.loc[nearest.distance_node <= 80]
+        
+    # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
+
+        ##########################################################################################
+        # STEP 2: DISTANCE NEAREST POI. 
+        # Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
+        
+        # 2.1 --------------- FORMAT NETWORK DATA
+        # Fill NANs in length with calculated length (prevents crash)
+		no_length = len(edges.loc[edges['length'].isna()])
+		edges = edges.to_crs(projected_crs)
+		edges['length'].fillna(edges.length,inplace=True)
+		edges = edges.to_crs("EPSG:4326")
+		print(f"Calculated length for {no_length} edges that had no length data.")
+        
+        # If prox_measure = 'length', calculates time_min using walking_speed
+		if prox_measure == 'length':
+			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
+		else:
+            # NaNs in time_min? --> Use walking_speed
+			no_time = len(edges.loc[edges['time_min'].isna()])
+			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
+			print(f"Calculated time for {no_time} edges that had no time data.")
+        
+        # --------------- 2.2 ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
+        # The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
+        # nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
+		nodes_analysis = nodes.reset_index().copy()
+        # nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
+		nodes_time = nodes.copy()
+        
+        # --------------- 2.3 PROCESSING DISTANCE
+		print (f"Starting time analysis for {poi_name}.")
+        
+    # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # ADAPTATION - FOLLOWING CODE IS DIFFERENT IN POIS_TIME()
+    
+    # At this point pois are in the network, pois are located in nearest.
+    # But without ADAPTATION, for each node being analysed we might find in OSMnx Network many (e.g. 5) pois (nearest nodes) belonging to the same geometry of interest (goi).
+    # For example, a node close to a park might find different 5 nodes where the park is near. But it is the same park!
+    # We need to know, for each node, closest proximity to geometry of interest (goi).
+    
+    # This modified step iterates over goi_id so that when a node finds n close pois of the same geometry of interest (goi) (using pois_count), 
+    # it only gets assigned '1' (As we iterate over goi_id, no matter how many times we calculate proximity to nearest, it is the same geometry of interest
+    # (goi), it is the same park).
+	
+		gois_list = list(nearest[goi_id].unique())
+		g = 1
+		for goi in gois_list:
+			print(f"Starting geometry of interest {g} of {len(gois_list)} for {poi_name}.")
+        
+            # Calculate
+            # ADAPTATION - Dividing by batches of n pois is not necessary, since we will be examining batches of a small number of pois
+            # (The pois belonging to a specific geometry of interest (goi)). 
+            # (e.g. all source_process will be the nodes closest to the vertexes of 1 park)
+			source_process = nearest.loc[nearest[goi_id] == goi]
+			nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
+        
+            # Extract from nodes_distance_prep the calculated time data
+            # ADAPTATION - Since no batches are used, we don't have 'batch_time_col', just current process.
+			process_time_col = 'time_process_'+poi_name
+			nodes_time[process_time_col] = nodes_distance_prep['dist_'+poi_name]
+        
+            # If requested, extract from nodes_distance_prep the calculated pois count
+            # ADAPTATION - Since no batches are used, we don't have 'batch_poiscount_col', just current process.
+			if count_pois[0]:
+				process_poiscount_col = f'{poi_name}_process_{count_pois[1]}min'
+				nodes_time[process_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+                
+                # ADAPTATION - Since we are only analysing one geometry of interest (goi), no node should have more than one pois count.
+                # This is easly fixed if count>0, set to 1.
+				tmp_poiscount_col = f'{poi_name}_tmp_{count_pois[1]}min'
+				nodes_time[tmp_poiscount_col] = nodes_time[process_poiscount_col].apply(lambda x: 1 if x > 0 else 0)
+				nodes_time[process_poiscount_col] = nodes_time[tmp_poiscount_col]
+				nodes_time.drop(columns=[tmp_poiscount_col],inplace=True)
+            
+            # ADAPTATION - After this geometry of interest (goi)'s processing is over, find final output values for all currently examined gois.
+            # ADAPTATION FOR TIME DATA:
+            # If it is the first goi, assign first goi time
+			if g == 1:
+				print(f"First geometry of interest (goi)'s time.")
+				nodes_time['time_'+poi_name] = nodes_time[process_time_col]
+            # Else, apply the min function to find the minimum time so far
+			else:
+				time_cols = ['time_'+poi_name, process_time_col]
+				nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
+            # ADAPTATION FOR COUNT DATA (If requested)
+            # If it is the first goi, assign first goi count
+			if g == 1:
+				print(f"First batch count.")
+				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[process_poiscount_col]
+            # Else, apply the sum function to find the total count so far
+			else:
+				count_cols = [f'{poi_name}_{count_pois[1]}min', process_poiscount_col]
+				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[count_cols].sum(axis=1)
+			
+			g = g+1
+		
+		print(f"Finished time analysis for {poi_name}.")
+        
+    # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
+        
+        ##########################################################################################
+        # STEP 3: FINAL FORMAT. 
+        # Organices and filters output data.
+		
+		nodes_time.reset_index(inplace=True)
+		nodes_time = nodes_time.set_crs("EPSG:4326")
+		if count_pois[0]:
+			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
+			return nodes_time
+		else:
+			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]		
+			return nodes_time
