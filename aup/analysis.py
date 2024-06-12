@@ -1818,7 +1818,7 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 		# ///
 
 		gois_list = list(nearest[goi_id].unique())
-		g = 1
+		g = 2
 		for goi in gois_list:
 			
 			# ///

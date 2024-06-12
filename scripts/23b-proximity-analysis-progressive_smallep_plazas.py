@@ -12,7 +12,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
-def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=False):
+def main(source_list, aoi, nodes, edges, G, walking_speed, local_save=False, save=False):
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
     
@@ -25,8 +25,8 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
     i = 1
 
     for source in source_list:
-
-        aup.log(f"--- Starting nodes proximity to pois for source {i}/{k}: {source}. ")
+        aup.log('--'*40)
+        aup.log(f"--- STARTING nodes proximity to pois using speed {walking_speed}km/hr for source {i}/{k}: {source}.")
 
         # 1.1a) Read pois from pois dir
         aup.log(f"--- Reading pois dir.")
@@ -34,31 +34,51 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
         pois_dir = gral_dir + f'{source}.gpkg'
         # Load all pois from directory
         pois = gpd.read_file(pois_dir)
-        # Set code column
-        pois['code'] = source
         # Format
-        pois = pois[['code','geometry']]
+        pois = pois[['area_ha','ID','geometry']]
         pois = pois.set_crs("EPSG:4326")
 
         # 1.1b) Clip pois to aoi
         source_pois = gpd.sjoin(pois, aoi)
-        source_pois = source_pois[['code','geometry']]
+        source_pois = source_pois[['area_ha','ID','geometry']]
         aup.log(f"--- Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
 
         if save_space:
             del pois
 
-        # 1.1c) Calculate nodes proximity (Function pois_time())
-        aup.log(f"--- Calculating nodes proximity.")
-        # Calculate time data from nodes to source
-        source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',
-                                          walk_speed, count_pois, projected_crs)
-        source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
-        nodes_analysis = source_nodes_time.copy()
+        # 1.1c) Calculate nodes proximity (Function pois_time() AND function id_pois_time())
+
+        # pois_time() [for public spaces below 2000m2]
+        # for this ones, it is also necessary that we will keep one poi only, and consider it a regular poi
+        # (Done by dropping duplicate IDs, keeping the first occurrence)
+        very_small_source_pois = source_pois.loc[source_pois['area_ha']<0.2].copy().drop_duplicates(subset='ID')
+        # Calculate time data from nodes to source for very_small_source_pois_uniqueid (Has 1 pois for each goi)
+        aup.log(f"--- Calculating nodes proximity with function pois_time().")
+        source_nodes_time_1 = aup.pois_time(G, nodes, edges, very_small_source_pois, source,'length',
+                                            walking_speed, count_pois, projected_crs)
+        if save_space:
+            del very_small_source_pois
+
+        # id_pois_time() [for public spaces above 2000m2]
+        small_source_pois = source_pois.loc[source_pois['area_ha']>=0.2].copy()
+        # Calculate time data from nodes to source for small_source_pois (Has n pois for each goi, needs goi_id)
+        # Also, for id_pois_time to recieve source_nodes_time_1 instead of nodes and find min times and sum of count_pois including data previously processed:
+        # MODIFICATION NEEDED INSIDE id_pois_time for this specific case: When looping over gois_list, start with g = 2
+        aup.log(f"--- Calculating nodes proximity with function id_pois_time().")
+        source_nodes_time_2 = aup.id_pois_time(G, source_nodes_time_1, edges, small_source_pois, source,'length',
+                                               walking_speed, goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
+        if save_space:
+            del source_pois
+            del small_source_pois
+            del source_nodes_time_1
+        
+        # Format
+        source_nodes_time_2.rename(columns={'time_'+source:source},inplace=True)
+        nodes_analysis = source_nodes_time_2.copy()
 
         if save_space:
-            del source_nodes_time
-
+            del source_nodes_time_2
+        
         # 1.1d) Nodes_analysis format
         # if count_pois, include generated col
         if count_pois[0]:
@@ -104,49 +124,38 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
 
 if __name__ == "__main__":
     aup.log('--'*50)
-    aup.log('--- STARTING SCRIPT 23.')
+    aup.log('--- STARTING SCRIPT 23b [With UNIQUE IDs specifically for small public spaces and squares].')
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
-    
+    # general pois local dir
+    gral_dir = '../data/external/temporal_fromjupyter/santiago/pois/'
 
     # List of pois to be examined.
     # This list should contain the source_name that will be assigned to each processed poi.
     # That source_name will be stored in a 'source' column at first and be turned into a column name after all pois are processed.
     # That source_name must also be the name of the file stored in gral_dir (.gpkg)
-    # source_list = ['vacunatorio_pub']
-    # create source_dict to store index and source_name
-    # casas_deptos_mzn
-    source_list = ['carniceria','hogar','local_mini_market',
-                   'supermercado','clinica_priv','clinica_pub',
-                   'hospital_priv','hospital_pub','farmacia',
-                   'consult_ado_priv ','consult_ado_pub',
-                   'club_deportivo','eq_deportivo_pub','eq_deportivo_priv',
-                   'civic_office','tax_collector','social_security',
-                   'banco','museos_priv','museos_pub','sitios_historicos',
-                   'cines','restaurantes_bar_cafe','libreria','edu_basica_priv',
-                   'edu_basica_pub','edu_media_priv','edu_media_pub',
-                   'jardin_inf_priv','jardin_inf_pub','edu_especial_priv',
-                   'edu_especial_pub','biblioteca','agua_electricidad']
+    source_list = ['ep_plaza_small']
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [3.5,4.5,5,12]
-    # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
-    # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
+    walking_speed_list = [4.5] #[3.5,4.5,5,12,24,20,40]
 
     # Area of interest (Run 'AM_Santiago', it represents Santiago's metropolitan area. We can clip data as soon as we know inputs extent.)
     city = 'AM_Santiago'
+
+    # goi_id (str): Text containing name of column with unique ID for the geometry of interest from which pois where created.
+    goi_id = 'ID'
 
     # Save space in disk by deleting data that won't be used again?
     save_space = True
 
     ##### WARNING ##### WARNING ##### WARNING #####
     save = True # save output to database?
-    local_save = False # save output to local? (Make sure directory exists)
-    nodes_local_save_dir = f"../data/processed/santiago/test_script23_nodes.gpkg"
+    local_save = True # save output to local? (Make sure directory exists)
+    nodes_local_save_dir = f"../data/processed/santiago/santiago_nodesproximity_ep_plaza_small.gpkg"
     ##### WARNING ##### WARNING ##### WARNING #####
 
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
@@ -162,6 +171,8 @@ if __name__ == "__main__":
     # Save output to db
     save_schema = 'projects_research'
 
+    # ------------------------------ SCRIPT START ------------------------------
+
     # 0.0 --------------- BASE DATA FOR POIS-NODES ANALYSIS
     # ------------------- This step downloads the area of interest and network used to measure distance.
 
@@ -175,18 +186,11 @@ if __name__ == "__main__":
     aup.log("--- Downloading network.")
     G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
 
-    # add length data to edges
-    edges['length'] = edges.to_crs(projected_crs).length
-
-    for walk_speed in walking_speed:
-        str_walk_speed = str(walk_speed).replace('.','_')
+    for walking_speed in walking_speed_list:
+        aup.log('--'*45)
+        aup.log(f"--- Running Script [Modified] for ep_plaza_small for speed = {walking_speed}km/hr.")
+        str_walk_speed = str(walking_speed).replace('.','_')
         nodes_save_table = f'santiago_nodesproximity_{str_walk_speed}_kmh'
-    
-        # general pois local dir
-        gral_dir = f'../data/processed/00_pois_formated/'
-
-        aup.log(f"--- Running script for speed: {walk_speed}.")
-        # ------------------------------ SCRIPT START ------------------------------
 
         if save:
             # Saved sources check (prevents us from uploading same source twice/errors on source list)
@@ -210,4 +214,4 @@ if __name__ == "__main__":
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_list, aoi, nodes, edges, G, walk_speed,local_save, save)
+        main(source_list, aoi, nodes, edges, G, walking_speed, local_save, save)
