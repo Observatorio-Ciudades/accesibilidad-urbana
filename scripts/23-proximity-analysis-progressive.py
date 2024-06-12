@@ -12,27 +12,14 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
-def main(source_list, local_save=False, save=False):
+def main(source_list, aoi, nodes, edges, G, local_save=False, save=False):
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
     
     ############################################################### PART 1 ###############################################################
     #################################################### FIND NODES PROXIMITY TO POIS ####################################################
     
-    # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
-    # ------------------- This step downloads the area of interest and network used to measure distance.
-
-    # Area of interest (aoi)
-    aup.log("--- Downloading area of interest.")
-    query = f"SELECT * FROM {aoi_schema}.{aoi_table} WHERE \"city\" LIKE \'{city}\'"
-    aoi = aup.gdf_from_query(query, geometry_col='geometry')
-    aoi = aoi.set_crs("EPSG:4326")
-
-    # OSMnx Network
-    aup.log("--- Downloading network.")
-    G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
-    
-    # 1.1 --------------- NODES PROXIMITY TO POIS
+        # 1.1 --------------- NODES PROXIMITY TO POIS
     # ------------------- This step loads each source of interest, calculates nodes proximity and saves to database
     k = len(source_list)
     i = 1
@@ -119,14 +106,19 @@ if __name__ == "__main__":
     aup.log('--- STARTING SCRIPT 23.')
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
-    # general pois local dir
-    gral_dir = '../data/external/temporal_fromjupyter/santiago/pois/'
+    
 
     # List of pois to be examined.
     # This list should contain the source_name that will be assigned to each processed poi.
     # That source_name will be stored in a 'source' column at first and be turned into a column name after all pois are processed.
     # That source_name must also be the name of the file stored in gral_dir (.gpkg)
-    source_list = ['vacunatorio_pub']
+    # source_list = ['vacunatorio_pub']
+    # create source_dict to store index and source_name
+    # casas_deptos_mzn
+    source_dict = {'Sociability':['viv_social',
+                       'local_mini_market'],
+                    'Environmental_impact':['bomberos','centro_edu_amb',
+                                            'centro_recyc','ciclovias']}
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
@@ -138,8 +130,8 @@ if __name__ == "__main__":
     save_space = True
 
     ##### WARNING ##### WARNING ##### WARNING #####
-    save = False # save output to database?
-    local_save = True # save output to local? (Make sure directory exists)
+    save = True # save output to database?
+    local_save = False # save output to local? (Make sure directory exists)
     nodes_local_save_dir = f"../data/processed/santiago/test_script23_nodes.gpkg"
     ##### WARNING ##### WARNING ##### WARNING #####
 
@@ -157,24 +149,44 @@ if __name__ == "__main__":
     save_schema = 'projects_research'
     nodes_save_table = 'santiago_nodesproximity'
 
-    # ------------------------------ SCRIPT START ------------------------------
+    # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
+    # ------------------- This step downloads the area of interest and network used to measure distance.
 
-    if save:
-        # Saved sources check (prevents us from uploading same source twice/errors on source list)
-        aup.log(f"--- Verifying sources by comparing to data already uploaded.")
+    # Area of interest (aoi)
+    aup.log("--- Downloading area of interest.")
+    query = f"SELECT * FROM {aoi_schema}.{aoi_table} WHERE \"city\" LIKE \'{city}\'"
+    aoi = aup.gdf_from_query(query, geometry_col='geometry')
+    aoi = aoi.set_crs("EPSG:4326")
 
-        # Load sources already processed
-        query = f"SELECT DISTINCT source FROM {save_schema}.{nodes_save_table}"
-        saved_data = aup.df_from_query(query)
-        saved_sources = list(saved_data.source.unique())
-        
-        # Verify current source list
-        for source in source_list:
-            if source in saved_sources:
-                aup.log(f"--- ERROR: Source {source} already processed and in database.")
-                aup.log(f"--- Remove source from dataset or change source_name before continuing.")
-                intended_crash
-        
-    # If passed source check, proceed to main function
-    aup.log(f"--- Running Script for verified sources.")
-    main(source_list, local_save, save)
+    # OSMnx Network
+    aup.log("--- Downloading network.")
+    G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
+    
+
+    for indicator, source_list in source_dict.items():
+        # general pois local dir
+        gral_dir = f'../data/processed/00_pois_formated/{indicator}/'
+
+        aup.log(f"--- Running script for indicator: {indicator}.")
+        # ------------------------------ SCRIPT START ------------------------------
+
+        if save:
+            # Saved sources check (prevents us from uploading same source twice/errors on source list)
+            aup.log(f"--- Verifying sources by comparing to data already uploaded.")
+
+            # Load sources already processed
+            query = f"SELECT DISTINCT source FROM {save_schema}.{nodes_save_table}"
+            saved_data = aup.df_from_query(query)
+            saved_sources = list(saved_data.source.unique())
+            
+            # Verify current source list
+            for source in source_list:
+                if source in saved_sources:
+                    aup.log(f"--- ERROR: Source {source} already processed and in database.")
+                    aup.log(f"--- Remove source from dataset or change source_name before continuing.")
+                    break
+                    # intended_crash
+            
+        # If passed source check, proceed to main function
+        aup.log(f"--- Running Script for verified sources.")
+        main(source_list, aoi, nodes, edges, G, local_save, save)
