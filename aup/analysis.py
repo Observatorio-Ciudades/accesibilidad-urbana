@@ -480,7 +480,7 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 
 	return full_hex
 
-def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
+def calculate_isochrone(G, center_node, trip_time, dist_column, undirected=True, subgraph=False):
     """
 		Function that that creates a isochrone from a center_node in graph G,
 		 and uses parameters like distance and time to plot the result.
@@ -495,7 +495,7 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, subgraph=False):
         geometry (geometry): with the covered area
     """
 
-    sub_G = nx.ego_graph(G, center_node, radius=trip_time, distance=dist_column)
+    sub_G = nx.ego_graph(G, center_node, radius=trip_time, undirected=undirected, distance=dist_column)
     geometry = gpd.GeoSeries([Point((data["x"], data["y"])) for node, data in sub_G.nodes(data=True)]).unary_union.convex_hull
     if subgraph:
         return sub_G, geometry
