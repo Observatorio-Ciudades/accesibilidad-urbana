@@ -51,7 +51,8 @@ def main(source_list, aoi, nodes, edges, G, local_save=False, save=False):
         # 1.1c) Calculate nodes proximity (Function pois_time())
         aup.log(f"--- Calculating nodes proximity.")
         # Calculate time data from nodes to source
-        source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure='length', count_pois=count_pois, projected_crs=projected_crs)
+        source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',
+                                          walking_speed, count_pois, projected_crs)
         source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
         nodes_analysis = source_nodes_time.copy()
 
@@ -73,10 +74,10 @@ def main(source_list, aoi, nodes, edges, G, local_save=False, save=False):
         # Rename source-specific column names as name that apply to all sources (source_time, source_15min)
         nodes_analysis.rename(columns={source:'source_time'},inplace=True)
         if count_pois[0]:
-            nodes_analysis.rename(columns={f'{source}_{count_pois[1]}min':'source_15min'},inplace=True)
+            nodes_analysis.rename(columns={f'{source}_{count_pois[1]}min':f'source_{count_pois[1]}min'},inplace=True)
         # Set column order
         if count_pois[0]:
-            nodes_analysis = nodes_analysis[['osmid','source','source_time','source_15min','x','y','geometry']]
+            nodes_analysis = nodes_analysis[['osmid','source','source_time',f'source_{count_pois[1]}min','x','y','geometry']]
         else:
             nodes_analysis = nodes_analysis[['osmid','source','source_time','x','y','geometry']]
         # Add city data
@@ -123,6 +124,12 @@ if __name__ == "__main__":
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
 
+    # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
+	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
+    walking_speed = 3.5
+    # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
+    # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
+
     # Area of interest (Run 'AM_Santiago', it represents Santiago's metropolitan area. We can clip data as soon as we know inputs extent.)
     city = 'AM_Santiago'
 
@@ -147,7 +154,7 @@ if __name__ == "__main__":
     projected_crs = 'EPSG:32719'
     # Save output to db
     save_schema = 'projects_research'
-    nodes_save_table = 'santiago_nodesproximity'
+    nodes_save_table = 'santiago_nodesproximity_3_5_kmh'
 
     # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
     # ------------------- This step downloads the area of interest and network used to measure distance.
