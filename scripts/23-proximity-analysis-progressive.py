@@ -82,7 +82,8 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
             nodes_analysis = nodes_analysis[['osmid','source','source_time','x','y','geometry']]
         # Add city data
         nodes_analysis['city'] = city
-
+        nodes_analysis[f'source_{count_pois[1]}min'] = nodes_analysis[f'source_{count_pois[1]}min'].astype(int)
+        
         # 1.1f) Save output
         aup.log(f"--- Saving nodes proximity to {source}.")
         if save:
@@ -121,19 +122,19 @@ if __name__ == "__main__":
                    'hospital_priv','hospital_pub','farmacia',
                    'consult_ado_priv','consult_ado_pub',
                    'club_deportivo','eq_deportivo_pub','eq_deportivo_priv',
-                   'civic_office','tax_collector','social_security',
+                   'civic_office','tax_collection','social_security',
                    'banco','museos_priv','museos_pub','sitios_historicos',
-                   'cines','restaurantes_bar_cafe','libreria','edu_basica_priv',
+                   'cines','restaurantes_bar_cafe','librerias','edu_basica_priv',
                    'edu_basica_pub','edu_media_priv','edu_media_pub',
                    'jardin_inf_priv','jardin_inf_pub','edu_especial_priv',
-                   'edu_especial_pub','biblioteca','agua_electricidad']
+                   'edu_especial_pub','bibliotecas']
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [3.5,4.5,5,12]
+    walking_speed = [3.5,4.5,5]
     # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
     # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
