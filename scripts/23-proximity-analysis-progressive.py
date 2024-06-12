@@ -202,12 +202,15 @@ if __name__ == "__main__":
                 aup.log(f"--- No data found for {nodes_save_table}.")
             
             # Verify current source list
-            for source in source_speed_list:
+            source_speed_list = [source_check for source_check in source_speed_list
+                                  if source_check not in saved_sources]
+            aup.log(f"--- {len(source_speed_list)} sources to be processed.")
+            '''for source in source_speed_list:
                 if source in saved_sources:
                     aup.log(f"--- Source {source} already processed and in database.")
                     source_speed_list.remove(source)
                     aup.log(f"--- Removed source from source analysis.")
-                    # intended_crash
+                    # intended_crash'''
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
