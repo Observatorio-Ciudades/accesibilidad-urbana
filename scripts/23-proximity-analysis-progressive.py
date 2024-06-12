@@ -119,7 +119,7 @@ if __name__ == "__main__":
     source_list = ['carniceria','hogar','local_mini_market',
                    'supermercado','clinica_priv','clinica_pub',
                    'hospital_priv','hospital_pub','farmacia',
-                   'consult_ado_priv ','consult_ado_pub',
+                   'consult_ado_priv','consult_ado_pub',
                    'club_deportivo','eq_deportivo_pub','eq_deportivo_priv',
                    'civic_office','tax_collector','social_security',
                    'banco','museos_priv','museos_pub','sitios_historicos',
@@ -181,6 +181,7 @@ if __name__ == "__main__":
     for walk_speed in walking_speed:
         str_walk_speed = str(walk_speed).replace('.','_')
         nodes_save_table = f'santiago_nodesproximity_{str_walk_speed}_kmh'
+        source_speed_list = source_list.copy()
     
         # general pois local dir
         gral_dir = f'../data/processed/00_pois_formated/'
@@ -201,13 +202,13 @@ if __name__ == "__main__":
                 aup.log(f"--- No data found for {nodes_save_table}.")
             
             # Verify current source list
-            for source in source_list:
+            for source in source_speed_list:
                 if source in saved_sources:
-                    aup.log(f"--- ERROR: Source {source} already processed and in database.")
-                    aup.log(f"--- Remove source from dataset or change source_name before continuing.")
-                    break
+                    aup.log(f"--- Source {source} already processed and in database.")
+                    source_speed_list.remove(source)
+                    aup.log(f"--- Removed source from source analysis.")
                     # intended_crash
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_list, aoi, nodes, edges, G, walk_speed,local_save, save)
+        main(source_speed_list, aoi, nodes, edges, G, walk_speed,local_save, save)
