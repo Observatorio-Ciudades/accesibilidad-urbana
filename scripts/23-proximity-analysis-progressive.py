@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [3.5,4.5,5,12,20,24,40]
+    walking_speed = [3.5,4.5,5,12]
     # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
     # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
 
     for walk_speed in walking_speed:
-        str_walking_speed = str(walking_speed).replace('.','_')
+        str_walking_speed = str(walk_speed).replace('.','_')
         nodes_save_table = f'santiago_nodesproximity_{str_walking_speed}_kmh'
     
         # general pois local dir
@@ -188,11 +188,14 @@ if __name__ == "__main__":
         if save:
             # Saved sources check (prevents us from uploading same source twice/errors on source list)
             aup.log(f"--- Verifying sources by comparing to data already uploaded.")
-
-            # Load sources already processed
-            query = f"SELECT DISTINCT source FROM {save_schema}.{nodes_save_table}"
-            saved_data = aup.df_from_query(query)
-            saved_sources = list(saved_data.source.unique())
+            try:
+                # Load sources already processed
+                query = f"SELECT DISTINCT source FROM {save_schema}.{nodes_save_table}"
+                saved_data = aup.df_from_query(query)
+                saved_sources = list(saved_data.source.unique())
+            except:
+                saved_sources = []
+                aup.log(f"--- No data found for {nodes_save_table}.")
             
             # Verify current source list
             for source in source_list:
