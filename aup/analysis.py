@@ -1811,10 +1811,27 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
     # it only gets assigned '1' (As we iterate over goi_id, no matter how many times we calculate proximity to nearest, it is the same geometry of interest
     # (goi), it is the same park).
 	
+		# ///
+		# LOG CODE - Progress logs
+		# Will create progress logs when progress reaches these percentages:
+		progress_logs = [0,10,20,30,40,50,60,70,80,90,100]
+		# ///
+
 		gois_list = list(nearest[goi_id].unique())
 		g = 1
 		for goi in gois_list:
-			print(f"Starting geometry of interest {g} of {len(gois_list)} for {poi_name}.")
+			
+			# ///
+			# LOG CODE - Progress logs
+			# Measures current progress, prints if passed a checkpoint of progress_logs list.
+			current_progress = (g / len(gois_list))*100
+			for checkpoint in progress_logs:
+				if current_progress >= checkpoint:
+					print(f"Calculating proximity data for geometry of interest (goi) {g} of {len(gois_list)} for {poi_name}.")
+					print(f"{checkpoint}% done.")
+					progress_logs.remove(checkpoint)
+					break
+			# ///
         
             # Calculate
             # ADAPTATION - Dividing by batches of n pois is not necessary, since we will be examining batches of a small number of pois
