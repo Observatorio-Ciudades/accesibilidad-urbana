@@ -39,47 +39,67 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save=False, sav
         pois = pois.set_crs("EPSG:4326")
 
         # 1.1b) Clip pois to aoi
-        source_pois = gpd.sjoin(pois, aoi)
+        source_pois = gpd.clip(pois, aoi)
         source_pois = source_pois[['area_ha','ID','geometry']]
         aup.log(f"--- Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
 
         if save_space:
             del pois
 
-        # 1.1c) Calculate nodes proximity (Function pois_time() AND function id_pois_time())
+        # 1.1c) Calculate nodes proximity (Use both function pois_time() AND function id_pois_time(), then merge results)
 
         # pois_time() [for public spaces below 2000m2]
-        # for this ones, it is also necessary that we will keep one poi only, and consider it a regular poi
-        # (Done by dropping duplicate IDs, keeping the first occurrence)
+        # For very small public spaces, the proximity analysis can consider any poi derived from the geometry of interest (goi, polygon) because it is small.
+        # Because we just care about one poi only (any), filter and drop duplicate IDs, keeping the first occurrence.
         very_small_source_pois = source_pois.loc[source_pois['area_ha']<0.2].copy().drop_duplicates(subset='ID')
-        # Calculate time data from nodes to source for very_small_source_pois_uniqueid (Has 1 pois for each goi)
+        # Calculate time data from nodes to source for very_small_source_pois (Has 1 pois for each goi)
         aup.log(f"--- Calculating nodes proximity with function pois_time().")
         source_nodes_time_1 = aup.pois_time(G, nodes, edges, very_small_source_pois, source,'length',
                                             walking_speed, count_pois, projected_crs)
         if save_space:
             del very_small_source_pois
 
+        if local_save:
+            source_nodes_time_1_dir = f"../data/processed/santiago/source_nodes_time_1.gpkg"
+            source_nodes_time_1.to_file(source_nodes_time_1_dir, driver='GPKG')
+            aup.log(f"--- Saved source_nodes_time 1 locally.")
+            
         # id_pois_time() [for public spaces above 2000m2]
+        # For larger public spaces, having several accesses becomes relevant, and goi IDs necessary.
         small_source_pois = source_pois.loc[source_pois['area_ha']>=0.2].copy()
         # Calculate time data from nodes to source for small_source_pois (Has n pois for each goi, needs goi_id)
-        # Also, for id_pois_time to recieve source_nodes_time_1 instead of nodes and find min times and sum of count_pois including data previously processed:
-        # MODIFICATION NEEDED INSIDE id_pois_time for this specific case: When looping over gois_list, start with g = 2
         aup.log(f"--- Calculating nodes proximity with function id_pois_time().")
-        source_nodes_time_2 = aup.id_pois_time(G, source_nodes_time_1, edges, small_source_pois, source,'length',
+        source_nodes_time_2 = aup.id_pois_time(G, nodes, edges, small_source_pois, source,'length',
                                                walking_speed, goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
         if save_space:
             del source_pois
             del small_source_pois
-            del source_nodes_time_1
+
+        if local_save:
+            source_nodes_time_2_dir = f"../data/processed/santiago/source_nodes_time_2.gpkg"
+            source_nodes_time_2.to_file(source_nodes_time_2_dir, driver='GPKG')
+            aup.log(f"--- Saved source_nodes_time 2 locally.")
+
+        # Merge source_nodes_time_1 results with source_nodes_time_2 results
+        source_nodes_time_all = source_nodes_time_1.merge(source_nodes_time_2[['osmid', 'time_'+source, f'{source}_{count_pois[1]}min']],on='osmid')
         
-        # Format
-        source_nodes_time_2.rename(columns={'time_'+source:source},inplace=True)
-        nodes_analysis = source_nodes_time_2.copy()
+        # Find min time between both source_nodes_time
+        time_cols = [f'time_{source}_x', f'time_{source}_y']
+        source_nodes_time_all[f'time_{source}'] = source_nodes_time_all[time_cols].min(axis=1)
+        source_nodes_time_all.drop(columns=time_cols,inplace=True)
+
+        # Find sum of counted pois at {count_pois[1]} distance (minutes) for both source_nodes_time
+        count_cols = [f'{source}_{count_pois[1]}min_x',f'{source}_{count_pois[1]}min_y']
+        source_nodes_time_all[f'{source}_{count_pois[1]}min'] = source_nodes_time_all[count_cols].sum(axis=1)
+        source_nodes_time_all.drop(columns=count_cols,inplace=True)
+        
+        # 1.1d) Nodes_analysis format
+        source_nodes_time_all.rename(columns={'time_'+source:source},inplace=True)
+        nodes_analysis = source_nodes_time_all.copy()
 
         if save_space:
             del source_nodes_time_2
-        
-        # 1.1d) Nodes_analysis format
+
         # if count_pois, include generated col
         if count_pois[0]:
             column_order = ['osmid'] + [source, f'{source}_{count_pois[1]}min'] + ['x','y','geometry']
@@ -106,6 +126,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save=False, sav
         # 1.1f) Save output
         aup.log(f"--- Saving nodes proximity to {source}.")
         if save:
+            nodes_analysis['source_15min'] = nodes_analysis['source_15min'].astype(int)
             aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
             aup.log(f"--- Saved nodes proximity to {source} in database.")
 
@@ -154,7 +175,7 @@ if __name__ == "__main__":
 
     ##### WARNING ##### WARNING ##### WARNING #####
     save = True # save output to database?
-    local_save = True # save output to local? (Make sure directory exists)
+    local_save = True # save output to local? (Make sure directory exists) #RECOMMENDED IN CASE SCRIPT FAILS
     nodes_local_save_dir = f"../data/processed/santiago/santiago_nodesproximity_ep_plaza_small.gpkg"
     ##### WARNING ##### WARNING ##### WARNING #####
 
