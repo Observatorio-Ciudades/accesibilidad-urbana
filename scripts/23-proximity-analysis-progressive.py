@@ -53,13 +53,14 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
         # Calculate time data from nodes to source
         source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',
                                           walk_speed, count_pois, projected_crs)
+        
+        # 1.1d) Nodes_analysis format
         source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
         nodes_analysis = source_nodes_time.copy()
 
         if save_space:
             del source_nodes_time
 
-        # 1.1d) Nodes_analysis format
         # if count_pois, include generated col
         if count_pois[0]:
             column_order = ['osmid'] + [source, f'{source}_{count_pois[1]}min'] + ['x','y','geometry']
