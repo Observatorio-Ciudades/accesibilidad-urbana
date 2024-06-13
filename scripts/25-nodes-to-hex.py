@@ -12,7 +12,8 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
-def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=False):
+def main(source_list, hex_gdf, nodes, nodes_save_table, local_save=False, save=False):
+    
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
     
@@ -24,81 +25,67 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
     k = len(source_list)
     i = 1
 
+    # Create nodes analysis gdf
+    nodes_analysis = nodes.reset_index().copy()
+    del nodes
+    nodes_analysis = nodes_analysis[['osmid','geometry']]
+    
     for source in source_list:
 
         aup.log(f"--- Starting nodes proximity to pois for source {i}/{k}: {source}. ")
+        # Read pois from source
+        query = f"SELECT * FROM {save_schema}.{nodes_save_table} WHERE \"source\" = \'{source}\'"
+        nodes_source = aup.gdf_from_query(query, geometry_col='geometry')
 
-        # 1.1a) Read pois from pois dir
-        aup.log(f"--- Reading pois dir.")
-        # Directory where pois to be examined are located
-        pois_dir = gral_dir + f'{source}.gpkg'
-        # Load all pois from directory
-        pois = gpd.read_file(pois_dir)
-        # Set code column
-        pois['code'] = source
-        # Format
-        pois = pois[['code','geometry']]
-        pois = pois.set_crs("EPSG:4326")
+        aup.log(f"--- Loaded {len(nodes_source)} nodes from source {source}.")
 
-        # 1.1b) Clip pois to aoi
-        source_pois = gpd.sjoin(pois, aoi)
-        source_pois = source_pois[['code','geometry']]
-        aup.log(f"--- Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
+        # Translate source to column name
+        nodes_source.rename(columns={'source_time':f'{source}_time'}, inplace=True) 
+        nodes_source.rename(columns={'source_15min':f'{source}_count_15min'}, inplace=True) 
 
-        if save_space:
-            del pois
+        # Filter nodes gdf
+        nodes_source = nodes_source[['osmid', f'{source}_time', f'{source}_count_15min']]
 
-        # 1.1c) Calculate nodes proximity (Function pois_time())
-        aup.log(f"--- Calculating nodes proximity.")
-        # Calculate time data from nodes to source
-        source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',
-                                          walk_speed, count_pois, projected_crs)
+        # Merge to nodes analysis
+        nodes_analysis = nodes_analysis.merge(nodes_source, on='osmid', how='left')
         
-        # 1.1d) Nodes_analysis format
-        source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
-        nodes_analysis = source_nodes_time.copy()
+        aup.log(f"--- Appended {len(nodes_source)} nodes to nodes analysis.")
+        del nodes_source
+    
+    nodes_analysis['city'] = 'Santiago'
 
-        if save_space:
-            del source_nodes_time
+    # Assign values to hex_gdf
+    for r in hex_gdf.res.unqiue():
+        hex_tmp = hex_gdf[hex_gdf.res == r].copy()
 
-        # if count_pois, include generated col
-        if count_pois[0]:
-            column_order = ['osmid'] + [source, f'{source}_{count_pois[1]}min'] + ['x','y','geometry']
-        else:
-            column_order = ['osmid'] + [source] + ['x','y','geometry']
-        nodes_analysis = nodes_analysis[column_order]
+        hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_list)
+        hex_tmp = hex_tmp.drop(columns=['res','geometry'])
 
-        # 1.1e) Tidy data format (Allows loop-upload)
-        aup.log(f"--- Reordering datased as tidy data format.")
-        # Add source column to be able to extract source proximity data. Fill with current source.
-        nodes_analysis['source'] = source
-        # Rename source-specific column names as name that apply to all sources (source_time, source_15min)
-        nodes_analysis.rename(columns={source:'source_time'},inplace=True)
-        if count_pois[0]:
-            nodes_analysis.rename(columns={f'{source}_{count_pois[1]}min':f'source_{count_pois[1]}min'},inplace=True)
-        # Set column order
-        if count_pois[0]:
-            nodes_analysis = nodes_analysis[['osmid','source','source_time',f'source_{count_pois[1]}min','x','y','geometry']]
-        else:
-            nodes_analysis = nodes_analysis[['osmid','source','source_time','x','y','geometry']]
-        # Add city data
-        nodes_analysis['city'] = city
-        nodes_analysis[f'source_{count_pois[1]}min'] = nodes_analysis[f'source_{count_pois[1]}min'].astype(int)
+        # Merge to hex_gdf
+        hex_gdf = hex_gdf.merge(hex_tmp, on='hex_id', how='left')
+
+        aup.log(f"--- Merged {len(hex_tmp)} hexagons to hex_gdf.")
+
+        del hex_tmp
+    
+    hex_gdf['city'] = 'Santiago'
         
-        # 1.1f) Save output
-        aup.log(f"--- Saving nodes proximity to {source}.")
-        if save:
-            aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
-            aup.log(f"--- Saved nodes proximity to {source} in database.")
+    # 1.1f) Save output
+    aup.log(f"--- Saving nodes proximity to {source}.")
+    if save:
+        aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
+        aup.log(f"--- Saved nodes proximity in database.")
+        aup.gdf_to_db_slow(hex_gdf, nodes_save_table, save_schema, if_exists='append')
+        aup.log(f"--- Saved hexagons proximity in database.")
 
-        if local_save:
-            nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
-            aup.log(f"--- Saved nodes proximity to {source} locally.")
-            
-        if save_space:
-            del nodes_analysis
+    if local_save:
+        nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
+        aup.log(f"--- Saved nodes proximity to {source} locally.")
+        
+    if save_space:
+        del nodes_analysis
 
-        i+=1
+    i+=1
 
     ############################################################### PART 2 ###############################################################
     ######################################################### AMENITIES ANALYSIS #########################################################
@@ -117,13 +104,13 @@ if __name__ == "__main__":
     # That source_name must also be the name of the file stored in gral_dir (.gpkg)
     # source_list = ['vacunatorio_pub']
     # create source_dict to store index and source_name
-    # casas_deptos_mzn
+    # civic_office, social_security
     source_list = ['carniceria','hogar','local_mini_market',
                    'supermercado','clinica_priv','clinica_pub',
                    'hospital_priv','hospital_pub','farmacia',
                    'consult_ado_priv','consult_ado_pub',
                    'club_deportivo','eq_deportivo_pub','eq_deportivo_priv',
-                   'civic_office','tax_collection','social_security',
+                   'tax_collection','feria','ep_plaza_big',
                    'banco','museos_priv','museos_pub','sitios_historicos',
                    'cines','restaurantes_bar_cafe','librerias','edu_basica_priv',
                    'edu_basica_pub','edu_media_priv','edu_media_pub',
@@ -135,7 +122,7 @@ if __name__ == "__main__":
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [3.5,4.5,5]
+    walking_speed = [4.5]
     # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
     # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
@@ -146,7 +133,7 @@ if __name__ == "__main__":
     save_space = True
 
     ##### WARNING ##### WARNING ##### WARNING #####
-    save = True # save output to database?
+    save = False # save output to database?
     local_save = False # save output to local? (Make sure directory exists)
     nodes_local_save_dir = f"../data/processed/santiago/test_script23_nodes.gpkg"
     ##### WARNING ##### WARNING ##### WARNING #####
@@ -173,12 +160,25 @@ if __name__ == "__main__":
     aoi = aup.gdf_from_query(query, geometry_col='geometry')
     aoi = aoi.set_crs("EPSG:4326")
 
+    # Create hexgrid
+    hex_gdf = gpd.GeoDataFrame()
+
+    for r in range(8,10):
+        hex_tmp = aup.create_hexgrid(aoi, r)
+        hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
+        hex_tmp['res'] = r
+
+        hex_gdf = pd.concat([hex_gdf, hex_tmp], 
+                ignore_index = True, axis = 0)
+        
+        del hex_tmp
+
     # OSMnx Network
     aup.log("--- Downloading network.")
-    G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
+    _, nodes, _ = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
 
     # add length data to edges
-    edges['length'] = edges.to_crs(projected_crs).length
+    # edges['length'] = edges.to_crs(projected_crs).length
 
     for walk_speed in walking_speed:
         str_walk_speed = str(walk_speed).replace('.','_')
@@ -190,30 +190,7 @@ if __name__ == "__main__":
 
         aup.log(f"--- Running script for speed: {walk_speed}.")
         # ------------------------------ SCRIPT START ------------------------------
-
-        if save:
-            # Saved sources check (prevents us from uploading same source twice/errors on source list)
-            aup.log(f"--- Verifying sources by comparing to data already uploaded.")
-            try:
-                # Load sources already processed
-                query = f"SELECT DISTINCT source FROM {save_schema}.{nodes_save_table}"
-                saved_data = aup.df_from_query(query)
-                saved_sources = list(saved_data.source.unique())
-            except:
-                saved_sources = []
-                aup.log(f"--- No data found for {nodes_save_table}.")
-            
-            # Verify current source list
-            source_speed_list = [source_check for source_check in source_speed_list
-                                  if source_check not in saved_sources]
-            aup.log(f"--- {len(source_speed_list)} sources to be processed.")
-            '''for source in source_speed_list:
-                if source in saved_sources:
-                    aup.log(f"--- Source {source} already processed and in database.")
-                    source_speed_list.remove(source)
-                    aup.log(f"--- Removed source from source analysis.")
-                    # intended_crash'''
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_speed_list, aoi, nodes, edges, G, walk_speed,local_save, save)
+        main(source_speed_list, hex_gdf, nodes, nodes_save_table, save_schema, local_save, save)
