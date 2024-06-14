@@ -12,7 +12,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
-def main(source_list, hex_gdf, nodes, nodes_save_table, local_save=False, save=False):
+def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir=None, local_save=False, save=False):
     
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
@@ -29,6 +29,8 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, local_save=False, save=F
     nodes_analysis = nodes.reset_index().copy()
     del nodes
     nodes_analysis = nodes_analysis[['osmid','geometry']]
+
+    source_cols = []
     
     for source in source_list:
 
@@ -41,7 +43,9 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, local_save=False, save=F
 
         # Translate source to column name
         nodes_source.rename(columns={'source_time':f'{source}_time'}, inplace=True) 
-        nodes_source.rename(columns={'source_15min':f'{source}_count_15min'}, inplace=True) 
+        nodes_source.rename(columns={'source_15min':f'{source}_count_15min'}, inplace=True)
+        source_cols.append(f'{source}_time')
+        source_cols.append(f'{source}_count_15min')
 
         # Filter nodes gdf
         nodes_source = nodes_source[['osmid', f'{source}_time', f'{source}_count_15min']]
@@ -51,41 +55,65 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, local_save=False, save=F
         
         aup.log(f"--- Appended {len(nodes_source)} nodes to nodes analysis.")
         del nodes_source
+
+        i += 1
     
-    nodes_analysis['city'] = 'Santiago'
 
     # Assign values to hex_gdf
-    for r in hex_gdf.res.unqiue():
+    hex_bins = gpd.GeoDataFrame()
+
+    for r in hex_gdf.res.unique():
+
+        aup.log(f"--- Calculating mean proximity for hexagons at resolution {r}.")
+
         hex_tmp = hex_gdf[hex_gdf.res == r].copy()
 
-        hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_list)
-        hex_tmp = hex_tmp.drop(columns=['res','geometry'])
+        hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_cols, 'hex_id')
+
+        aup.log(f"--- Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
+
+        hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
+        hex_tmp['res'] = r
 
         # Merge to hex_gdf
-        hex_gdf = hex_gdf.merge(hex_tmp, on='hex_id', how='left')
+        # hex_gdf = hex_gdf.merge(hex_tmp, on='hex_id', how='left')
+
+        hex_bins = pd.concat([hex_bins, hex_tmp], 
+                ignore_index = True, axis = 0)
 
         aup.log(f"--- Merged {len(hex_tmp)} hexagons to hex_gdf.")
 
         del hex_tmp
+
+    hex_bins = hex_bins.set_geometry('geometry')
+    hex_bins = hex_bins.set_crs("EPSG:4326")
     
-    hex_gdf['city'] = 'Santiago'
+    hex_bins['city'] = 'Santiago'
+    nodes_analysis['city'] = 'Santiago'
+
         
     # 1.1f) Save output
-    aup.log(f"--- Saving nodes proximity to {source}.")
+    aup.log(f"--- Saving nodes and hex proximity.")
+
+    nodes_processed_table = f'santiago_nodesproximity_format_{str_walk_speed}_kmh'
+    hex_processed_table = f'santiago_hexproximity_{str_walk_speed}_kmh'
+
     if save:
-        aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
+        aup.gdf_to_db_slow(nodes_analysis, nodes_processed_table, save_schema, if_exists='append')
         aup.log(f"--- Saved nodes proximity in database.")
-        aup.gdf_to_db_slow(hex_gdf, nodes_save_table, save_schema, if_exists='append')
+        aup.gdf_to_db_slow(hex_bins, hex_processed_table, save_schema, if_exists='append')
         aup.log(f"--- Saved hexagons proximity in database.")
 
     if local_save:
-        nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
-        aup.log(f"--- Saved nodes proximity to {source} locally.")
+        nodes_analysis.to_file(local_save_dir + nodes_processed_table, driver='GPKG')
+        aup.log(f"--- Saved nodes proximity locally.")
+
+        hex_bins.to_file(local_save_dir + hex_processed_table, driver='GPKG')
+        aup.log(f"--- Saved hexagons proximity locally.")
         
     if save_space:
         del nodes_analysis
 
-    i+=1
 
     ############################################################### PART 2 ###############################################################
     ######################################################### AMENITIES ANALYSIS #########################################################
@@ -116,6 +144,7 @@ if __name__ == "__main__":
                    'edu_basica_pub','edu_media_priv','edu_media_pub',
                    'jardin_inf_priv','jardin_inf_pub','edu_especial_priv',
                    'edu_especial_pub','bibliotecas']
+    # source_list = ['carniceria','hogar','local_mini_market']
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
@@ -134,8 +163,8 @@ if __name__ == "__main__":
 
     ##### WARNING ##### WARNING ##### WARNING #####
     save = False # save output to database?
-    local_save = False # save output to local? (Make sure directory exists)
-    nodes_local_save_dir = f"../data/processed/santiago/test_script23_nodes.gpkg"
+    local_save = True # save output to local? (Make sure directory exists)
+    local_save_dir = f"../data/processed/santiago/"
     ##### WARNING ##### WARNING ##### WARNING #####
 
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
@@ -168,6 +197,8 @@ if __name__ == "__main__":
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
         hex_tmp['res'] = r
 
+        aup.log(f"--- Created {len(hex_tmp)} hexagons at resolution {r}.")
+
         hex_gdf = pd.concat([hex_gdf, hex_tmp], 
                 ignore_index = True, axis = 0)
         
@@ -193,4 +224,4 @@ if __name__ == "__main__":
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_speed_list, hex_gdf, nodes, nodes_save_table, save_schema, local_save, save)
+        main(source_speed_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir, local_save, save)
