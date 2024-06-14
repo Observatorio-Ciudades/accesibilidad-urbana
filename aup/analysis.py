@@ -129,7 +129,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	return nodes
 
 
-def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
+def group_by_hex_mean(nodes, hex_bins, resolution, group_column_names, hex_column_id, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
@@ -137,25 +137,34 @@ def group_by_hex_mean(nodes, hex_bins, resolution, col_name, osmid=True):
 		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
 		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexbins
 		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
-		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
+		group_column_names (str,list): column name or list of column names to group with
+		hex_column_id (str): column name with the hex_id
 
 	Returns:
 		geopandas.GeoDataFrame:  GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
 	"""
-	dist_col = col_name
+	dist_col = group_column_names
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	# Group data by hex_id
 	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
-	nodes_hex = nodes_in_hex.groupby([f'hex_id_{resolution}']).mean()
+	nodes_hex = nodes_in_hex.groupby([hex_column_id]).mean()
 	# Merge back to geometry
-	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=f'hex_id_{resolution}',how = 'outer')
+	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_column_id,how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
 	else:
 		hex_new = hex_new.drop(['index_right'],axis=1)
-	hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
+	
+	# Check for NaN values
+	if type(dist_col) == list:
+		for dc in dist_col:
+			hex_new[dc].apply(lambda x: x+1 if x==0 else x )
+	else:
+		hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
+	# Fill NaN values
 	hex_new.fillna(0, inplace=True)
+	
 	return hex_new
 
 def socio_polygon_to_points(
