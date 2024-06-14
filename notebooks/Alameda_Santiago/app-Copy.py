@@ -20,19 +20,346 @@ st.set_page_config(
 st.title('Avenida Libertador Bernardo O\'Higgins (Nueva Alameda), Santiago, Chile')
 st.write("Geovisor con la información más relevante de la zona")
 
-# Selección de pestaña
-option = st.selectbox(
-    "Seleccione la pestaña",
-    ["Resumen del índice", "Indicador 1 (Bomberos)", "Indicador 2 (Educación)", 
-     "Indicador 3 (Salud)"]
-)
-
-# Mostrar contenido basado en la selección
-if option == "Resumen del índice":
-    st.title('Estadísticas del índice que se va a calcular')
-    st.write("""
-    Esta por definirse la forma en la que se presentará.
-    """)
+with st.container():
+    col1, col2= st.columns([0.99999, 0.00001])
+    with col1:
+        select = st.selectbox(
+            "Seleccione la función social",
+            ["Supplies", "Caring", "Living", 
+             "Enjoy", "Working", "Sociability"]
+        )
+        if select == "Supplies":
+            tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
+            with tab1:
+                st.write("Aquí va a ir texto")
+                with st.container():
+                    col1, col2 = st.columns([0.8,0.2])
+                    with col1:
+                        st.write("Mapa")
+                    with col2:
+                        st.markdown('### Legend')
+                        st.markdown('#### Elements')
+                        st.markdown(f"""
+                        <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(53, 202, 12, 0.6); border: 1px solid rgba(53, 202, 12, 0.6); display:inline-block;
+                                vwidth: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Área Metropolitana de Santiago</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(0, 99, 194, 0.79); border: 1px solid rgba(0, 99, 194, 0.79); display: inline-block;
+                                width: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Buffer Avenida Nueva Alameda</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+                            <span style="display: inline-flex; align-items: center;">
+                                <i class="fas fa-fire-extinguisher" style="color: red; font-size: 20px;"></i>
+                                <span style="padding-left: 5px;">Compañias de Bomberos</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.write("")
+                with st.container():
+                    col1, col2, col3 = st.columns([0.33,0.33,0.33])
+                    with col1:
+                        st.write("Zona Metropolitana de Santiago")
+                        st.write("")
+                        st.write("Gráfica")
+                        st.write("Datos")
+                    with col2:
+                        st.write("Avenida Nueva Alameda")
+                        st.write("")
+                        st.write("Gráfica")
+                        st.write("Datos")
+                        with col3:
+                        barrio = st.selectbox(
+                            "Seleccione el barrio que desea ver",
+                            ["Barrio 1", "Barrio 2", "Barrio 3", 
+                            "Barrio 4"],
+                            label_visibility="collapsed",
+                        )
+                        if barrio == "Barrio 1":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        elif barrio == "Barrio 2":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        elif barrio == "Barrio 3":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        elif barrio == "Barrio 4":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                st.write("")
+                st.write("Imágen/Texto")
+        elif select == "Caring":
+            tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
+            with tab1:
+                st.write("Aquí va a ir texto")
+                with st.container():
+                    col1, col2 = st.columns([0.8,0.2])
+                    with col1:
+                        st.write("Mapa")
+                    with col2:
+                        st.markdown('### Legend')
+                        st.markdown('#### Elements')
+                        st.markdown(f"""
+                            <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(53, 202, 12, 0.6); border: 1px solid rgba(53, 202, 12, 0.6); display: inline-block;
+                                width: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Área Metropolitana de Santiago</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(0, 99, 194, 0.79); border: 1px solid rgba(0, 99, 194, 0.79); display: inline-block;
+                                width: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Buffer Avenida Nueva Alameda</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+                            <span style="display: inline-flex; align-items: center;">
+                                <i class="fas fa-fire-extinguisher" style="color: red; font-size: 20px;"></i>
+                                <span style="padding-left: 5px;">Compañias de Bomberos</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                    st.write("")
+                    with st.container():
+                        col1, col2, col3 = st.columns([0.33,0.33,0.33])
+                        with col1:
+                            st.write("Zona Metropolitana de Santiago")
+                            st.write("")
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        with col2:
+                            st.write("Avenida Nueva Alameda")
+                            st.write("")
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        with col3:
+                            barrio = st.selectbox(
+                                "Seleccione el barrio que desea ver",
+                                ["Barrio 1", "Barrio 2", "Barrio 3", 
+                                "Barrio 4"],
+                                label_visibility="collapsed",
+                            )
+                            if barrio == "Barrio 1":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 2":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 3":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 4":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                    st.write("")
+                    st.write("Imágen/Texto")
+            elif select == "Living":
+                tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
+                with tab1:
+                st.write("Aquí va a ir texto")
+                with st.container():
+                    col1, col2 = st.columns([0.8,0.2])
+                    with col1:
+                        st.write("Mapa")
+                    with col2:
+                        st.markdown('### Legend')
+                        st.markdown('#### Elements')
+                        st.markdown(f"""
+                        <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(53, 202, 12, 0.6); border: 1px solid rgba(53, 202, 12, 0.6); display:inline-block;
+                                vwidth: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Área Metropolitana de Santiago</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(0, 99, 194, 0.79); border: 1px solid rgba(0, 99, 194, 0.79); display: inline-block;
+                                width: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Buffer Avenida Nueva Alameda</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+                            <span style="display: inline-flex; align-items: center;">
+                                <i class="fas fa-fire-extinguisher" style="color: red; font-size: 20px;"></i>
+                                <span style="padding-left: 5px;">Compañias de Bomberos</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.write("")
+                with st.container():
+                    col1, col2, col3 = st.columns([0.33,0.33,0.33])
+                    with col1:
+                        st.write("Zona Metropolitana de Santiago")
+                        st.write("")
+                        st.write("Gráfica")
+                        st.write("Datos")
+                    with col2:
+                        st.write("Avenida Nueva Alameda")
+                        st.write("")
+                        st.write("Gráfica")
+                        st.write("Datos")
+                        with col3:
+                        barrio = st.selectbox(
+                            "Seleccione el barrio que desea ver",
+                            ["Barrio 1", "Barrio 2", "Barrio 3", 
+                            "Barrio 4"],
+                            label_visibility="collapsed",
+                        )
+                        if barrio == "Barrio 1":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        elif barrio == "Barrio 2":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        elif barrio == "Barrio 3":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        elif barrio == "Barrio 4":
+                            st.write("Gráfica")
+                            st.write("Datos")
+                st.write("")
+                st.write("Imágen/Texto")
+        elif select == "Caring":
+            tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
+            with tab1:
+                st.write("Aquí va a ir texto")
+                with st.container():
+                    col1, col2 = st.columns([0.8,0.2])
+                    with col1:
+                        st.write("Mapa")
+                    with col2:
+                        st.markdown('### Legend')
+                        st.markdown('#### Elements')
+                        st.markdown(f"""
+                            <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(53, 202, 12, 0.6); border: 1px solid rgba(53, 202, 12, 0.6); display: inline-block;
+                                width: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Área Metropolitana de Santiago</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <span style="display: inline-flex; align-items: center;">
+                                <span style="background-color: rgba(0, 99, 194, 0.79); border: 1px solid rgba(0, 99, 194, 0.79); display: inline-block;
+                                width: 20px; height: 20px;"></span>
+                                <span style="padding-left: 5px;">Buffer Avenida Nueva Alameda</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+                            <span style="display: inline-flex; align-items: center;">
+                                <i class="fas fa-fire-extinguisher" style="color: red; font-size: 20px;"></i>
+                                <span style="padding-left: 5px;">Compañias de Bomberos</span>
+                            </span>
+                            """, unsafe_allow_html=True)
+                    st.write("")
+                    with st.container():
+                        col1, col2, col3 = st.columns([0.33,0.33,0.33])
+                        with col1:
+                            st.write("Zona Metropolitana de Santiago")
+                            st.write("")
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        with col2:
+                            st.write("Avenida Nueva Alameda")
+                            st.write("")
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        with col3:
+                            barrio = st.selectbox(
+                                "Seleccione el barrio que desea ver",
+                                ["Barrio 1", "Barrio 2", "Barrio 3", 
+                                "Barrio 4"],
+                                label_visibility="collapsed",
+                            )
+                            if barrio == "Barrio 1":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 2":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 3":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 4":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                    st.write("")
+                    st.write("Imágen/Texto")
+            elif select == "Sociability":
+                tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
+                with tab1:
+                    st.write("Aquí va a ir texto")
+                    with st.container():
+                        col1, col2 = st.columns([0.8,0.2])
+                        with col1:
+                            st.write("Mapa")
+                        with col2:
+                            st.markdown('### Legend')
+                            st.markdown('#### Elements')
+                            st.markdown(f"""
+                                <span style="display: inline-flex; align-items: center;">
+                                    <span style="background-color: rgba(53, 202, 12, 0.6); border: 1px solid rgba(53, 202, 12, 0.6); display: inline-block;
+                                    width: 20px; height: 20px;"></span>
+                                    <span style="padding-left: 5px;">Área Metropolitana de Santiago</span>
+                                </span>
+                                """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                                <span style="display: inline-flex; align-items: center;">
+                                    <span style="background-color: rgba(0, 99, 194, 0.79); border: 1px solid rgba(0, 99, 194, 0.79); display: inline-block;
+                                    width: 20px; height: 20px;"></span>
+                                    <span style="padding-left: 5px;">Buffer Avenida Nueva Alameda</span>
+                                </span>
+                                """, unsafe_allow_html=True)
+                            st.markdown(f"""
+                                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+                                <span style="display: inline-flex; align-items: center;">
+                                    <i class="fas fa-fire-extinguisher" style="color: red; font-size: 20px;"></i>
+                                    <span style="padding-left: 5px;">Compañias de Bomberos</span>
+                                </span>
+                                """, unsafe_allow_html=True)
+                    st.write("")
+                    with st.container():
+                        col1, col2, col3 = st.columns([0.33,0.33,0.33])
+                        with col1:
+                            st.write("Zona Metropolitana de Santiago")
+                            st.write("")
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        with col2:
+                            st.write("Avenida Nueva Alameda")
+                            st.write("")
+                            st.write("Gráfica")
+                            st.write("Datos")
+                        with col3:
+                            barrio = st.selectbox(
+                                "Seleccione el barrio que desea ver",
+                                ["Barrio 1", "Barrio 2", "Barrio 3", 
+                                "Barrio 4"],
+                                label_visibility="collapsed",
+                            )
+                            if barrio == "Barrio 1":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 2":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 3":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                            elif barrio == "Barrio 4":
+                                st.write("Gráfica")
+                                st.write("Datos")
+                    st.write("")
+                    st.write("Imágen/Texto")
+        with col2:
+            st.write("")
 
 elif option == "Indicador 1 (Bomberos)":
     st.title('Geovisor Eje Nueva Alameda con establecimientos de Bomberos')
@@ -46,7 +373,7 @@ elif option == "Indicador 1 (Bomberos)":
             def read_file(filepath):
                 return gpd.read_file(filepath).to_crs('EPSG:4326')
 
-            dir = 'data/external/'
+            dir = 'OneDrive/Documentos/GitHub/accesibilidad-urbana/data/external/Proyecto Alameda Santiago/'
             buffer = read_file(dir+'buffernuevaalameda/buffer 800m nueva alameda.shp')
             bomberos = read_file(dir + 'Companias de bomberos/layer_companias_de_bomberos_20231110080349.shp')
             poly_santiago = read_file(dir + 'Poligono Santiago/PoligonoSantiago.shp')
@@ -159,7 +486,7 @@ elif option == "Indicador 2 (Educación)":
                 return gpd.read_file(filepath).to_crs('EPSG:4326')
         
            
-            dir = 'data/external/'
+            dir = 'OneDrive/Documentos/GitHub/accesibilidad-urbana/data/external/Proyecto Alameda Santiago/'
             buffer = read_file(dir+'buffernuevaalameda/buffer 800m nueva alameda.shp')
             educ = read_file(dir + 'Establecimientos educacionales/establecimientos_educacionales_2021.shp')
             poly_santiago = read_file(dir + 'Poligono Santiago/PoligonoSantiago.shp')
@@ -263,7 +590,7 @@ elif option == "Indicador 3 (Salud)":
                 return gpd.read_file(filepath).to_crs('EPSG:4326')
         
             # Leer los archivos necesarios
-            dir = 'data/external/'
+            dir = 'OneDrive/Documentos/GitHub/accesibilidad-urbana/data/external/Proyecto Alameda Santiago/'
             buffer = read_file(dir+'buffernuevaalameda/buffer 800m nueva alameda.shp')
             salud = read_file(dir + 'Establecimientos salud/establec_salud_14_mayo_2021.shp')
             poly_santiago = read_file(dir + 'Poligono Santiago/PoligonoSantiago.shp')
