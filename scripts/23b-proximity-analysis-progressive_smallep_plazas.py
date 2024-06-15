@@ -60,7 +60,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save=False, sav
             del very_small_source_pois
 
         if local_save:
-            source_nodes_time_1_dir = f"../data/processed/santiago/source_nodes_time_1.gpkg"
+            source_nodes_time_1_dir = f"../data/processed/santiago/source_nodes_time_1_{str_walk_speed}.gpkg"
             source_nodes_time_1.to_file(source_nodes_time_1_dir, driver='GPKG')
             aup.log(f"--- Saved source_nodes_time 1 locally.")
             
@@ -76,7 +76,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save=False, sav
             del small_source_pois
 
         if local_save:
-            source_nodes_time_2_dir = f"../data/processed/santiago/source_nodes_time_2.gpkg"
+            source_nodes_time_2_dir = f"../data/processed/santiago/source_nodes_time_2_{str_walk_speed}.gpkg"
             source_nodes_time_2.to_file(source_nodes_time_2_dir, driver='GPKG')
             aup.log(f"--- Saved source_nodes_time 2 locally.")
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed_list = [4.5] #[3.5,4.5,5,12,24,20,40]
+    walking_speed_list = [3.5,5,12,24,20,40] #[3.5,4.5,5,12,24,20,40]
 
     # Area of interest (Run 'AM_Santiago', it represents Santiago's metropolitan area. We can clip data as soon as we know inputs extent.)
     city = 'AM_Santiago'
@@ -176,7 +176,6 @@ if __name__ == "__main__":
     ##### WARNING ##### WARNING ##### WARNING #####
     save = True # save output to database?
     local_save = True # save output to local? (Make sure directory exists) #RECOMMENDED IN CASE SCRIPT FAILS
-    nodes_local_save_dir = f"../data/processed/santiago/santiago_nodesproximity_ep_plaza_small.gpkg"
     ##### WARNING ##### WARNING ##### WARNING #####
 
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
@@ -211,6 +210,9 @@ if __name__ == "__main__":
         aup.log('--'*45)
         aup.log(f"--- Running Script [Modified] for ep_plaza_small for speed = {walking_speed}km/hr.")
         str_walk_speed = str(walking_speed).replace('.','_')
+
+        # Set saving dir and database table names
+        nodes_local_save_dir = f"../data/processed/santiago/santiago_nodesproximity_ep_plaza_small_{str_walk_speed}.gpkg"
         nodes_save_table = f'santiago_nodesproximity_{str_walk_speed}_kmh'
 
         if save:
