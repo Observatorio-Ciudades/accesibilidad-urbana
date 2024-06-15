@@ -12,6 +12,72 @@ if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
 
+def calculate_hqsl(hex_gdf):
+    #parameters_dict = {social_functions:{themes:[sources]}}
+    parameters_dict = {'supplies':{'groceries':['carniceria','hogar','local_mini_market','ferias','supermercado']},
+                   'caring':{'health':['clinica_priv','clinica_pub','hospital_priv','hospital_pub','consult_ado_priv','consult_ado_pub','residencia_adumayor','farmacia'],
+                            'exercise':['club_deportivo','eq_deportivo_pub','eq_deportivo_priv']},
+                   'living':{'errands_paperwork':['civic_office','tax_collection','social_security','banco'],
+                             'fresh_air':['ep_plaza_small','ep_plaza_big']},
+                   'enjoying':{'culture':['museos_priv','museos_pub','bibliotecas','sitios_historicos'],
+                               'entertainment':['cines','librerias','restaurantes_bar_cafe']},
+                   'learning':{'education':['edu_basica_priv','edu_basica_pub','edu_media_priv','edu_media_pub','jardin_inf_pub','jardin_inf_priv','edu_especial_priv','edu_especial_pub']},
+                   'working':{'sustainable_mobility':['ciclovias','paradas_tp','paradas_tp_tren','paradas_tp_metro']}}
+    
+    # scale count source values
+    # proxhexs_countprocess = hex_gdf.copy()
+    # scalar_count_column_list = []
+
+    for social_function in parameters_dict.keys():
+        aup.log(f"--- {social_function}")
+        for theme in parameters_dict[social_function]:
+            aup.log(f"------ {theme}")
+            for source in parameters_dict[social_function][theme]:
+
+                # Set col name of interest and find min and max values
+                count_colname = f"{source}_count_15min"
+                min_val = hex_gdf[count_colname].min()
+                max_val = hex_gdf[count_colname].max()
+                # Calculate MinMax Scalar
+                hex_gdf[f"{source}_scaledcount"] = hex_gdf[count_colname].apply(lambda x: ((x - min_val) /(max_val - min_val)))
+                aup.log(f"------ Scaled {source} count.")
+                ''' # Drop original count col
+                hex_gdf.drop(columns=[count_colname],inplace=True)
+                # Add
+                scalar_count_column_list.append(f"{source}_scaledcount")'''
+
+    # Keep columns of interest only
+    # proxhexs_countprocess = proxhexs_countprocess[['hex_id','geometry']+scalar_count_column_list+['res','city']]
+    aup.log(f"--- Scaled count columns added to hex_gdf.")
+    aup.log(f"--- Starting social function analysis.")
+    sum_count_column_list = []
+
+    for social_function in parameters_dict.keys():
+        # Set social function sources list
+        sf_sources_list = []
+        
+        for theme in parameters_dict[social_function]:
+            # Set theme_sources_list and feed sf_sources_list
+            theme_sources_list = []
+            for source in parameters_dict[social_function][theme]:
+                theme_sources_list.append(f"{source}_scaledcount")
+                sf_sources_list.append(f"{source}_scaledcount")
+
+            
+            # Find sum of count anlysis for theme
+            hex_gdf[f"{theme}_count"] = hex_gdf[theme_sources_list].sum(axis=1)
+            aup.log(f"------ Summed {theme} count with a mean value of {round(hex_gdf[f"{theme}_count"].mean(),4)}.")
+            sum_count_column_list.append(f"{theme}_count")
+            
+        # Find sum of count anlysis for social function
+        hex_gdf[f"{social_function}_count"] = hex_gdf[sf_sources_list].sum(axis=1)
+        aup.log(f"--- Summed {social_function} count with a mean value of {round(hex_gdf[f'{social_function}_count'].mean(),4)}.")
+        sum_count_column_list.append(f"{social_function}_count")
+        
+
+    return hex_gdf
+
+
 def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir=None, local_save=False, save=False):
     
     aup.log("--"*40)
