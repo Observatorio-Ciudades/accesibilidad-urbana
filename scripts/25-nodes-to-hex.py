@@ -133,17 +133,21 @@ if __name__ == "__main__":
     # source_list = ['vacunatorio_pub']
     # create source_dict to store index and source_name
     # civic_office, social_security
-    source_list = ['carniceria','hogar','local_mini_market',
-                   'supermercado','clinica_priv','clinica_pub',
-                   'hospital_priv','hospital_pub','farmacia',
+    source_list = ['supermercado','clinica_priv','clinica_pub',
+                   'hospital_priv','hospital_pub',
                    'consult_ado_priv','consult_ado_pub',
                    'club_deportivo','eq_deportivo_pub','eq_deportivo_priv',
-                   'tax_collection','feria','ep_plaza_big',
-                   'banco','museos_priv','museos_pub','sitios_historicos',
-                   'cines','restaurantes_bar_cafe','librerias','edu_basica_priv',
+                   'tax_collection','civic_office','social_security',
+                   'museos_priv','museos_pub','sitios_historicos',
+                   'cines','edu_basica_priv',
                    'edu_basica_pub','edu_media_priv','edu_media_pub',
                    'jardin_inf_priv','jardin_inf_pub','edu_especial_priv',
-                   'edu_especial_pub','bibliotecas']
+                   'edu_especial_pub','bibliotecas','agua_alcantarillado',
+                   'residencia_adumayor','paradas_tp','paradas_tp_tren',
+                   'paradas_tp_metro','banco','carniceria','farmacia',
+                   'hogar','librerias','local_mini_market','bakeries',
+                   'restaurantes_bar_cafe','feria','ciclovias','ep_plaza_small',
+                   'ep_plaza_big']
     # source_list = ['carniceria','hogar','local_mini_market']
 
     # Pois proximity methodology - Count pois at a given time proximity?
@@ -162,7 +166,7 @@ if __name__ == "__main__":
     save_space = True
 
     ##### WARNING ##### WARNING ##### WARNING #####
-    save = False # save output to database?
+    save = True # save output to database?
     local_save = True # save output to local? (Make sure directory exists)
     local_save_dir = f"../data/processed/santiago/"
     ##### WARNING ##### WARNING ##### WARNING #####
