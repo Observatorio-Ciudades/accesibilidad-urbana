@@ -66,7 +66,7 @@ def calculate_hqsl(hex_gdf):
             
             # Find sum of count anlysis for theme
             hex_gdf[f"{theme}_count"] = hex_gdf[theme_sources_list].sum(axis=1)
-            aup.log(f"------ Summed {theme} count with a mean value of {round(hex_gdf[f"{theme}_count"].mean(),4)}.")
+            aup.log(f"------ Summed {theme} count with a mean value of " + str(round(hex_gdf[f"{theme}_count"].mean(),4)))
             sum_count_column_list.append(f"{theme}_count")
             
         # Find sum of count anlysis for social function
@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
     ##### WARNING ##### WARNING ##### WARNING #####
     save = True # save output to database?
-    local_save = True # save output to local? (Make sure directory exists)
+    local_save = False # save output to local? (Make sure directory exists)
     local_save_dir = f"../data/processed/santiago/"
     ##### WARNING ##### WARNING ##### WARNING #####
 
