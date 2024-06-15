@@ -117,24 +117,27 @@ if __name__ == "__main__":
     # source_list = ['vacunatorio_pub']
     # create source_dict to store index and source_name
     # casas_deptos_mzn
-    source_list = ['carniceria','hogar','local_mini_market',
-                   'supermercado','clinica_priv','clinica_pub',
-                   'hospital_priv','hospital_pub','farmacia',
+    source_list = ['supermercado','clinica_priv','clinica_pub',
+                   'hospital_priv','hospital_pub',
                    'consult_ado_priv','consult_ado_pub',
                    'club_deportivo','eq_deportivo_pub','eq_deportivo_priv',
-                   'civic_office','tax_collection','social_security',
-                   'banco','museos_priv','museos_pub','sitios_historicos',
-                   'cines','restaurantes_bar_cafe','librerias','edu_basica_priv',
+                   'tax_collection','civic_office','social_security',
+                   'museos_priv','museos_pub','sitios_historicos',
+                   'cines','edu_basica_priv',
                    'edu_basica_pub','edu_media_priv','edu_media_pub',
                    'jardin_inf_priv','jardin_inf_pub','edu_especial_priv',
-                   'edu_especial_pub','bibliotecas']
+                   'edu_especial_pub','bibliotecas','agua_alcantarillado',
+                   'residencia_adumayor','paradas_tp','paradas_tp_tren',
+                   'paradas_tp_metro', 'banco','carniceria','farmacia',
+                   'hogar', 'librerias','local_mini_market','bakeries',
+                   'restaurantes_bar_cafe']
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [3.5,4.5,5]
+    walking_speed = [4.5]
     # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
     # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
