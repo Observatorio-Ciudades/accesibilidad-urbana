@@ -14,7 +14,7 @@ if module_path not in sys.path:
 
 def calculate_hqsl(hex_gdf):
     #parameters_dict = {social_functions:{themes:[sources]}}
-    parameters_dict = {'supplies':{'groceries':['carniceria','hogar','local_mini_market','ferias','supermercado']},
+    parameters_dict = {'supplies':{'groceries':['carniceria','hogar','local_mini_market','bakeries','ferias','supermercado']},
                    'caring':{'health':['clinica_priv','clinica_pub','hospital_priv','hospital_pub','consult_ado_priv','consult_ado_pub','residencia_adumayor','farmacia'],
                             'exercise':['club_deportivo','eq_deportivo_pub','eq_deportivo_priv']},
                    'living':{'errands_paperwork':['civic_office','tax_collection','social_security','banco'],
@@ -73,6 +73,13 @@ def calculate_hqsl(hex_gdf):
         hex_gdf[f"{social_function}_count"] = hex_gdf[sf_sources_list].sum(axis=1)
         aup.log(f"--- Summed {social_function} count with a mean value of {round(hex_gdf[f'{social_function}_count'].mean(),4)}.")
         sum_count_column_list.append(f"{social_function}_count")
+
+    social_fn_cols = []
+    for k in parameters_dict.keys():
+        social_fn_cols.append(k+'_count')
+    
+    hex_gdf['hqsl'] = hex_gdf[social_fn_cols[0]] + hex_gdf[social_fn_cols[1]] + hex_gdf[social_fn_cols[2]] + hex_gdf[social_fn_cols[3]] + hex_gdf[social_fn_cols[4]] + hex_gdf[social_fn_cols[5]]
+    aup.log(f"--- Calculated HQSL with a mean value of {round(hex_gdf['hqsl'].mean(),4)}.")
         
 
     return hex_gdf
@@ -157,6 +164,8 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
     hex_bins['city'] = 'Santiago'
     nodes_analysis['city'] = 'Santiago'
 
+    hex_bins = calculate_hqsl(hex_bins)
+
         
     # 1.1f) Save output
     aup.log(f"--- Saving nodes and hex proximity.")
@@ -187,7 +196,7 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
 
 if __name__ == "__main__":
     aup.log('--'*50)
-    aup.log('--- STARTING SCRIPT 23.')
+    aup.log('--- STARTING SCRIPT 25.')
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
     
@@ -212,7 +221,7 @@ if __name__ == "__main__":
                    'residencia_adumayor','paradas_tp','paradas_tp_tren',
                    'paradas_tp_metro','banco','carniceria','farmacia',
                    'hogar','librerias','local_mini_market','bakeries',
-                   'restaurantes_bar_cafe','feria','ciclovias','ep_plaza_small',
+                   'restaurantes_bar_cafe','ferias','ciclovias','ep_plaza_small',
                    'ep_plaza_big']
     # source_list = ['carniceria','hogar','local_mini_market']
 
