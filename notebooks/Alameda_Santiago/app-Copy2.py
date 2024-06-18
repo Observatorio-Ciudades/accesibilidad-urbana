@@ -60,9 +60,6 @@ def add_gdf_marker(gdf, name, color, icon_name, icon_color):
             icon=folium.Icon(color=icon_color, prefix='fa', icon=icon_name)
         ).add_to(g)
 
-
-
-
 ### Variables de entrada ###
 dir = 'OneDrive/Documentos/GitHub/accesibilidad-urbana/data/external/Proyecto Alameda Santiago/'
 buffer = read_file(dir+'buffernuevaalameda/buffer 800m nueva alameda.shp')
@@ -86,6 +83,9 @@ st.set_page_config(
 # Título y descripción
 st.title('Avenida Libertador Bernardo O\'Higgins (Nueva Alameda), Santiago, Chile')
 st.write("Geovisor con la información más relevante de la zona")
+
+with st.sidebar:
+    st.write("Instrucciones de uso del geovisor")
 
 select = st.selectbox(
     "Seleccione la función social",
