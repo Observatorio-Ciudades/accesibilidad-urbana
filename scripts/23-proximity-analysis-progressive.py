@@ -38,7 +38,10 @@ def main(source_list, aoi, nodes, edges, G, walk_speed, local_save=False, save=F
         pois['code'] = source
         # Format
         pois = pois[['code','geometry']]
-        pois = pois.set_crs("EPSG:4326")
+        if pois.crs:
+            pois = pois.to_crs("EPSG:4326")
+        else:
+            pois = pois.set_crs("EPSG:4326")
 
         # 1.1b) Clip pois to aoi
         source_pois = gpd.sjoin(pois, aoi)
@@ -131,7 +134,10 @@ if __name__ == "__main__":
                    'residencia_adumayor','paradas_tp','paradas_tp_tren',
                    'paradas_tp_metro', 'banco','carniceria','farmacia',
                    'hogar', 'librerias','local_mini_market','bakeries',
-                   'restaurantes_bar_cafe']
+                   'restaurantes_bar_cafe', 'universidad', 'edu_tecnica',
+                   'edu_adultos_priv','edu_adultos_pub','centro_edu_amb',
+                   'centro_recyc', 'labs_priv', 'salud_mental', 'bomberos',
+                   'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv',]
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
