@@ -104,8 +104,35 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
     nodes_analysis = nodes_analysis[['osmid','geometry']]
 
     source_cols = []
+
+    ###
+
+    try:
+
+        # Donwload previously processed nodes proximity
+        aup.log(f"--- Downloading nodes proximity from database.")
+        nodes_analysis = aup.gdf_from_db(f'santiago_nodesproximity_format_{str_walk_speed}_kmh', save_schema)
+        aup.log(f"--- Loaded {len(nodes_analysis)} nodes proximity from database.")
+    
+    except:
+        aup.log(f"--- No nodes proximity found in database. Starting from scratch.")
+    
+    # Merge to nodes analysis
+    # nodes_analysis = nodes_analysis.merge(nodex_prox, on='osmid', how='left')
+    # aup.log(f"--- Merged nodes proximity to nodes analysis.")
+
+    # del nodex_prox
+    
+    ###
     
     for source in source_list:
+
+        if f'{source}_time' in nodes_analysis.columns:
+            aup.log(f"--- Source {source} already processed. Skipping.")
+            source_cols.append(f'{source}_time')
+            source_cols.append(f'{source}_count_15min')
+            i += 1
+            continue
 
         aup.log(f"--- Starting nodes proximity to pois for source {i}/{k}: {source}. ")
         # Read pois from source
@@ -130,7 +157,14 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
         del nodes_source
 
         i += 1
+
     
+    nodes_processed_table = f'santiago_nodesproximity_format_{str_walk_speed}_kmh'
+
+    # Save nodes proximity
+    if save:
+        aup.gdf_to_db_slow(nodes_analysis, nodes_processed_table, save_schema, if_exists='replace')
+        aup.log(f"--- Saved nodes proximity in database.")
 
     # Assign values to hex_gdf
     hex_bins = gpd.GeoDataFrame()
@@ -164,20 +198,13 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
     hex_bins['city'] = 'Santiago'
     nodes_analysis['city'] = 'Santiago'
 
-    hex_bins = calculate_hqsl(hex_bins)
+    # hex_bins = calculate_hqsl(hex_bins)
 
         
     # 1.1f) Save output
     aup.log(f"--- Saving nodes and hex proximity.")
 
-    nodes_processed_table = f'santiago_nodesproximity_format_{str_walk_speed}_kmh'
     hex_processed_table = f'santiago_hexproximity_{str_walk_speed}_kmh'
-
-    if save:
-        aup.gdf_to_db_slow(nodes_analysis, nodes_processed_table, save_schema, if_exists='append')
-        aup.log(f"--- Saved nodes proximity in database.")
-        aup.gdf_to_db_slow(hex_bins, hex_processed_table, save_schema, if_exists='append')
-        aup.log(f"--- Saved hexagons proximity in database.")
 
     if local_save:
         nodes_analysis.to_file(local_save_dir + nodes_processed_table, driver='GPKG')
@@ -185,7 +212,11 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
 
         hex_bins.to_file(local_save_dir + hex_processed_table, driver='GPKG')
         aup.log(f"--- Saved hexagons proximity locally.")
-        
+
+    if save:
+        aup.gdf_to_db_slow(hex_bins, hex_processed_table, save_schema, if_exists='replace')
+        aup.log(f"--- Saved hexagons proximity in database.")
+  
     if save_space:
         del nodes_analysis
 
@@ -219,11 +250,14 @@ if __name__ == "__main__":
                    'jardin_inf_priv','jardin_inf_pub','edu_especial_priv',
                    'edu_especial_pub','bibliotecas','agua_alcantarillado',
                    'residencia_adumayor','paradas_tp','paradas_tp_tren',
-                   'paradas_tp_metro','banco','carniceria','farmacia',
-                   'hogar','librerias','local_mini_market','bakeries',
-                   'restaurantes_bar_cafe','ferias','ciclovias','ep_plaza_small',
-                   'ep_plaza_big']
-    # source_list = ['carniceria','hogar','local_mini_market']
+                   'paradas_tp_metro', 'banco','carniceria','farmacia',
+                   'hogar', 'librerias','local_mini_market','bakeries',
+                   'restaurantes_bar_cafe', 'universidad', 'edu_tecnica',
+                   'edu_adultos_priv','edu_adultos_pub','centro_edu_amb',
+                   'centro_recyc', 'labs_priv', 'salud_mental', 'bomberos',
+                   'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv','ferias',
+                   'ep_plaza_small','ep_plaza_big','ciclovias','eleam']
+    # source_list = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
@@ -271,7 +305,7 @@ if __name__ == "__main__":
     # Create hexgrid
     hex_gdf = gpd.GeoDataFrame()
 
-    for r in range(8,10):
+    for r in range(8,11):
         hex_tmp = aup.create_hexgrid(aoi, r)
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
         hex_tmp['res'] = r
