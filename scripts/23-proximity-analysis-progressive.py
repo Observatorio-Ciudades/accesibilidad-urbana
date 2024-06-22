@@ -137,7 +137,8 @@ if __name__ == "__main__":
                    'restaurantes_bar_cafe', 'universidad', 'edu_tecnica',
                    'edu_adultos_priv','edu_adultos_pub','centro_edu_amb',
                    'centro_recyc', 'labs_priv', 'salud_mental', 'bomberos',
-                   'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv',]
+                   'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv',
+                   'eleam']
 
     # Pois proximity methodology - Count pois at a given time proximity?
     count_pois = (True,15)
