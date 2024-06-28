@@ -16,36 +16,23 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False):
+def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat, save=False, del_data=False):
 
     ###############################
     ### Create city area of interest with biggest hexs
     big_res = min(res)
-    schema_hex = 'hexgrid'
-    table_hex = f'hexgrid_{big_res}_city_2020'
 
-    # Download hexagons with type=urban
-    type = 'urban'
-    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = \'{city}\' AND \"type\" = \'{type}\'"
-    hex_urban = aup.gdf_from_query(query, geometry_col='geometry')
-    
-    # Download hexagons with type=rural within 500m buffer
-    poly = hex_urban.to_crs("EPSG:6372").buffer(500).reset_index()
+    poly = mun_gdf.to_crs("EPSG:32618").buffer(500).reset_index()
+    poly = poly.rename(columns={0:'geometry'})
+    poly = gpd.GeoDataFrame(poly, geometry='geometry')
     poly = poly.to_crs("EPSG:4326")
-    poly_wkt = poly.dissolve().geometry.to_wkt()[0]
-    type = 'rural'
-    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\' AND (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
-    hex_rural = aup.gdf_from_query(query, geometry_col='geometry')
-    
-    # Concatenate urban and rural hex
-    hex_city = pd.concat([hex_urban, hex_rural])
+    hex_city = aup.create_hexgrid(poly, big_res)
 
-    aup.log(f'Downloaded {len(hex_city)} hexagon features')
+    aup.log(f'Created {len(hex_city)} hexagon features')
     
     ### Download and process rasters
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, 
-                                        query=query_sat, satellite = satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite, query=query_sat)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -64,6 +51,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     hex_gdf['res'] = big_res
 
     aup.log(f'Loaded hexgrid res {big_res}')
+    hex_diss = hex_city.dissolve()
     
     for r in res_list:
         # biggest resolution already loaded
@@ -71,9 +59,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
             continue
         
         # Load hexgrid
-        table_hex = f'hexgrid_{r}_city_2020'
-        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE \"city\"=\'{city}\' AND  (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
-        hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
+        hex_tmp = aup.create_hexgrid(hex_diss, r)
         # Format hexgrid
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
         hex_tmp['res'] = r
@@ -178,20 +164,28 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
-                      'swir16':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-swir16)/(nir+swir16)']} 
-    index_analysis = 'ndmi'
+    band_name_dict = {'nir08':[False], #If GSD(resolution) of band is different, set True.
+                      'red':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir08-red)/(nir08+red)']} 
+    index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
-    start_date = '2018-01-01'
+    start_date = '2019-01-01'
     end_date = '2023-12-31'
-    satellite = "sentinel-2-l2a"
+    satellite = "landsat-c2-l2"
+    # satellite = 'sentinel-2-l2a'
+    query_sat = {'plataform':{'in':['landsat-8','landsat-9']}}
+    query_sat = {}
     del_data = False
+    # city = 'Santiago'
+    city = 'Medellin'
+    local_save = True #------ Set True if test
+    save = False #------ Set True if full analysis
 
-    local_save = False #------ Set True if test
-    save = True #------ Set True if full analysis
+    # mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
+    mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
+
 
     ###############################
     # Create folder to store city skip_list
@@ -212,56 +206,7 @@ if __name__ == "__main__":
     if os.path.exists(tmp_dir) == False:
         os.mkdir(tmp_dir)
 
-    gdf_mun = aup.gdf_from_db('metro_gdf_2020', 'metropolis')
-    gdf_mun = gdf_mun.sort_values(by='city')
-
-    # prevent cities being analyzed several times in case of a crash
-    aup.log('Downloading preprocessed data')
-    processed_city_list = []
-    try:
-        query = f"SELECT city FROM raster_analysis.{index_analysis}_analysis_hex"
-        processed_city_list = aup.df_from_query(query)
-        processed_city_list = list(processed_city_list.city.unique())
-    except:
-        pass
-
-    #---------------------------------------
-    #------ Set following if test
-    # city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon','Colima','Culiacan','Delicias','Durango','Guadalajara','Guanajuato','Hermosillo','Oaxaca','Pachuca','Piedad','Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula','Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla','Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
-    # city_list = ['CDMX']
-    city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
-    #for city in city_list:
-
-    #------ Set following if full analysis
-    for city in gdf_mun.city.unique():
-    #---------------------------------------
-
-        # if city not in processed_city_list and city not in skip_list:
-        if city not in processed_city_list and city in city_list:
-        # if city in city_list:
-
-            aup.log(f'\n Starting city {city}')
-
-            try:
-                main(index_analysis, city, band_name_dict, start_date,
-                    end_date, freq, satellite,
-                    query_sat=query_sat, save=save, del_data=del_data)
-            except Exception as e:
-                aup.log(e)
-                aup.log(f'Error with city {city}')
-                df_skip.loc[len(df_skip)+1,'city'] = city
-                df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
-                if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
-                    df_skip.loc[len(df_skip),'missing_months'] = -1
-                    df_skip.loc[len(df_skip),'unable_to_download'] = -1
-                else:
-                    df_raster = pd.read_csv(df_file_dir)
-                    missing_months = len(df_raster.loc[df_raster.data_id==0])
-                    not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
-                    df_skip.loc[len(df_skip),'missing_months'] = missing_months
-                    df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
-                df_skip.to_csv(df_skip_dir, index=False)
-                if del_data:
-                    # delete raster files
-                    aup.delete_files_from_folder(tmp_dir)
-                pass
+    # run script
+    
+    main(mun_gdf, index_analysis, city, band_name_dict, start_date,
+                end_date, freq, satellite, query_sat,  save, del_data)

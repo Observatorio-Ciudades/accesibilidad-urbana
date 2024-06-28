@@ -113,7 +113,10 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     items = gather_items(time_of_interest, area_of_interest, query=query, satellite=satellite)
     log(f'Fetched {len(items)} items')
 
-    date_list = available_datasets(items, satellite)
+    log('Checking available tiles for area of interest')
+    df_clouds, date_list = arrange_items(items, satellite="sentinel-2-l2a")
+    #date_list = available_datasets(items, satellite) Removed due to problems created with cloud filtering.
+    log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # create dictionary from links
     band_name_list = list(band_name_dict.keys())[:-1]
@@ -365,7 +368,9 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=20):
+
+   
+def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     """
     Filters dates per quantile and finds available ones.
 
@@ -793,21 +798,20 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # binary id - checks if month could be processed
         checker = 0
 
-        # gather month and year from df to save raster
+	# gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
         
         # check if raster already exists
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
-            df_raster.loc[i,'data_id'] = 1
-            df_raster.loc[i,'able_to_download'] = 1
+            df_raster.loc[i,'data_id'] = 11
             df_raster.to_csv(df_file_dir, index=False)
             continue
         
         # check if month is available
         if df_raster.iloc[i].data_id==0:
             continue
-        
+
         log(f'\n Starting new analysis for {month_}/{year_}')
         
         # gather links for raster images
@@ -843,18 +847,21 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
             #for data_link in range(len(df_links)):
             for data_link in range(len(dates_ordered)):
+                 
+                # Skip date if in skip_date_list
+                if dates_ordered[data_link] in skip_date_list:
+                    log(f'Skipped {dates_ordered[data_link]} - iteration:{iter_count} because it did not pass null test.')
+                    continue
+                 
+                # log(data_link)
+                log(f'Skip list:{skip_date_list}')
+                log(dates_ordered[data_link])
                 log(f'Mosaic date {dates_ordered[data_link].day}'+
                             f'/{dates_ordered[data_link].month}'+
                             f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
                 
-                # log(data_link)
-                log(dates_ordered[data_link])
-                log(skip_date_list)
                 # check if date contains null values within study area
                 #if df_links.iloc[data_link]['date'] in skip_date_list:
-                if dates_ordered[data_link] in skip_date_list:
-                    log(f'Skipped {dates_ordered[data_link]} because it did not pass null test.')
-                    continue
 
                 try:
                     #links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
@@ -965,7 +972,7 @@ def calculate_raster_index(band_name_dict, raster_arrays):
 
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis):
-    """"
+    """
     This function interpolates missing raster data by time windows, filling the gaps in unavailable months. 
       
      Arguments:
