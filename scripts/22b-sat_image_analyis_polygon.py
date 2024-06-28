@@ -32,7 +32,8 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
     
     ### Download and process rasters
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite, query=query_sat)
+                                        start_date, end_date, tmp_dir, band_name_dict, 
+                                        satellite = satellite, query=query_sat)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -177,16 +178,15 @@ if __name__ == "__main__":
     end_date = '2023-12-31'
     satellite = "landsat-c2-l2"
     # satellite = 'sentinel-2-l2a'
-    query_sat = {'plataform':{'in':['landsat-8','landsat-9']}}
-    query_sat = {}
     del_data = False
     # city = 'Santiago'
     city = 'Santiago'
     local_save = True #------ Set True if test
     save = False #------ Set True if full analysis
 
-    mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
+    # mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
     # mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
+    mun_gdf = aup.gdf_from_db('santiago_aoi','projects_research')
 
 
     ###############################
