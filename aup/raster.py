@@ -114,9 +114,9 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     log(f'Fetched {len(items)} items')
 
     log('Checking available tiles for area of interest')
-    df_clouds, date_list = arrange_items(items, satellite=satellite)
-    #date_list = available_datasets(items, satellite) Removed due to problems created with cloud filtering.
-    log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
+    # df_clouds, date_list = arrange_items(items, satellite=satellite)
+    date_list = available_datasets(items, satellite, query)
+    # log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # create dictionary from links
     band_name_list = list(band_name_dict.keys())[:-1]
@@ -233,6 +233,9 @@ def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentin
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
     items = []
+
+    log(f'Gathering items for {satellite} with query: {query}')
+
     for t in time_of_interest:
         try:
             search = catalog.search(
@@ -426,7 +429,7 @@ def arrange_items(items, satellite="sentinel-2-l2a"):
     return df_tile, date_list
 
    
-def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
+def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_value=10):
     """
     Filters dates per quantile and finds available ones.
 
@@ -438,6 +441,10 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     Returns:
         date_list (list): List with available dates with filter
     """
+    if query:
+        if 'eo:cloud_cover' in list(query.keys()):
+            min_cloud_value = query['eo:cloud_cover']['lt']
+
     # test raster outliers by date    
     date_dict = {}
 
