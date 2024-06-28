@@ -518,7 +518,9 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
 
         # filter dates by missing values or outliers according to cloud and no_data values
         for c in range(len(column_list)):'''
-    df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
+    column_list = df_tile.columns.to_list()
+    for c in range(len(column_list)):
+        df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
 
     # arrange by cloud coverage average
     df_tile['avg_cloud'] = df_tile.mean(axis=1)
