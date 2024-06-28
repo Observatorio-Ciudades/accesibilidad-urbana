@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     band_name_dict = {'lwir11':[False],
                  'eq':["((lwir11*0.00341802) + 149.0)-273.15"]}
-    query_sat = {"eo:cloud_cover": {"lt": 10},
+    query_sat = {"eo:cloud_cover": {"lt": 15},
               "platform": {"in": ["landsat-8", "landsat-9"]}}
     index_analysis = 'temperature'
 
