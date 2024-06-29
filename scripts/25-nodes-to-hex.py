@@ -256,7 +256,8 @@ if __name__ == "__main__":
                    'edu_adultos_priv','edu_adultos_pub','centro_edu_amb',
                    'centro_recyc', 'labs_priv', 'salud_mental', 'bomberos',
                    'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv','ferias',
-                   'ep_plaza_small','ep_plaza_big','ciclovias','eleam']
+                   'ep_plaza_small','ep_plaza_big','ciclovias','eleam',
+                   'estaciones_bicicletas']
     # source_list = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 
     # Pois proximity methodology - Count pois at a given time proximity?
@@ -264,7 +265,7 @@ if __name__ == "__main__":
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [4.5]
+    walking_speed = [3.5,4.5,12]
     # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
     # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
