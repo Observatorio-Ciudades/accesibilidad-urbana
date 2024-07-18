@@ -85,7 +85,7 @@ def calculate_hqsl(hex_gdf):
     return hex_gdf
 
 
-def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir=None, local_save=False, save=False):
+def main(source_list, hex_gdf, code_column, area_analysis, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir=None, local_save=False, save=False):
     
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
@@ -158,39 +158,50 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
 
         i += 1
 
+    # Avoid overestimating universities
+    # if area_analysis == 'santiago':
+    nodes_analysis.loc[nodes_analysis.universidad_count_15min > 3, 'universidad_count_15min'] = 3
+
     
     nodes_processed_table = f'santiago_nodesproximity_format_{str_walk_speed}_kmh'
+    
+    if area_analysis == 'hex':
+        '''# Save nodes proximity
+        if save:
+            aup.gdf_to_db_slow(nodes_analysis, nodes_processed_table, save_schema, if_exists='replace')
+            aup.log(f"--- Saved nodes proximity in database.")'''
 
-    # Save nodes proximity
-    if save:
-        aup.gdf_to_db_slow(nodes_analysis, nodes_processed_table, save_schema, if_exists='replace')
-        aup.log(f"--- Saved nodes proximity in database.")
+        # Assign values to hex_gdf
+        hex_bins = gpd.GeoDataFrame()
 
-    # Assign values to hex_gdf
-    hex_bins = gpd.GeoDataFrame()
+        for r in hex_gdf.res.unique():
 
-    for r in hex_gdf.res.unique():
+            aup.log(f"--- Calculating mean proximity for hexagons at resolution {r}.")
 
-        aup.log(f"--- Calculating mean proximity for hexagons at resolution {r}.")
+            hex_tmp = hex_gdf[hex_gdf.res == r].copy()
 
-        hex_tmp = hex_gdf[hex_gdf.res == r].copy()
+            hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_cols, 'hex_id')
 
-        hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_cols, 'hex_id')
+            aup.log(f"--- Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
 
-        aup.log(f"--- Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
+            hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
+            hex_tmp['res'] = r
 
-        hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
-        hex_tmp['res'] = r
+            # Merge to hex_gdf
+            # hex_gdf = hex_gdf.merge(hex_tmp, on='hex_id', how='left')
 
-        # Merge to hex_gdf
-        # hex_gdf = hex_gdf.merge(hex_tmp, on='hex_id', how='left')
+            hex_bins = pd.concat([hex_bins, hex_tmp], 
+                    ignore_index = True, axis = 0)
 
-        hex_bins = pd.concat([hex_bins, hex_tmp], 
-                ignore_index = True, axis = 0)
+            aup.log(f"--- Merged {len(hex_tmp)} hexagons to hex_gdf.")
 
-        aup.log(f"--- Merged {len(hex_tmp)} hexagons to hex_gdf.")
+            del hex_tmp
+    else:
+        ### For different clustering polygons
+        r = 0 # no resolution needed for polygons different from h3 hexagons
+        hex_bins = aup.group_by_hex_mean(nodes_analysis, hex_gdf, r, source_cols, code_column)
 
-        del hex_tmp
+    aup.log(f"--- Calculated mean proximity for {len(hex_bins)} polygons.")
 
     hex_bins = hex_bins.set_geometry('geometry')
     hex_bins = hex_bins.set_crs("EPSG:4326")
@@ -204,13 +215,13 @@ def main(source_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_sp
     # 1.1f) Save output
     aup.log(f"--- Saving nodes and hex proximity.")
 
-    hex_processed_table = f'santiago_hexproximity_{str_walk_speed}_kmh'
+    hex_processed_table = f'santiago_{area_analysis}proximity_{str_walk_speed}_kmh'
 
     if local_save:
-        nodes_analysis.to_file(local_save_dir + nodes_processed_table, driver='GPKG')
-        aup.log(f"--- Saved nodes proximity locally.")
+        # nodes_analysis.to_file(local_save_dir + nodes_processed_table, driver='GPKG')
+        # aup.log(f"--- Saved nodes proximity locally.")
 
-        hex_bins.to_file(local_save_dir + hex_processed_table, driver='GPKG')
+        hex_bins.to_file(local_save_dir + hex_processed_table+'.gpkg', driver='GPKG')
         aup.log(f"--- Saved hexagons proximity locally.")
 
     if save:
@@ -258,6 +269,9 @@ if __name__ == "__main__":
                    'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv','ferias',
                    'ep_plaza_small','ep_plaza_big','ciclovias','eleam',
                    'estaciones_bicicletas']
+    
+    
+
     # source_list = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 
     # Pois proximity methodology - Count pois at a given time proximity?
@@ -265,7 +279,8 @@ if __name__ == "__main__":
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed = [3.5,4.5,12]
+    # walking_speed = [3.5,4.5,12]
+    walking_speed = [4.5]   
     # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
     # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
@@ -283,6 +298,10 @@ if __name__ == "__main__":
 
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
 
+    # Area of analysis
+    area_analysis = 'alameda' # unidadesvecinales, zonascensales, alameda, comunas, hex, santiago
+    # If hexagon, resolution of analysis
+    res = 9
     # Area of interest (aoi)
     aoi_schema = 'projects_research'
     aoi_table = 'santiago_aoi'
@@ -304,19 +323,64 @@ if __name__ == "__main__":
     aoi = aoi.set_crs("EPSG:4326")
 
     # Create hexgrid
-    hex_gdf = gpd.GeoDataFrame()
+    
+    area_dict = {'unidadesvecinales':'COD_UNICO_',
+            'zonascensales':'GEOCODI',
+            'alameda':'name',
+            'comunas':'Comuna',
+            'hex':'hex_id',
+            'santiago':'nom_region'}
+    
+    
+    code_column = area_dict[area_analysis] # COD_UNICO_ - GEOCODI , name, Comuna
 
-    for r in range(8,11):
-        hex_tmp = aup.create_hexgrid(aoi, r)
-        hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
-        hex_tmp['res'] = r
+    if area_analysis == 'unidadesvecinales':
+        gdf = gpd.read_file('../data/processed/santiago/santiago_unidadesvecinales_zonaurbana.geojson')
+        gdf = gdf[[code_column,'geometry']].copy()
 
-        aup.log(f"--- Created {len(hex_tmp)} hexagons at resolution {r}.")
+    elif area_analysis == 'zonascensales':
+        gdf = gpd.read_file('../data/processed/santiago/santiago_zonascensalesanalysis_4_5_kmh.geojson')
+        gdf = gdf[['GEOCODI','geometry']].copy()
 
-        hex_gdf = pd.concat([hex_gdf, hex_tmp], 
-                ignore_index = True, axis = 0)
+    elif area_analysis == 'alameda':
+        gdf = gpd.read_file('../data/processed/santiago/alameda_all_buffer800m_gcs_v1.geojson')
+        gdf = gdf[[code_column,'geometry']].copy()
+
+    elif area_analysis == 'comunas':
+        gdf = gpd.read_file('../data/processed/santiago/santiago_comunas_zonaurbana.geojson')
+        gdf = gdf[[code_column,'geometry']].copy()
+
+    elif area_analysis == 'santiago':
+        gdf = gpd.read_file('../data/processed/santiago/zonaurbana_zonascensales.gpkg')
+        gdf = gdf[[code_column,'geometry']].copy()
+
+    elif area_analysis == 'hex':
+        query = 'SELECT * FROM projects_research.santiago_aoi'
+        aoi = aup.gdf_from_query(query)
         
-        del hex_tmp
+        # When working without internet connection:
+        #aoi = gpd.read_file("../../../data/processed/santiago/santiago_aoi.gpkg")
+        #aoi = gpd.read_file("../../../data/external/temporal_todocker/santiago/proximidad/santiago_odc_aoi_32719.gpkg")
+
+        gdf = gpd.GeoDataFrame()
+
+        for r in range(8,11):
+            hex_tmp = aup.create_hexgrid(aoi, r)
+            hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
+            hex_tmp['res'] = r
+
+            aup.log(f"--- Created {len(hex_tmp)} hexagons at resolution {r}.")
+
+            gdf = pd.concat([gdf, hex_tmp], 
+                    ignore_index = True, axis = 0)
+            
+            del hex_tmp
+        
+        # gdf = aup.create_hexgrid(aoi, res)
+        
+        gdf.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
+
+    gdf = gdf.explode(ignore_index=True)
 
     # OSMnx Network
     aup.log("--- Downloading network.")
@@ -338,4 +402,4 @@ if __name__ == "__main__":
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_speed_list, hex_gdf, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir, local_save, save)
+        main(source_speed_list, gdf, code_column, area_analysis, nodes, nodes_save_table, save_schema, str_walk_speed, local_save_dir, local_save, save)
