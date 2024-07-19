@@ -88,27 +88,30 @@ with st.sidebar:
     st.write("Instrucciones de uso del geovisor") #Para escribir cosas. Si quieres poner título es con st.title y st.subtitle
 
 ### Variables de entrada ###
-dir_grl = "/home/jovyan/accesibilidad-urbana/data/external" #El directorio de donde tengo guardado la carpeta de toda la data
-buffer = read_file("alameda_buffer800m_gcs_v1.geojson") #Data del buffer de la Nueva Alameda
-hexas_santiago = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de los hexágonos. :p
-comunas_santi = read_file("santiago_comunasanalysis_4_5_kmh.geojson") #Data de las comunas.
-unidades_vecinales = read_file("santiago_unidadesvecinalesanalysis_4_5_kmh.geojson") #Data de las unidades vecinales
+# dir_grl = "/home/jovyan/accesibilidad-urbana/data/external" #El directorio de donde tengo guardado la carpeta de toda la data
+dir_grl = "../../data/external/santiago/" #El directorio de donde tengo guardado la carpeta de toda la data
+buffer = read_file(dir_grl+"alameda_all_buffer800m_gcs_v1.geojson") #Data del buffer de la Nueva Alameda
+
+# Define las variables de los archivos geojson
+hexas_santiago = 'santiago_hexanalysis_res8_4_5_kmh.geojson' #Data de los hexágonos. :p
+comunas_santi = "santiago_comunasanalysis_4_5_kmh.geojson" #Data de las comunas.
+unidades_vecinales = r"santiago_unidadesvecinalesanalysis_4_5_kmh.geojson" #Data de las unidades vecinales
 #hex_schema = "projects_research"
 #hex_table = "santiago_hexproximity_hqsl_4_5_kmh"
 #n = '9'
 #query = f'SELECT * FROM {hex_schema}.{hex_table} WHERE \"res\" = {n}'
 #SPYDER = aup.gdf_from_query(query, geometry_col='geometry') ### No pude agregar esto porque no tengo docker por el trojano, entonces descargue la base de datos ###
-spyderplot = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de las 6 Funciones sociales y columna geometría
-santiago = spyderplot.drop(columns = "geometry") #Data sin columna Geometry
-columns_santiago = santiago.columns #Columnas y valores
+# spyderplot = read_file(dir_grl+'santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de las 6 Funciones sociales y columna geometría
+# santiago = spyderplot.drop(columns = "geometry") #Data sin columna Geometry
+columns_santiago = read_file(dir_grl+'santiago_hexanalysis_res8_4_5_kmh.geojson').drop(columns="geometry").columns #Columnas y valores
 
 #Datas de prueba para la función de diferentes usuarios:
-bomberos = read_file(dir_grl + '/Bomberos/layer_companias_de_bomberos/layer_companias_de_bomberos_20231110080349.shp') #Data de los bomberos Chile Nación
+bomberos = read_file(dir_grl + '/Bomberos/layer_companias_de_bomberos_20231110080349.shp') #Data de los bomberos Chile Nación
 columns = ['13102','13112','13115','13125','13105','13101', '13108','13111','13114'] #Códigos postales de la zona metropolitana Santiago
 bomberos = bomberos[bomberos['CUT_CUERPO'].apply(lambda x: x in columns)] #Filtrar solo los bomberos de la metropolitana Santiago
-salud = read_file(dir_grl + '/capas_pois/salud/establec_salud_14_mayo_2021.shp') #Data Salud Metro Santiago
+salud = read_file(dir_grl + 'salud/establec_salud_14_mayo_2021.shp') #Data Salud Metro Santiago
 salud = salud[salud['nom_provin'] == 'Santiago'].sample(n=100, random_state=43) #Filtrar solo 100 puntos de forma aleatoria para la visualización más rápida del mapa
-educ = read_file(dir_grl + '/capas_pois/educativo/layer_establecimientos_de_educacion_superior_20220309024111.shp') #Data educ metro Santiago
+educ = read_file(dir_grl + 'educativo/layer_establecimientos_de_educacion_superior_20220309024111.shp') #Data educ metro Santiago
 educ = educ[educ['COD_REGION'] == 13].sample(n=100, random_state=43) #Filtrar solo 100 puntos de forma aleatoria para la visualización más rápida del mapa
 
 def mapas():
@@ -129,12 +132,13 @@ def mapa_usuario_1():
         col1, col2 = st.columns([0.8, 0.2])
         with col1:
             st.write("Mapa Interactivo Usuario 1")
+            hex_santiago_gdf = read_file(dir_grl + hexas_santiago)
             m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45)
             add_gdf_to_map(buffer, "Buffer Avenida Alameda", "blue", m)
-            add_gdf_to_map(hexas_santiago, "Polígono de Santiago", "green", m)
+            add_gdf_to_map(hex_santiago_gdf, "Polígono de Santiago", "green", m)
             folium.LayerControl(collapsed=False).add_to(m)
             st.title("Mapa interactivo")
-            st_folium(m, width=100000, height=900)
+            st_folium(m, width=1000, height=700)
         with col2:
             mostrar_legenda()
 
@@ -143,9 +147,10 @@ def mapa_usuario_2():
         col1, col2 = st.columns([0.8, 0.2])
         with col1:
             st.write("Mapa Interactivo Usuario 2")
+            hex_santiago_gdf = read_file(dir_grl + hexas_santiago)
             m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45)
             add_gdf_to_map(salud, "Otro Buffer", "purple", m)
-            add_gdf_to_map(hexas_santiago, "Otro Polígono", "orange", m)
+            add_gdf_to_map(hex_santiago_gdf, "Otro Polígono", "orange", m)
             folium.LayerControl(collapsed=False).add_to(m)
             st.title("Mapa interactivo")
             st_folium(m, width=100000, height=900)
@@ -156,9 +161,10 @@ def mapa_usuario_3():
     col1, col2 = st.columns([0.8, 0.2])
     with col1:
         st.write("Mapa Interactivo Usuario 2")
+        hex_santiago_gdf = read_file(dir_grl + hexas_santiago)
         m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45)
         add_gdf_to_map(comunas_santi, "Otro Buffer", "forestgreen", m)
-        add_gdf_to_map(hexas_santiago, "Otro Polígono", "indianred", m)
+        add_gdf_to_map(hex_santiago_gdf, "Otro Polígono", "indianred", m)
         folium.LayerControl(collapsed=False).add_to(m)
         st.title("Mapa interactivo")
         st_folium(m, width=100000, height=900)
@@ -169,9 +175,10 @@ def mapa_usuario_4():
     col1, col2 = st.columns([0.8, 0.2])
     with col1:
         st.write("Mapa Interactivo Usuario 2")
+        hex_santiago_gdf = read_file(dir_grl + hexas_santiago)
         m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45)
         add_gdf_to_map(unidades_vecinales, "Otro Buffer", "maroon", m)
-        add_gdf_to_map(hexas_santiago, "Otro Polígono", "navy", m)
+        add_gdf_to_map(hex_santiago_gdf, "Otro Polígono", "navy", m)
         folium.LayerControl(collapsed=False).add_to(m)
         st.title("Mapa interactivo")
         st_folium(m, width=100000, height=900)
