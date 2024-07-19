@@ -133,7 +133,8 @@ def mapa_usuario_1():
         with col1:
             st.write("Mapa Interactivo Usuario 1")
             hex_santiago_gdf = read_file(dir_grl + hexas_santiago)
-            m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45)
+            m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45,
+                           tiles="cartodb positron")
             add_gdf_to_map(buffer, "Buffer Avenida Alameda", "blue", m)
             add_gdf_to_map(hex_santiago_gdf, "Polígono de Santiago", "green", m)
             folium.LayerControl(collapsed=False).add_to(m)
@@ -153,7 +154,7 @@ def mapa_usuario_2():
             add_gdf_to_map(hex_santiago_gdf, "Otro Polígono", "orange", m)
             folium.LayerControl(collapsed=False).add_to(m)
             st.title("Mapa interactivo")
-            st_folium(m, width=100000, height=900)
+            st_folium(m, width=2000, height=900)
         with col2:
             mostrar_legenda()
 
