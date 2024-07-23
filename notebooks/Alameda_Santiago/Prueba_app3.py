@@ -18,10 +18,7 @@ from folium.plugins import FeatureGroupSubGroup
 #Función para leer los archivos gpd y cambiarles el formato de coordenada al que usamos siempre
 def read_file(filepath):
     return gpd.read_file(filepath).to_crs('EPSG:4326') 
-
-def read_file(filepath):
-    return gpd.read_file(filepath).to_crs('EPSG:4326') 
-
+    
 #Función para agregar un geodataframe como capa al mapa interactivo
 def add_gdf_to_map(gdf, name, color, m): #Nombre del geodataframe que se va a mostrar, nombre que se va a mostrar en el mapa, color que se va a presentar
     g = FeatureGroupSubGroup(m, name) #Se genera una capa con el geodataframe y el nombre
@@ -165,9 +162,10 @@ def scatters():
                 st.write("Datos") 
         with col2:
             comunas = comunas_santi.loc[comunas_santi.loc["name"] == "hsql"].loc[0]
-            selecciona_comunas = st.selectbox("Seleccione una comuna:", [comuna["name"]])
             st.write("Comunas de Santiago")
             st.write("Gráfica")
+            selecciona_comunas = st.selectbox("Seleccione una comuna:", [comuna["name"]])
+            comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
             column_sums_comunas = santiago_comunas.sum() #Se suman los valores de cada una de las columnas.
             labels = columns_comunas #Se agarran los nombres de las columnas para labels de la gráfica
             sums = column_sums_comunas.values #Se obtienen los valores numéricos de la suma
@@ -193,9 +191,10 @@ def scatters():
                 st.write("Datos") 
         with col3:
             unidades = unidades_vecinales.loc[unidades_vecinales.loc["name"] == "COD_UNICO_"].loc[0]
-            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", [unidades["name"]])
             st.write("Unidades Vecinales")
             st.write("Gráfica")
+            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", [unidades["name"]])
+            unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
             column_sums_unidades = santiago_unidades.sum() #Se suman los valores de cada una de las columnas.
             labels = columns_unidades #Se agarran los nombres de las columnas para labels de la gráfica
             sums = column_sums_comunas.values #Se obtienen los valores numéricos de la suma
@@ -318,6 +317,8 @@ def gauges():
                 environmental_impact_fig = create_gauge_chart("Environmental Impact", alameda_data["environmental_impact"])
                 st.plotly_chart(environmental_impact_fig)
         with col2:
+            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["name"].unique())
+            comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
             select_gauge = st.selectbox(
                 "Seleccione la característica a analizar",
                 ["Sociability", "Wellbeing", "Environmental Impact"]
@@ -349,6 +350,8 @@ def gauges():
                 environmental_impact_fig = create_gauge_chart("Environmental Impact", comunas_data["environmental_impact"])
                 st.plotly_chart(environmental_impact_fig)
         with col3:
+            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique())
+            unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
             select_gauge = st.selectbox(
                 "Seleccione la característica a analizar",
                 ["Sociability", "Wellbeing", "Environmental Impact"]
@@ -392,10 +395,10 @@ def mapa_usuario_1():
             folium.LayerControl(collapsed=False).add_to(m)
             st.title("Mapa interactivo")
             st_folium(m, width=2000, height=700)
+            scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
+            gauges()
         with col2:
             mostrar_legenda()
-    scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
-    gauges()
 
 def mapa_usuario_2():
     with st.container():
@@ -408,10 +411,10 @@ def mapa_usuario_2():
             folium.LayerControl(collapsed=False).add_to(m)
             st.title("Mapa interactivo")
             st_folium(m, width=2000, height=700)
+            scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
+            gauges()
         with col2:
             mostrar_legenda()
-    scatters() 
-    gauges()
 
 def mapa_usuario_3():
     col1, col2 = st.columns([0.8, 0.2])
@@ -423,10 +426,10 @@ def mapa_usuario_3():
         folium.LayerControl(collapsed=False).add_to(m)
         st.title("Mapa interactivo")
         st_folium(m, width=2000, height=700)
+        scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
+        gauges()
     with col2:
             mostrar_legenda()
-    scatters() 
-    gauges()
 
 def mapa_usuario_4():
     col1, col2 = st.columns([0.8, 0.2])
@@ -438,10 +441,10 @@ def mapa_usuario_4():
         folium.LayerControl(collapsed=False).add_to(m)
         st.title("Mapa interactivo")
         st_folium(m, width = 2000, height = 700)
+        scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
+        gauges()
     with col2:
             mostrar_legenda()
-    scatters()
-    gauges()
 
 def mostrar_legenda():
     st.markdown('### Legend')
