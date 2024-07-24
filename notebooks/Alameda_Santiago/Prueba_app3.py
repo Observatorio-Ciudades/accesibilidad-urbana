@@ -254,22 +254,23 @@ def create_gauge_chart(title, value):
 # Función para mostrar las gráficas de gauge
 def gauges():
     with st.container():
-        col1, col2, col3, col4 = st.columns([0.25, 0.25, 0.25, 0.25])
+        col1, col2, col3 = st.columns([0.33, 0.33, 0.33])
         with col1:
-            value = value
-            gauge_chart = create_gauge_chart( value)
+            column_to_plot = st.selectbox('Alameda Santiago', columns_santiago)
+            value = santiago[column_to_plot].sum()
+            gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
         with col2:
-            value = value
-            gauge_chart = create_gauge_chart(value)
+            selecciona_comunas = st.selectbox("Seleccione una comuna", comunas_santi["name"].unique(), key='comuna_gauge')
+            comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
+            value = comuna_selected[column_to_plot].sum()
+            gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
         with col3:
-            value = value
-            gauge_chart = create_gauge_chart( value)
-            st.plotly_chart(gauge_chart)
-        with col4:
-            value = value
-            gauge_chart = create_gauge_chart(value)
+            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique(), key='unidad_gauge')
+            unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
+            value = unidad_selected[column_to_plot].sum()
+            gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
 
 # Función para mostrar el mapa interactivo del Usuario 1
