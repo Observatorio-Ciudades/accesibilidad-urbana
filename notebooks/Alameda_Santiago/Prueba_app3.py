@@ -1,32 +1,27 @@
 ### Librerías ###
-import geopandas as gpd 
+import geopandas as gpd
 import pandas as pd
-import folium #Librería del mapa interactivo
-from folium.plugins import FeatureGroupSubGroup #Librería que se utiliza para generar las capas que se prenden y apagan
-import streamlit as st
-import streamlit_folium as stf #Librería de folium en streamlit
-from folium import GeoJson #Librería para generar el checkmark de las capas
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go #Librería para generar el spyder plot
-import os 
-import sys
-from streamlit_folium import st_folium
+import folium
 from folium.plugins import FeatureGroupSubGroup
+import streamlit as st
+import streamlit_folium as stf
+from folium import GeoJson
+import plotly.graph_objects as go
+from streamlit_folium import st_folium
 
-
-### Funciones ###
-#Función para leer los archivos gpd y cambiarles el formato de coordenada al que usamos siempre
+# Función para leer archivos geoespaciales y convertir su sistema de coordenadas a EPSG:4326
 def read_file(filepath):
-    return gpd.read_file(filepath).to_crs('EPSG:4326') 
+    return gpd.read_file(filepath).to_crs('EPSG:4326')
+
+# Función para agregar un GeoDataFrame como capa a un mapa interactivo
+def add_gdf_to_map(gdf, name, color, m):
+    g = FeatureGroupSubGroup(m, name)
+    m.add_child(g)
     
-#Función para agregar un geodataframe como capa al mapa interactivo
-def add_gdf_to_map(gdf, name, color, m): #Nombre del geodataframe que se va a mostrar, nombre que se va a mostrar en el mapa, color que se va a presentar
-    g = FeatureGroupSubGroup(m, name) #Se genera una capa con el geodataframe y el nombre
-    m.add_child(g) #Se agrega la capa al mapa
+    # Campos que se mostrarán en el tooltip
+    fields = [field for field in gdf.columns if field != 'geometry']
     
-    fields = [field for field in gdf.columns if field != 'geometry'] #
-    
-    GeoJson( #Formato del checkmark que se agrega en la capa 'g'
+    GeoJson(
         gdf,
         zoom_on_click=True,
         style_function=lambda feature: {
@@ -36,11 +31,11 @@ def add_gdf_to_map(gdf, name, color, m): #Nombre del geodataframe que se va a mo
             'fillOpacity': 0.6,
         },
         highlight_function=lambda x: {'weight': 3, 'color': 'black'},
-        tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True) #Este es el checkmark
-
+        tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True)
     ).add_to(g)
 
-def add_gdf_marker(gdf, name, color, icon_name, icon_color, m): #Este es igual que el anterior pero se generó para los que son íconos en este mapa, ósea los bomberos, salud y educación.
+# Función para agregar un GeoDataFrame como capa con marcadores a un mapa interactivo
+def add_gdf_marker(gdf, name, color, icon_name, icon_color, m):
     g = FeatureGroupSubGroup(m, name)
     m.add_child(g)
     
@@ -57,57 +52,52 @@ def add_gdf_marker(gdf, name, color, icon_name, icon_color, m): #Este es igual q
         },
         highlight_function=lambda x: {'weight': 3, 'color': 'black'},
         tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True)
-    ).add_to(g) #Hasta aquí todo es igual que la función pasada
-    for _, row in gdf.iterrows(): #Se saca la coordenada de los puntos de interés
-        lat = row.geometry.y #Latitud
-        lon = row.geometry.x #Longitud
+    ).add_to(g)
+    
+    # Agregar marcadores en las ubicaciones del GeoDataFrame
+    for _, row in gdf.iterrows():
+        lat = row.geometry.y
+        lon = row.geometry.x
             
         folium.Marker(
             location=[lat, lon],
-            icon=folium.Icon(color=icon_color, prefix='fa', icon=icon_name) #Necesita tener el prefijo fa porque así está definido el formato para los íconos
-        ).add_to(g) #Teniendo la latitud y longitud se pone el ícono con el folium marker
-
+            icon=folium.Icon(color=icon_color, prefix='fa', icon=icon_name)
+        ).add_to(g)
 
 # Configuración inicial de la página de Streamlit
 st.set_page_config(
-    page_title='Avenida Libertador Bernardo O\'Higgins (Nueva Alameda), Santiago, Chile',
+    page_title="Avenida Libertador Bernardo O'Higgins (Nueva Alameda), Santiago, Chile",
     page_icon=":wine_glass:",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Título y descripción de la página
-st.title('Avenida Libertador Bernardo O\'Higgins (Nueva Alameda), Santiago, Chile')
+st.title("Avenida Libertador Bernardo O'Higgins (Nueva Alameda), Santiago, Chile")
 st.write("Geovisor con la información más relevante de la zona")
 
-#Sidebar en donde se van a poner las instrucciones
+# Sidebar en donde se van a poner las instrucciones
 with st.sidebar:
-    st.write("Instrucciones de uso del geovisor") #Para escribir cosas. Si quieres poner título es con st.title y st.subtitle
+    st.write("Instrucciones de uso del geovisor")
 
-### Variables de entrada ###
-dir_grl = "/home/jovyan/accesibilidad-urbana/data/external" #El directorio de donde tengo guardado la carpeta de toda la data
-buffer = read_file("alameda_buffer800m_gcs_v1.geojson") #Data del buffer de la Nueva Alameda
-hexas_santiago = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de los hexágonos. :p
-comunas_santi = read_file("santiago_comunasanalysis_4_5_kmh.geojson") #Data de las comunas.
-unidades_vecinales = read_file("santiago_unidadesvecinalesanalysis_4_5_kmh.geojson") #Data de las unidades vecinales
-#hex_schema = "projects_research"
-#hex_table = "santiago_hexproximity_hqsl_4_5_kmh"
-#n = '9'
-#query = f'SELECT * FROM {hex_schema}.{hex_table} WHERE \"res\" = {n}'
-#SPYDER = aup.gdf_from_query(query, geometry_col='geometry') ### No pude agregar esto porque no tengo docker por el trojano, entonces descargue la base de datos ###
-spyderplot = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de las 6 Funciones sociales y columna geometría
-santiago = spyderplot.drop(columns = "geometry") #Data sin columna Geometry
-columns_santiago = santiago.columns #Columnas y valores
+# Variables de entrada
+dir_grl = "/home/jovyan/accesibilidad-urbana/data/external"
+buffer = read_file("alameda_buffer800m_gcs_v1.geojson")
+hexas_santiago = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson')
+comunas_santi = read_file("santiago_comunasanalysis_4_5_kmh.geojson")
+unidades_vecinales = read_file("santiago_unidadesvecinalesanalysis_4_5_kmh.geojson")
+spyderplot = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson')
+santiago = spyderplot.drop(columns="geometry")
+columns_santiago = santiago.columns
 
-#Datas de prueba para la función de diferentes usuarios:
-bomberos = read_file(dir_grl + '/Bomberos/layer_companias_de_bomberos/layer_companias_de_bomberos_20231110080349.shp') #Data de los bomberos Chile Nación
-#columns = ['13102','13112','13115','13125','13105','13101', '13108','13111','13114'] #Códigos postales de la zona metropolitana Santiago
-bomberos = bomberos[bomberos['CUT_CUERPO'].apply(lambda x: x in columns)] #Filtrar solo los bomberos de la metropolitana Santiago
-salud = read_file(dir_grl + '/capas_pois/salud/establec_salud_14_mayo_2021.shp') #Data Salud Metro Santiago
-salud = salud[salud['nom_provin'] == 'Santiago'].sample(n=100, random_state=43) #Filtrar solo 100 puntos de forma aleatoria para la visualización más rápida del mapa
-educ = read_file(dir_grl + '/capas_pois/educativo/layer_establecimientos_de_educacion_superior_20220309024111.shp') #Data educ metro Santiago
-educ = educ[educ['COD_REGION'] == 13].sample(n=100, random_state=43) #Filtrar solo 100 puntos de forma aleatoria para la visualización más rápida del mapa
+# Datas de prueba para la función de diferentes usuarios
+bomberos = read_file(dir_grl + '/Bomberos/layer_companias_de_bomberos/layer_companias_de_bomberos_20231110080349.shp')
+salud = read_file(dir_grl + '/capas_pois/salud/establec_salud_14_mayo_2021.shp')
+salud = salud[salud['nom_provin'] == 'Santiago'].sample(n=100, random_state=43)
+educ = read_file(dir_grl + '/capas_pois/educativo/layer_establecimientos_de_educacion_superior_20220309024111.shp')
+educ = educ[educ['COD_REGION'] == 13].sample(n=100, random_state=43)
 
+# Función para mostrar los mapas interactivos basados en el usuario seleccionado
 def mapas():
     user_tabs = ["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"]
     selected_user = st.selectbox("Seleccione el usuario", user_tabs)
@@ -121,105 +111,91 @@ def mapas():
     elif selected_user == "Usuario 4":
         mapa_usuario_4()
 
-spyderplot = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de las 6 Funciones sociales y columna geometría
-santiago = spyderplot.drop(columns = "geometry") #Data sin columna Geometry
-columns_santiago = santiago.columns #Columnas y valores
-
-'''santiago_comunas = comunas_santi.drop(columns = "geometry") #Data sin columna Geometry
-columns_comunas = santiago_comunas.columns #Columnas y valores
-
-santiago_unidades = comunas_santi.drop(columns = "geometry") #Data sin columna Geometry
-columns_unidades = santiago_comunas.columns #Columnas y valores'''
-
+# Función para mostrar gráficos de dispersión polar
 def scatters():
-    with st.container(): #Depues de generar el container del mapa, justo abajo se genera otro container pero ahora para las gráficas.
-        col1, col2, col3 = st.columns([0.33,0.33,0.33]) #Como tenemos gráficas para Santiago, Alameda y Barrios, se divide en 3.
+    with st.container():
+        col1, col2, col3 = st.columns([0.33, 0.33, 0.33])
         with col1:
             st.write("Zona Metropolitana de Santiago")
-            st.write("Gráfica")
-            column_sums = santiago.sum() #Se suman los valores de cada una de las columnas.
-            labels = columns_santiago #Se agarran los nombres de las columnas para labels de la gráfica
-            sums = column_sums.values #Se obtienen los valores numéricos de la suma
+            column_sums = santiago.sum()
+            labels = columns_santiago
+            sums = column_sums.values
 
-            fig = go.Figure() #Se genera el plot con la función 'go' de Plotly
+            fig = go.Figure()
             fig.add_trace(go.Scatterpolar(
                 r=sums,
                 theta=labels,
-                fill='toself'
-                fillcolor = "orchid"
-                line_color = 'salmon'
-                )) #Se genera el spyderplot con popups. Se muestra la suma en la variable 'r' y los títulos en la variable 'theta'. Se pueden cambiar estas variables y se vería el cambio en la gráfica.
+                fill='toself',
+                fillcolor="orchid",
+                line_color='salmon'
+            ))
 
-                fig.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(
                         visible=False,
                         range=[0, max(sums)]
-                        )),
-                    showlegend=False
-                        ) #Se genera el layout del grid de la gráfica
-                st.plotly_chart(fig) #Se muestra en la app
-                st.write("Datos") 
+                    )),
+                showlegend=False
+            )
+            st.plotly_chart(fig)
+            st.write("Datos")
         with col2:
-            comunas = comunas_santi.loc[comunas_santi.loc["name"] == "hsql"].loc[0]
             st.write("Comunas de Santiago")
-            st.write("Gráfica")
             selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["name"].unique())
             comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
-            column_sums = comuna_selected.sum() 
-            labels = comuna_selected.columns 
-            sums = column_sums.values 
+            column_sums = comuna_selected.sum()
+            labels = comuna_selected.columns
+            sums = column_sums.values
 
-            fig = go.Figure() #Se genera el plot con la función 'go' de Plotly
+            fig = go.Figure()
             fig.add_trace(go.Scatterpolar(
                 r=sums,
                 theta=labels,
-                fill='toself'
-                fillcolor = "orchid"
-                line_color = 'salmon'
-                )) #Se genera el spyderplot con popups. Se muestra la suma en la variable 'r' y los títulos en la variable 'theta'. Se pueden cambiar estas variables y se vería el cambio en la gráfica.
+                fill='toself',
+                fillcolor="orchid",
+                line_color='salmon'
+            ))
 
-                fig.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(
                         visible=False,
                         range=[0, max(sums)]
-                        )),
-                    showlegend=False
-                        ) #Se genera el layout del grid de la gráfica
-                st.plotly_chart(fig) #Se muestra en la app
-                st.write("Datos") 
+                    )),
+                showlegend=False
+            )
+            st.plotly_chart(fig)
+            st.write("Datos")
         with col3:
-            unidades = unidades_vecinales.loc[unidades_vecinales.loc["name"] == "COD_UNICO_"].loc[0]
             st.write("Unidades Vecinales")
-            st.write("Gráfica")
             selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique())
             unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
-            column_sums_unidades = unidad_selected.sum() 
-            labels_unidades = unidad_selected.columns 
+            column_sums_unidades = unidad_selected.sum()
+            labels_unidades = unidad_selected.columns
             sums_unidades = column_sums_unidades.values
 
-            fig = go.Figure() #Se genera el plot con la función 'go' de Plotly
+            fig = go.Figure()
             fig.add_trace(go.Scatterpolar(
                 r=sums,
                 theta=labels,
-                fill='toself'
-                fillcolor = "orchid"
-                line_color = 'salmon'
-                )) #Se genera el spyderplot con popups. Se muestra la suma en la variable 'r' y los títulos en la variable 'theta'. Se pueden cambiar estas variables y se vería el cambio en la gráfica.
+                fill='toself',
+                fillcolor="orchid",
+                line_color='salmon'
+            ))
 
-                fig.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(
                         visible=False,
                         range=[0, max(sums)]
-                        )),
-                    showlegend=False
-                        ) #Se genera el layout del grid de la gráfica
-                st.plotly_chart(fig) #Se muestra en la app
-                st.write("Datos") 
+                    )),
+                showlegend=False
+            )
+            st.plotly_chart(fig)
+            st.write("Datos")
 
-#Función para determinar el nivel basado en el valor
+# Función para determinar el nivel de un valor en la gráfica de gauge
 def get_level_text(value):
     if value < 11:
         return "Muy Bajo"
@@ -227,12 +203,12 @@ def get_level_text(value):
         return "Bajo"
     elif value < 35:
         return "Medio"
-    elif value < 57:
+    elif value < 47:
         return "Alto"
     else:
         return "Muy Alto"
 
-# Función para crear el gráfico de indicador
+# Función para crear una gráfica de gauge
 def create_gauge_chart(title, value):
     level_text = get_level_text(value)
     fig = go.Figure(go.Indicator(
@@ -240,7 +216,6 @@ def create_gauge_chart(title, value):
         value=value,
         domain={'x': [0, 1], 'y': [0, 1]},
         title={'text': title, 'font': {'size': 33}},
-        #number={'font': {'size': 40}},
         gauge={
             "axis": {"range": [0, 60], 'tickcolor': "black"},
             'bar': {'color': "darkslategray"},
@@ -262,8 +237,7 @@ def create_gauge_chart(title, value):
         }
     ))
 
-    fig.update_layout(paper_bgcolor = "whitesmoke", font = {'color': "black", 'family': "Arial"})
-    # Añadir anotación para el texto del nivel
+    fig.update_layout(paper_bgcolor="whitesmoke", font={'color': "black", 'family': "Arial"})
     fig.add_annotation(
         x=0.5,
         y=0.3,
@@ -277,175 +251,114 @@ def create_gauge_chart(title, value):
     )
     return fig
 
-# Filtrar los datos para "alameda", "comunas" y "unidades vecinales" para los gauges plots.
-#alameda_data = buffer.loc[buffer['name'] == "alameda"].iloc[0]
-#comunas_data =  comunas_santi.loc[comunas_santi["name"] == "hsql"].iloc[0]
-#unidades_vecinales_data = unidades_vecinales.loc[unidades_vecinales["name"] == "COD_UNICO_"]
-
+# Función para mostrar las gráficas de gauge
 def gauges():
-    with st.container(): 
-        col1, col2, col3 = st.columns([0.33,0.33,0.33]) 
+    with st.container():
+        col1, col2, col3, col4 = st.columns([0.25, 0.25, 0.25, 0.25])
         with col1:
-            select_gauge = st.selectbox(
-                "Seleccione la característica a analizar",
-                ["Sociability", "Wellbeing", "Environmental Impact"]
-            )
-           
-            # Crear el contenedor de Streamlit
-            if select_gauge == "Sociability":
-                tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
-                with tab1: 
-                    st.write("Medición de 'Sociability' para Usuario 1")
-                    sociability_fig = create_gauge_chart("Sociability", alameda_data["sociability"])
-                    st.plotly_chart(sociability_fig)
-                with tab2:
-                    st.write("Medición de 'Sociability' para Usuario 2")
-                    sociability_fig = create_gauge_chart("Sociability", alameda_data["sociability"])
-                    st.plotly_chart(sociability_fig)
-                with tab3:
-                    st.write("Medición de 'Sociability' para Usuario 3")
-                    sociability_fig = create_gauge_chart("Sociability", alameda_data["sociability"])
-                    st.plotly_chart(sociability_fig)
-                with tab4:
-                    st.write("Medición de 'Sociability' para Usuario 4")
-                    sociability_fig = create_gauge_chart("Sociability", alameda_data["sociability"])
-                    st.plotly_chart(sociability_fig)
-            elif select_gauge == "Wellbeing":
-                wellbeing_fig = create_gauge_chart("Wellbeing", alameda_data["wellbeing"])
-                st.plotly_chart(wellbeing_fig)
-            else:
-                environmental_impact_fig = create_gauge_chart("Environmental Impact", alameda_data["environmental_impact"])
-                st.plotly_chart(environmental_impact_fig)
+            value = value
+            gauge_chart = create_gauge_chart( value)
+            st.plotly_chart(gauge_chart)
         with col2:
-            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["name"].unique())
-            comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
-            select_gauge = st.selectbox(
-                "Seleccione la característica a analizar",
-                ["Sociability", "Wellbeing", "Environmental Impact"]
-            )
-
-            # Crear el contenedor de Streamlit
-            if select_gauge == "Sociability":
-                tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
-                with tab1: 
-                    st.write("Medición de 'Sociability' para Usuario 1")
-                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-                with tab2:
-                    st.write("Medición de 'Sociability' para Usuario 2")
-                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-                with tab3:
-                    st.write("Medición de 'Sociability' para Usuario 3")
-                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-                with tab4:
-                    st.write("Medición de 'Sociability' para Usuario 4")
-                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-            elif select_gauge == "Wellbeing":
-                wellbeing_fig = create_gauge_chart("Wellbeing", comuna_selected["wellbeing"].iloc[0])
-                st.plotly_chart(wellbeing_fig)
-            else:
-                environmental_impact_fig = create_gauge_chart("Environmental Impact", comuna_selected["environmental_impact"].iloc[0])
-                st.plotly_chart(environmental_impact_fig)
+            value = value
+            gauge_chart = create_gauge_chart(value)
+            st.plotly_chart(gauge_chart)
         with col3:
-            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique())
-            unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
-            select_gauge = st.selectbox(
-                "Seleccione la característica a analizar",
-                ["Sociability", "Wellbeing", "Environmental Impact"]
-            )
+            value = value
+            gauge_chart = create_gauge_chart( value)
+            st.plotly_chart(gauge_chart)
+        with col4:
+            value = value
+            gauge_chart = create_gauge_chart(value)
+            st.plotly_chart(gauge_chart)
 
-            # Crear el contenedor de Streamlit
-            if select_gauge == "Sociability":
-                tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
-                with tab1: 
-                    st.write("Medición de 'Sociability' para Usuario 1")
-                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-                with tab2:
-                    st.write("Medición de 'Sociability' para Usuario 2")
-                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-                with tab3:
-                    st.write("Medición de 'Sociability' para Usuario 3")
-                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-                with tab4:
-                    st.write("Medición de 'Sociability' para Usuario 4")
-                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
-                    st.plotly_chart(sociability_fig)
-            elif select_gauge == "Wellbeing":
-                wellbeing_fig = create_gauge_chart("Wellbeing", unidad_selected["wellbeing"].iloc[0])
-                st.plotly_chart(wellbeing_fig)
-            else:
-                environmental_impact_fig = create_gauge_chart("Environmental Impact", unidad_selected["environmental_impact"].iloc[0])
-                st.plotly_chart(environmental_impact_fig)
-
-    
+# Función para mostrar el mapa interactivo del Usuario 1
 def mapa_usuario_1():
+    m = folium.Map(
+        location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
+        zoom_start=14.45,
+        tiles="cartodb positron"
+    )
+
+    add_gdf_to_map(buffer, "Buffer Alameda", "blue", m)
+    add_gdf_to_map(hexas_santiago, "Hexágonos Análisis", "green", m)
+    add_gdf_to_map(comunas_santi, "Comunas de Santiago", "red", m)
+
+    folium.LayerControl(collapsed=False).add_to(m)
+
     with st.container():
         col1, col2 = st.columns([0.8, 0.2])
         with col1:
             st.write("Mapa Interactivo Usuario 1")
-            m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45, tiles="cartodb positron")
-            add_gdf_to_map(buffer, "Buffer Avenida Alameda", "blue", m)
-            add_gdf_to_map(hexas_santiago, "Polígono de Santiago", "green", m)
-            folium.LayerControl(collapsed=False).add_to(m)
-            st.title("Mapa interactivo")
             st_folium(m, width=2000, height=700)
-            scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
-            gauges()
         with col2:
             mostrar_legenda()
 
+# Función para mostrar el mapa interactivo del Usuario 2
 def mapa_usuario_2():
+    m = folium.Map(
+        location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
+        zoom_start=14.45,
+        tiles="cartodb positron"
+    )
+
+    add_gdf_to_map(salud, "Salud", "purple", m)
+    add_gdf_to_map(hexas_santiago, "Hexágonos Análisis", "orange", m)
+    add_gdf_to_map(comunas_santi, "Comunas de Santiago", "red", m)
+
+    folium.LayerControl(collapsed=False).add_to(m)
+
     with st.container():
         col1, col2 = st.columns([0.8, 0.2])
         with col1:
             st.write("Mapa Interactivo Usuario 2")
-            m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45, tiles="cartodb positron")
-            add_gdf_to_map(salud, "Otro Buffer", "purple", m)
-            add_gdf_to_map(hexas_santiago, "Otro Polígono", "orange", m)
-            folium.LayerControl(collapsed=False).add_to(m)
-            st.title("Mapa interactivo")
             st_folium(m, width=2000, height=700)
-            scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
-            gauges()
         with col2:
             mostrar_legenda()
 
+# Función para mostrar el mapa interactivo del Usuario 3
 def mapa_usuario_3():
-    col1, col2 = st.columns([0.8, 0.2])
-    with col1:
-        st.write("Mapa Interactivo Usuario 2")
-        m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45, tiles="cartodb positron")
-        add_gdf_to_map(comunas_santi, "Otro Buffer", "forestgreen", m)
-        add_gdf_to_map(hexas_santiago, "Otro Polígono", "indianred", m)
-        folium.LayerControl(collapsed=False).add_to(m)
-        st.title("Mapa interactivo")
-        st_folium(m, width=2000, height=700)
-        scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
-        gauges()
-    with col2:
+    m = folium.Map(
+        location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
+        zoom_start=14.45,
+        tiles="cartodb positron"
+    )
+
+    add_gdf_to_map(comunas_santi, "Comunas de Santiago", "forestgreen", m)
+    add_gdf_to_map(hexas_santiago, "Hexágonos Análisis", "indianred", m)
+
+    folium.LayerControl(collapsed=False).add_to(m)
+
+    with st.container():
+        col1, col2 = st.columns([0.8, 0.2])
+        with col1:
+            st.write("Mapa Interactivo Usuario 3")
+            st_folium(m, width=2000, height=700)
+        with col2:
             mostrar_legenda()
 
+# Función para mostrar el mapa interactivo del Usuario 4
 def mapa_usuario_4():
-    col1, col2 = st.columns([0.8, 0.2])
-    with col1:
-        st.write("Mapa Interactivo Usuario 2")
-        m = folium.Map(location=[buffer['geometry'].centroid.y.mean(), buffer['geometry'].centroid.x.mean()], zoom_start=14.45, tiles="cartodb positron")
-        add_gdf_to_map(unidades_vecinales, "Otro Buffer", "maroon", m)
-        add_gdf_to_map(hexas_santiago, "Otro Polígono", "navy", m)
-        folium.LayerControl(collapsed=False).add_to(m)
-        st.title("Mapa interactivo")
-        st_folium(m, width = 2000, height = 700)
-        scatters() #Llama a la función de gráficas scatter para que aparezcan justo debajo del mapa.
-        gauges()
-    with col2:
+    m = folium.Map(
+        location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
+        zoom_start=14.45,
+        tiles="cartodb positron"
+    )
+
+    add_gdf_to_map(unidades_vecinales, "Unidades Vecinales", "maroon", m)
+    add_gdf_to_map(hexas_santiago, "Hexágonos Análisis", "navy", m)
+
+    folium.LayerControl(collapsed=False).add_to(m)
+
+    with st.container():
+        col1, col2 = st.columns([0.8, 0.2])
+        with col1:
+            st.write("Mapa Interactivo Usuario 4")
+            st_folium(m, width=2000, height=700)
+        with col2:
             mostrar_legenda()
 
+# Función para mostrar la leyenda del mapa
 def mostrar_legenda():
     st.markdown('### Legend')
     st.markdown('#### Elements')
@@ -471,5 +384,11 @@ def mostrar_legenda():
         </span>
         """, unsafe_allow_html=True)
 
-# Ejemplo de como llamarlo en el script principal
-mapas()
+# Función principal de Streamlit
+def main():
+    mapas()
+    scatters()
+    gauges()
+
+# Llamada a la función principal
+main()
