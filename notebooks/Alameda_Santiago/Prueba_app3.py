@@ -125,11 +125,11 @@ spyderplot = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson') #Data de las
 santiago = spyderplot.drop(columns = "geometry") #Data sin columna Geometry
 columns_santiago = santiago.columns #Columnas y valores
 
-santiago_comunas = comunas_santi.drop(columns = "geometry") #Data sin columna Geometry
+'''santiago_comunas = comunas_santi.drop(columns = "geometry") #Data sin columna Geometry
 columns_comunas = santiago_comunas.columns #Columnas y valores
 
 santiago_unidades = comunas_santi.drop(columns = "geometry") #Data sin columna Geometry
-columns_unidades = santiago_comunas.columns #Columnas y valores
+columns_unidades = santiago_comunas.columns #Columnas y valores'''
 
 def scatters():
     with st.container(): #Depues de generar el container del mapa, justo abajo se genera otro container pero ahora para las gráficas.
@@ -164,11 +164,11 @@ def scatters():
             comunas = comunas_santi.loc[comunas_santi.loc["name"] == "hsql"].loc[0]
             st.write("Comunas de Santiago")
             st.write("Gráfica")
-            selecciona_comunas = st.selectbox("Seleccione una comuna:", [comuna["name"]])
+            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["name"].unique())
             comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
-            column_sums_comunas = santiago_comunas.sum() #Se suman los valores de cada una de las columnas.
-            labels = columns_comunas #Se agarran los nombres de las columnas para labels de la gráfica
-            sums = column_sums_comunas.values #Se obtienen los valores numéricos de la suma
+            column_sums = comuna_selected.sum() 
+            labels = comuna_selected.columns 
+            sums = column_sums.values 
 
             fig = go.Figure() #Se genera el plot con la función 'go' de Plotly
             fig.add_trace(go.Scatterpolar(
@@ -193,11 +193,11 @@ def scatters():
             unidades = unidades_vecinales.loc[unidades_vecinales.loc["name"] == "COD_UNICO_"].loc[0]
             st.write("Unidades Vecinales")
             st.write("Gráfica")
-            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", [unidades["name"]])
+            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique())
             unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
-            column_sums_unidades = santiago_unidades.sum() #Se suman los valores de cada una de las columnas.
-            labels = columns_unidades #Se agarran los nombres de las columnas para labels de la gráfica
-            sums = column_sums_comunas.values #Se obtienen los valores numéricos de la suma
+            column_sums_unidades = unidad_selected.sum() 
+            labels_unidades = unidad_selected.columns 
+            sums_unidades = column_sums_unidades.values
 
             fig = go.Figure() #Se genera el plot con la función 'go' de Plotly
             fig.add_trace(go.Scatterpolar(
@@ -278,9 +278,9 @@ def create_gauge_chart(title, value):
     return fig
 
 # Filtrar los datos para "alameda", "comunas" y "unidades vecinales" para los gauges plots.
-alameda_data = buffer.loc[buffer['name'] == "alameda"].iloc[0]
-comunas_data =  comunas_santi.loc[comunas_santi["name"] == "hsql"].iloc[0]
-unidades_vecinales_data = unidades_vecinales.loc[unidades_vecinales["name"] == "COD_UNICO_"]
+#alameda_data = buffer.loc[buffer['name'] == "alameda"].iloc[0]
+#comunas_data =  comunas_santi.loc[comunas_santi["name"] == "hsql"].iloc[0]
+#unidades_vecinales_data = unidades_vecinales.loc[unidades_vecinales["name"] == "COD_UNICO_"]
 
 def gauges():
     with st.container(): 
@@ -290,13 +290,13 @@ def gauges():
                 "Seleccione la característica a analizar",
                 ["Sociability", "Wellbeing", "Environmental Impact"]
             )
-
+           
             # Crear el contenedor de Streamlit
             if select_gauge == "Sociability":
                 tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
                 with tab1: 
                     st.write("Medición de 'Sociability' para Usuario 1")
-                    sociability_fig = create_gauge_chart("Sociability", comunas_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", alameda_data["sociability"])
                     st.plotly_chart(sociability_fig)
                 with tab2:
                     st.write("Medición de 'Sociability' para Usuario 2")
@@ -329,25 +329,25 @@ def gauges():
                 tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
                 with tab1: 
                     st.write("Medición de 'Sociability' para Usuario 1")
-                    sociability_fig = create_gauge_chart("Sociability", comunas_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
                 with tab2:
                     st.write("Medición de 'Sociability' para Usuario 2")
-                    sociability_fig = create_gauge_chart("Sociability", comunas_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
                 with tab3:
                     st.write("Medición de 'Sociability' para Usuario 3")
-                    sociability_fig = create_gauge_chart("Sociability", comunas_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
                 with tab4:
                     st.write("Medición de 'Sociability' para Usuario 4")
-                    sociability_fig = create_gauge_chart("Sociability", comunas_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", comuna_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
             elif select_gauge == "Wellbeing":
-                wellbeing_fig = create_gauge_chart("Wellbeing", comunas_data["wellbeing"])
+                wellbeing_fig = create_gauge_chart("Wellbeing", comuna_selected["wellbeing"].iloc[0])
                 st.plotly_chart(wellbeing_fig)
             else:
-                environmental_impact_fig = create_gauge_chart("Environmental Impact", comunas_data["environmental_impact"])
+                environmental_impact_fig = create_gauge_chart("Environmental Impact", comuna_selected["environmental_impact"].iloc[0])
                 st.plotly_chart(environmental_impact_fig)
         with col3:
             selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique())
@@ -362,25 +362,25 @@ def gauges():
                 tab1, tab2, tab3, tab4 = st.tabs(["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"])
                 with tab1: 
                     st.write("Medición de 'Sociability' para Usuario 1")
-                    sociability_fig = create_gauge_chart("Sociability", unidades_vecinales_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
                 with tab2:
                     st.write("Medición de 'Sociability' para Usuario 2")
-                    sociability_fig = create_gauge_chart("Sociability", unidades_vecinales_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
                 with tab3:
                     st.write("Medición de 'Sociability' para Usuario 3")
-                    sociability_fig = create_gauge_chart("Sociability", unidades_vecinales_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
                 with tab4:
                     st.write("Medición de 'Sociability' para Usuario 4")
-                    sociability_fig = create_gauge_chart("Sociability", unidades_vecinales_data["sociability"])
+                    sociability_fig = create_gauge_chart("Sociability", unidad_selected["sociability"].iloc[0])
                     st.plotly_chart(sociability_fig)
             elif select_gauge == "Wellbeing":
-                wellbeing_fig = create_gauge_chart("Wellbeing", unidades_vecinales_data["wellbeing"])
+                wellbeing_fig = create_gauge_chart("Wellbeing", unidad_selected["wellbeing"].iloc[0])
                 st.plotly_chart(wellbeing_fig)
             else:
-                environmental_impact_fig = create_gauge_chart("Environmental Impact", unidades_vecinales_data["environmental_impact"])
+                environmental_impact_fig = create_gauge_chart("Environmental Impact", unidad_selected["environmental_impact"].iloc[0])
                 st.plotly_chart(environmental_impact_fig)
 
     
