@@ -142,8 +142,8 @@ def scatters():
             st.write("Datos")
         with col2:
             st.write("Comunas de Santiago")
-            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["name"].unique())
-            comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
+            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["hsql"].unique())
+            comuna_selected = comunas_santi[comunas_santi["hsql"] == selecciona_comunas]
             column_sums = comuna_selected.sum()
             labels = comuna_selected.columns
             sums = column_sums.values
@@ -169,8 +169,8 @@ def scatters():
             st.write("Datos")
         with col3:
             st.write("Unidades Vecinales")
-            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique())
-            unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
+            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["COD_UNICO_"].unique())
+            unidad_selected = unidades_vecinales[unidades_vecinales["COD_UNICO_"] == selecciona_unidades]
             column_sums_unidades = unidad_selected.sum()
             labels_unidades = unidad_selected.columns
             sums_unidades = column_sums_unidades.values
@@ -261,14 +261,14 @@ def gauges():
             gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
         with col2:
-            selecciona_comunas = st.selectbox("Seleccione una comuna", comunas_santi["name"].unique(), key='comuna_gauge')
-            comuna_selected = comunas_santi[comunas_santi["name"] == selecciona_comunas]
+            selecciona_comunas = st.selectbox("Seleccione una comuna", comunas_santi["hsql"].unique(), key='comuna_gauge')
+            comuna_selected = comunas_santi[comunas_santi["hsql"] == selecciona_comunas]
             value = comuna_selected[column_to_plot].sum()
             gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
         with col3:
-            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["name"].unique(), key='unidad_gauge')
-            unidad_selected = unidades_vecinales[unidades_vecinales["name"] == selecciona_unidades]
+            selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["COD_UNICO_"].unique(), key='unidad_gauge')
+            unidad_selected = unidades_vecinales[unidades_vecinales["COD_UNICO"] == selecciona_unidades]
             value = unidad_selected[column_to_plot].sum()
             gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
