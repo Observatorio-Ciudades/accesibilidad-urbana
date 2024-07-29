@@ -1,5 +1,5 @@
 ### Librerías ###
-import geopandas as gpd
+import geopandas as gpd 
 import pandas as pd
 import folium
 from folium.plugins import FeatureGroupSubGroup
@@ -9,16 +9,16 @@ from folium import GeoJson
 import plotly.graph_objects as go
 from streamlit_folium import st_folium
 
-# Función para leer archivos geoespaciales y convertir su sistema de coordenadas a EPSG:4326
-def read_file(filepath):
-    return gpd.read_file(filepath).to_crs('EPSG:4326')
 
-# Función para agregar un GeoDataFrame como capa a un mapa interactivo
+# Función para leer los archivos gpd y cambiarles el formato de coordenada
+def read_file(filepath):
+    return gpd.read_file(filepath).to_crs('EPSG:4326') 
+
+# Función para agregar un geodataframe como capa al mapa interactivo
 def add_gdf_to_map(gdf, name, color, m):
     g = FeatureGroupSubGroup(m, name)
     m.add_child(g)
     
-    # Campos que se mostrarán en el tooltip
     fields = [field for field in gdf.columns if field != 'geometry']
     
     GeoJson(
@@ -34,7 +34,6 @@ def add_gdf_to_map(gdf, name, color, m):
         tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True)
     ).add_to(g)
 
-# Función para agregar un GeoDataFrame como capa con marcadores a un mapa interactivo
 def add_gdf_marker(gdf, name, color, icon_name, icon_color, m):
     g = FeatureGroupSubGroup(m, name)
     m.add_child(g)
@@ -54,7 +53,6 @@ def add_gdf_marker(gdf, name, color, icon_name, icon_color, m):
         tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True)
     ).add_to(g)
     
-    # Agregar marcadores en las ubicaciones del GeoDataFrame
     for _, row in gdf.iterrows():
         lat = row.geometry.y
         lon = row.geometry.x
@@ -88,7 +86,7 @@ comunas_santi = read_file("santiago_comunasanalysis_4_5_kmh.geojson")
 unidades_vecinales = read_file("santiago_unidadesvecinalesanalysis_4_5_kmh.geojson")
 spyderplot = read_file('santiago_hexanalysis_res8_4_5_kmh.geojson')
 santiago = spyderplot.drop(columns="geometry")
-columns_santiago = santiago.columns
+columns_santiago =  santiago.select_dtypes(include='number').columns
 
 # Datas de prueba para la función de diferentes usuarios
 bomberos = read_file(dir_grl + '/Bomberos/layer_companias_de_bomberos/layer_companias_de_bomberos_20231110080349.shp')
@@ -97,7 +95,6 @@ salud = salud[salud['nom_provin'] == 'Santiago'].sample(n=100, random_state=43)
 educ = read_file(dir_grl + '/capas_pois/educativo/layer_establecimientos_de_educacion_superior_20220309024111.shp')
 educ = educ[educ['COD_REGION'] == 13].sample(n=100, random_state=43)
 
-# Función para mostrar los mapas interactivos basados en el usuario seleccionado
 def mapas():
     user_tabs = ["Usuario 1", "Usuario 2", "Usuario 3", "Usuario 4"]
     selected_user = st.selectbox("Seleccione el usuario", user_tabs)
@@ -111,14 +108,18 @@ def mapas():
     elif selected_user == "Usuario 4":
         mapa_usuario_4()
 
-# Función para mostrar gráficos de dispersión polar
 def scatters():
     with st.container():
         col1, col2, col3 = st.columns([0.33, 0.33, 0.33])
         with col1:
             st.write("Zona Metropolitana de Santiago")
-            column_sums = santiago.sum()
-            labels = columns_santiago
+            st.write("")
+            st.write("")
+            st.write("")
+            st.write("")
+            st.write("")
+            column_sums = santiago[["enjoying", "living", "learning", "working", "supplying", "caring"]].sum()
+            labels = column_sums.index
             sums = column_sums.values
 
             fig = go.Figure()
@@ -133,7 +134,7 @@ def scatters():
             fig.update_layout(
                 polar=dict(
                     radialaxis=dict(
-                        visible=False,
+                        visible=True,
                         range=[0, max(sums)]
                     )),
                 showlegend=False
@@ -142,10 +143,10 @@ def scatters():
             st.write("Datos")
         with col2:
             st.write("Comunas de Santiago")
-            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["hsql"].unique())
-            comuna_selected = comunas_santi[comunas_santi["hsql"] == selecciona_comunas]
-            column_sums = comuna_selected.sum()
-            labels = comuna_selected.columns
+            selecciona_comunas = st.selectbox("Seleccione una comuna:", comunas_santi["hqsl"].unique())
+            comuna_selected = comunas_santi[comunas_santi["hqsl"] == selecciona_comunas]
+            column_sums = comuna_selected[["enjoying", "living", "learning", "working", "supplying", "caring"]].sum()
+            labels = column_sums.index
             sums = column_sums.values
 
             fig = go.Figure()
@@ -160,7 +161,7 @@ def scatters():
             fig.update_layout(
                 polar=dict(
                     radialaxis=dict(
-                        visible=False,
+                        visible=True,
                         range=[0, max(sums)]
                     )),
                 showlegend=False
@@ -171,14 +172,14 @@ def scatters():
             st.write("Unidades Vecinales")
             selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["COD_UNICO_"].unique())
             unidad_selected = unidades_vecinales[unidades_vecinales["COD_UNICO_"] == selecciona_unidades]
-            column_sums_unidades = unidad_selected.sum()
-            labels_unidades = unidad_selected.columns
+            column_sums_unidades = unidad_selected[["enjoying", "living", "learning", "working", "supplying", "caring"]].sum()
+            labels_unidades = column_sums_unidades.index
             sums_unidades = column_sums_unidades.values
 
             fig = go.Figure()
             fig.add_trace(go.Scatterpolar(
-                r=sums,
-                theta=labels,
+                r=sums_unidades,
+                theta=labels_unidades,
                 fill='toself',
                 fillcolor="orchid",
                 line_color='salmon'
@@ -187,15 +188,15 @@ def scatters():
             fig.update_layout(
                 polar=dict(
                     radialaxis=dict(
-                        visible=False,
-                        range=[0, max(sums)]
+                        visible=True,
+                        range=[0, max(sums_unidades)]
                     )),
                 showlegend=False
             )
             st.plotly_chart(fig)
             st.write("Datos")
+            
 
-# Función para determinar el nivel de un valor en la gráfica de gauge
 def get_level_text(value):
     if value < 11:
         return "Muy Bajo"
@@ -208,14 +209,13 @@ def get_level_text(value):
     else:
         return "Muy Alto"
 
-# Función para crear una gráfica de gauge
 def create_gauge_chart(title, value):
     level_text = get_level_text(value)
     fig = go.Figure(go.Indicator(
         mode="gauge",
         value=value,
         domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': title, 'font': {'size': 33}},
+        title={'text': title, 'font': {'size': 26}},
         gauge={
             "axis": {"range": [0, 60], 'tickcolor': "black"},
             'bar': {'color': "darkslategray"},
@@ -243,7 +243,7 @@ def create_gauge_chart(title, value):
         y=0.3,
         text=level_text,
         showarrow=False,
-        font=dict(size=64),
+        font=dict(size= 34),
         xref="paper",
         yref="paper",
         xanchor="center",
@@ -251,29 +251,41 @@ def create_gauge_chart(title, value):
     )
     return fig
 
-# Función para mostrar las gráficas de gauge
+# Cargar los datos
+data_select = read_file("santiago_alamedaanalysis_4_5_kmh.geojson")
+alameda_data = data_select.loc[data_select['name'] == "alameda"].iloc[0]
+
 def gauges():
     with st.container():
+                
         col1, col2, col3 = st.columns([0.33, 0.33, 0.33])
+        
         with col1:
-            column_to_plot = st.selectbox('Alameda Santiago', columns_santiago)
-            value = santiago[column_to_plot].sum()
+            # Crear gráfico para Alameda
+            column_to_plot = st.selectbox(
+            "Seleccione la característica a analizar",
+            ["Sociability", "Wellbeing", "Environmental Impact"]
+        )
+            value = alameda_data[column_to_plot.lower()]
             gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
+            
         with col2:
-            selecciona_comunas = st.selectbox("Seleccione una comuna", comunas_santi["hsql"].unique(), key='comuna_gauge')
-            comuna_selected = comunas_santi[comunas_santi["hsql"] == selecciona_comunas]
-            value = comuna_selected[column_to_plot].sum()
+            # Seleccionar comuna
+            selecciona_comunas = st.selectbox("Seleccione una comuna", comunas_santi["hqsl"].unique(), key='comuna_gauge')
+            comuna_selected = comunas_santi[comunas_santi["hqsl"] == selecciona_comunas]
+            value = comuna_selected[column_to_plot.lower()].sum()
             gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
+            
         with col3:
+            # Seleccionar unidad vecinal
             selecciona_unidades = st.selectbox("Seleccione una unidad vecinal", unidades_vecinales["COD_UNICO_"].unique(), key='unidad_gauge')
-            unidad_selected = unidades_vecinales[unidades_vecinales["COD_UNICO"] == selecciona_unidades]
-            value = unidad_selected[column_to_plot].sum()
+            unidad_selected = unidades_vecinales[unidades_vecinales["COD_UNICO_"] == selecciona_unidades]
+            value = unidad_selected[column_to_plot.lower()].sum()
             gauge_chart = create_gauge_chart(column_to_plot, value)
             st.plotly_chart(gauge_chart)
 
-# Función para mostrar el mapa interactivo del Usuario 1
 def mapa_usuario_1():
     m = folium.Map(
         location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
@@ -293,9 +305,8 @@ def mapa_usuario_1():
             st.write("Mapa Interactivo Usuario 1")
             st_folium(m, width=2000, height=700)
         with col2:
-            mostrar_legenda()
+            mostrar_legenda()            
 
-# Función para mostrar el mapa interactivo del Usuario 2
 def mapa_usuario_2():
     m = folium.Map(
         location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
@@ -317,7 +328,6 @@ def mapa_usuario_2():
         with col2:
             mostrar_legenda()
 
-# Función para mostrar el mapa interactivo del Usuario 3
 def mapa_usuario_3():
     m = folium.Map(
         location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
@@ -338,7 +348,6 @@ def mapa_usuario_3():
         with col2:
             mostrar_legenda()
 
-# Función para mostrar el mapa interactivo del Usuario 4
 def mapa_usuario_4():
     m = folium.Map(
         location=[buffer.geometry.centroid.y.mean(), buffer.geometry.centroid.x.mean()],
@@ -359,7 +368,6 @@ def mapa_usuario_4():
         with col2:
             mostrar_legenda()
 
-# Función para mostrar la leyenda del mapa
 def mostrar_legenda():
     st.markdown('### Legend')
     st.markdown('#### Elements')
