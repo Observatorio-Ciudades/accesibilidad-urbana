@@ -264,7 +264,7 @@ def gauges():
             # Crear gráfico para Alameda
             column_to_plot = st.selectbox(
             "Seleccione la característica a analizar",
-            ["Sociability", "Wellbeing", "Environmental Impact"]
+            ["Sociability", "Wellbeing", "Environmental_Impact"]
         )
             value = alameda_data[column_to_plot.lower()]
             gauge_chart = create_gauge_chart(column_to_plot, value)
