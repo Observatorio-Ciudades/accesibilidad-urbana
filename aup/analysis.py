@@ -372,7 +372,7 @@ def create_network(nodes, edges):
 	edges = edges.to_crs("EPSG:6372")
 
 	##Unique id for nodes based on coordinates
-	nodes['osmid'] = ((nodes.geometry.x).astype(int)).astype(str)+((nodes.geometry.y).astype(int)).astype(str)
+	nodes['osmid'] = abs((nodes.geometry.x).astype(int)).astype(str)+abs((nodes.geometry.y).astype(int)).astype(str)
 
 	##Set columns in edges for to [u] from[v] columns
 	edges['u'] = np.nan
@@ -383,8 +383,8 @@ def create_network(nodes, edges):
 	##Extract start and end coordinates for [u,v] columns
 	for index, row in edges.iterrows():
 		
-		edges.at[index,'u'] = str(int(list(row.geometry.coords)[0][0]))+str(int(list(row.geometry.coords)[0][1]))
-		edges.at[index,'v'] = str(int(list(row.geometry.coords)[-1][0]))+str(int(list(row.geometry.coords)[-1][1]))
+		edges.at[index,'u'] = str(int(abs(list(row.geometry.coords)[0][0])))+str(int(abs(list(row.geometry.coords)[0][1])))
+		edges.at[index,'v'] = str(int(abs(list(row.geometry.coords)[-1][0])))+str(int(abs(list(row.geometry.coords)[-1][1])))
 
 	#Add key column for compatibility with osmnx
 	edges['key'] = 0
