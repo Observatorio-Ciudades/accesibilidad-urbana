@@ -113,14 +113,11 @@ if __name__ == "__main__":
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
     
-
     # List of pois to be examined.
     # This list should contain the source_name that will be assigned to each processed poi.
     # That source_name will be stored in a 'source' column at first and be turned into a column name after all pois are processed.
     # That source_name must also be the name of the file stored in gral_dir (.gpkg)
-    # source_list = ['vacunatorio_pub']
-    # create source_dict to store index and source_name
-    # casas_deptos_mzn
+    # e.g if source_list = ['vacunatorio_pub'], vacanatorio_pub.gpkg must exist.
     source_list = ['supermercado','clinica_priv','clinica_pub',
                    'hospital_priv','hospital_pub',
                    'consult_ado_priv','consult_ado_pub',
@@ -146,8 +143,6 @@ if __name__ == "__main__":
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
 	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
     walking_speed = [4.5]
-    # WARNING: Make sure to change nodes_save_table to name {santiago_nodesproximity_n_n_kmh}, where n_n is walking_speed.
-    # e.g. 3.5km/hr --> 'santiago_nodesproximity_3_5_kmh'
 
     # Area of interest (Run 'AM_Santiago', it represents Santiago's metropolitan area. We can clip data as soon as we know inputs extent.)
     city = 'AM_Santiago'
@@ -217,13 +212,7 @@ if __name__ == "__main__":
             source_speed_list = [source_check for source_check in source_speed_list
                                   if source_check not in saved_sources]
             aup.log(f"--- {len(source_speed_list)} sources to be processed.")
-            '''for source in source_speed_list:
-                if source in saved_sources:
-                    aup.log(f"--- Source {source} already processed and in database.")
-                    source_speed_list.remove(source)
-                    aup.log(f"--- Removed source from source analysis.")
-                    # intended_crash'''
             
         # If passed source check, proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_speed_list, aoi, nodes, edges, G, walk_speed,local_save, save)
+        main(source_speed_list, aoi, nodes, edges, G, walk_speed, local_save, save)
