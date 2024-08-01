@@ -90,11 +90,6 @@ def main(source_list, hex_gdf, code_column, area_analysis, nodes, nodes_save_tab
     aup.log("--"*40)
     aup.log(f"--- STARTING MAIN FUNCTION.")
     
-    ############################################################### PART 1 ###############################################################
-    #################################################### FIND NODES PROXIMITY TO POIS ####################################################
-    
-    # 1.1 --------------- NODES PROXIMITY TO POIS
-    # ------------------- This step loads each source of interest, calculates nodes proximity and saves to database
     k = len(source_list)
     i = 1
 
@@ -231,11 +226,6 @@ def main(source_list, hex_gdf, code_column, area_analysis, nodes, nodes_save_tab
     if save_space:
         del nodes_analysis
 
-
-    ############################################################### PART 2 ###############################################################
-    ######################################################### AMENITIES ANALYSIS #########################################################
-    ############################################################## (LATER?) ##############################################################
-
 if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 25.')
@@ -269,8 +259,6 @@ if __name__ == "__main__":
                    'correos', 'police', 'vacunatorio_pub', 'vacunatorio_priv','ferias',
                    'ep_plaza_small','ep_plaza_big','ciclovias','eleam',
                    'estaciones_bicicletas']
-    
-    
 
     # source_list = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 

@@ -1880,13 +1880,14 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 				nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
             # ADAPTATION FOR COUNT DATA (If requested)
             # If it is the first goi, assign first goi count
-			if g == 1:
-				print(f"First batch count.")
-				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[process_poiscount_col]
-            # Else, apply the sum function to find the total count so far
-			else:
-				count_cols = [f'{poi_name}_{count_pois[1]}min', process_poiscount_col]
-				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[count_cols].sum(axis=1)
+			if count_pois[0]:
+				if g == 1:
+					print(f"First batch count.")
+					nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[process_poiscount_col]
+				# Else, apply the sum function to find the total count so far
+				else:
+					count_cols = [f'{poi_name}_{count_pois[1]}min', process_poiscount_col]
+					nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[count_cols].sum(axis=1)
 			
 			g = g+1
 		
