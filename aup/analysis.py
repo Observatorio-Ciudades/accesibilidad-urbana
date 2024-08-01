@@ -926,7 +926,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 	
 		# If possible, analyses by batches of 200 pois.
 		if len(nearest) % 250:
-			batch_size = len(nearest)/200
+			batch_size = len(nearest)/201
 			for k in range(int(batch_size)+1):
 				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
 				# Calculate
@@ -954,7 +954,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		
 		# Else, analyses by batches of 250 pois.
 		else:
-			batch_size = len(nearest)/250
+			batch_size = len(nearest)/251
 			for k in range(int(batch_size)+1):
 				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
