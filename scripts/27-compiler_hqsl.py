@@ -8,6 +8,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from shapely.geometry import Point
 import osmnx as ox
 
+from tqdm import tqdm
 
 import os
 import sys
@@ -75,13 +76,267 @@ def create_filtered_navigable_network(public_space_quality_dir, projected_crs, f
 
     return G, nodes_gdf, edges_gdf
 
+##########################################################################################################################################
+# SCALE FUNCTIONS
 
-def main(source_list, aoi, nodes, edges, G, walking_speed, local_save, save):
+def rare_fn(cont):
+    if cont == 0:
+        res_val = 0
+    elif cont > 0 and cont < 2:
+        res_val = res_val_regression(0, 2, 0, 2.5, cont)
+    elif cont >= 2 and cont < 4:
+        res_val = res_val_regression(2, 4, 2.5, 5, cont)
+    elif cont >= 4 and cont < 7:
+        res_val = res_val_regression(4, 7, 5, 7.5, cont)
+    elif cont >= 7 and cont < 10:
+        res_val = res_val_regression(7, 10, 7.5, 10, cont)
+    elif cont >= 10:
+        res_val = 10
     
-    # 1.1 --------------- NODES PROXIMITY TO POIS
-    # ------------------- This step loads each source of interest, calculates nodes proximity and saves to database
-    k = len(source_list)-len(special_sources)
+    return res_val
+
+
+def very_rare_fn(cont):
+    min_x = 0
+    max_x = 1
+    min_y = 0
+    max_y = 10
+    
+    return res_val_regression(min_x, max_x, min_y, max_y, cont)
+
+
+def frequent_fn(cont):
+    if cont == 0:
+        res_val = 0
+    elif cont > 0 and cont < 6:
+        res_val = res_val_regression(0, 6, 0, 2.5, cont)
+    elif cont >= 6 and cont < 12:
+        res_val = res_val_regression(6, 12, 2.5, 5, cont)
+    elif cont >= 12 and cont < 18:
+        res_val = res_val_regression(12, 18, 5, 7.5, cont)
+    elif cont >= 18 and cont < 25:
+        res_val = res_val_regression(18, 25, 7.5, 10, cont)
+    elif cont >= 25:
+        res_val = 10
+    
+    return res_val
+
+
+def res_val_regression(min_x, max_x, min_y, max_y, cont):
+    slope = (max_y-min_y)/(max_x-min_x)
+    intersect = min_y - slope * min_x
+    res_val = slope * cont + intersect
+    if cont > max_x:
+        res_val = max_y
+        
+    return res_val
+
+
+def office_fn(cont):
+    if cont == 0:
+        res_val = 0
+    elif cont > 0 and cont < 2.823938308:
+        res_val = res_val_regression(0, 2.823938308, 0, 2.5, cont)
+    elif cont >= 2.823938308 and cont <  5.539263604:
+        res_val = res_val_regression(2.823938308, 5.539263604, 2.5, 5, cont)
+    elif cont >= 5.539263604 and cont < 10.96991420:
+        res_val = res_val_regression(5.539263604, 10.96991420, 5, 7.5, cont)
+    elif cont >= 10.96991420 and cont < 16.40056479:
+        res_val = res_val_regression(10.96991420, 16.40056479, 7.5, 10, cont)
+    elif cont >= 16.40056479:
+        res_val = 10
+    
+    return res_val
+
+
+def ndvi_fn(cont):
+    min_x = 0
+    max_x = 0.4
+    min_y = 0
+    max_y = 10
+    if cont > max_x:
+        return 10
+    elif cont <= min_x:
+        return 0
+    else:
+        return res_val_regression(min_x, max_x, min_y, max_y, cont)
+
+
+def inter_fn(cont):
+    min_x = 20
+    max_x = 100
+    min_y = 0
+    max_y = 10
+    if cont > max_x:
+        return 10
+    elif cont < min_x:
+        return 0
+    else:
+        return res_val_regression(min_x, max_x, min_y, max_y, cont)
+
+
+def noise_fn(cont):
+    min_x = 55
+    max_x = 70
+    min_y = 10
+    max_y = 0
+    if cont > max_x:
+        return 0
+    elif cont < min_x:
+        return 10
+    else:
+        return res_val_regression(min_x, max_x, min_y, max_y, cont)
+
+
+def temp_fn(cont, mean, std):
+    if cont >= (mean + 2*std):
+        res_val = 0
+    elif cont < (mean + 2*std) and cont >= (mean + std):
+        res_val = res_val_regression((mean + std), (mean + 2*std), 2.5, 0, cont)
+    elif cont < (mean + std) and cont >= (mean):
+        res_val = res_val_regression((mean), (mean + std), 5, 2.5, cont)
+    elif cont < (mean) and cont >= (mean - std):
+        res_val = res_val_regression((mean - std), (mean), 7.5, 5, cont)
+    elif cont < (mean - std) and cont >= (mean - 2*std):
+        res_val = res_val_regression((mean - 2*std), (mean - std), 10, 7.5, cont)
+    elif cont < (mean - 2*std):
+        res_val = 10
+    if area_analysis == 'santiago':
+        res_val = 5
+    
+    return res_val
+
+
+def household_fn(cont):
+    res_val = res_val_regression(0, 50, 0, 10, cont)
+    
+    return res_val
+
+    
+def social_viv_fn(cont):
+    min_x = 0
+    max_x = 20
+    min_y = 0
+    max_y = 10
+    if cont > max_x:
+        return 10
+    elif cont < min_x:
+        return 0
+    else:
+        return res_val_regression(min_x, max_x, min_y, max_y, cont)
+
+
+def specific_fn(cont, source, mean, std):
+    if 'ndvi' in source:
+        return ndvi_fn(cont)
+    elif 'inter' in source:
+        return inter_fn(cont)
+    elif 'noise' in source:
+        return noise_fn(cont)
+    elif 'temp' in source:
+        return temp_fn(cont, mean, std)
+    elif 'houses' in source:
+        return household_fn(cont)
+    elif 'social_viv' in source:
+        return social_viv_fn(cont)
+    elif 'oficinas' in source:
+        return office_fn(cont)
+
+
+def scale_source_fn(cont, source, weight_dict, mean, std):
+    if weight_dict[source] == 'rare':
+        return rare_fn(cont)
+    elif weight_dict[source] == 'very_rare':
+        return very_rare_fn(cont)
+    elif weight_dict[source] == 'frequent':
+        return frequent_fn(cont)
+    elif weight_dict[source] == 'specific':
+        return specific_fn(cont, source, mean, std)
+
+##########################################################################################################################################
+# HQSL FUNCTIONS
+
+def hqsl_fn(hex_gdf, parameters_dict):
+
+    hex_gdf = hex_gdf.copy()
+    
+    social_function_list = []
+    
+    for social_function in parameters_dict.keys():
+        social_function_list.append(social_function)
+    
+    hex_gdf['hqsl'] = hex_gdf[social_function_list].sum(axis=1)
+
+    base_columns = [code_column,'geometry']
+    filter_list = ['hqsl']
+    filter_list.extend(base_columns)
+    hex_gdf = hex_gdf[filter_list].copy()
+    
+    return hex_gdf
+
+
+def social_fn(hex_gdf, parameters_dict):
+    
+    hex_gdf = hex_gdf.copy()
+    
+    for social_function in parameters_dict.keys():
+        source_list = []
+        
+        for indicator in parameters_dict[social_function].keys():
+            source_list.extend(parameters_dict[social_function][indicator])
+        
+        source_list = [s+'_scaled' for s in source_list]
+        hex_gdf[social_function] = hex_gdf[source_list].mean(axis=1)
+
+    base_columns = [code_column,'geometry']
+    filter_list = list(parameters_dict.keys())
+    filter_list.extend(base_columns)
+    hex_gdf = hex_gdf[filter_list].copy()
+    
+    return hex_gdf
+
+
+def indicator_fn(hex_gdf, parameters_dict):
+    hex_ind = hex_analysis.copy()
+
+    filter_list = []
+    
+    indicator_list = list(set().union(*parameters_dict.values()))
+    for indicator in indicator_list:
+        social_indicator = []
+        
+        for social_function in parameters_dict.keys():
+            social_indicator.append(indicator+'_'+social_function)
+            
+            source_indicator = parameters_dict[social_function][indicator]
+            source_indicator = [s+'_scaled' for s in source_indicator]
+            
+            hex_ind[indicator+'_'+social_function] = hex_ind[source_indicator].mean(axis=1)
+    
+        hex_ind[indicator] = hex_ind[social_indicator].sum(axis=1)
+        filter_list.extend(social_indicator)
+        filter_list.append(indicator)
+    
+    base_columns = [code_column,'geometry']
+    filter_list.extend(base_columns)
+    hex_ind = hex_ind[filter_list].copy()
+            
+    return hex_ind
+
+##########################################################################################################################################
+# MAIN FUNCTION
+
+def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
+    
+    ############################################################### PART 1 ###############################################################
+    #################################################### FIND NODES PROXIMITY TO POIS ####################################################
+    # ------------------- This step loads each source of interest, calculates nodes proximity and saves it to nodes_analysis
+
+    aup.log(f"STARTING PART 1: NODES PROXIMITY TO POINTS OF INTEREST.")
+
+    k = len(source_list)
     i = 1
+    source_cols =[]
 
     for source in source_list:
 
@@ -90,115 +345,370 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save, save):
         # Check if current source has a unique ID that needs to be considered in the process
         if source in unique_id_sources:
             unique_id = True
-        # Check if current source needs special consideration (Another function applies)
-        elif source in special_sources:
-            continue
         else:
-            unique_id=False
+            unique_id = False
         # ----------
 
         aup.log("--"*40)
         aup.log(f"--- Starting nodes proximity to pois using speed {walking_speed}km/hr for source {i}/{k}: {source}. ")
 
-        # 1.1a) Read pois from pois dir
-        aup.log(f"--- Reading pois dir.")
+        # 1.1) Read pois from pois dir
+        aup.log(f"--- 1.1 - Source {i}/{k}: Reading pois dir.")
         # Directory where pois to be examined are located
-        pois_dir = gral_dir + f'{source}.gpkg'
+        pois_dir = all_pois_dir + f'{source}.gpkg'
         # Load all pois from directory
         pois = gpd.read_file(pois_dir)
 
         # ----------
-        # UNIQUE ID CONSIDERATION
+        # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
-            # Keep already existing unique ID and geometry
-            pois = pois[['ID','geometry']]
+            if source == 'ep_plaza_small':
+                # For small parks, area is relevant to sub-divide process (below 2000m2 --> pois_time(), above 2000m2 --> id_pois_time())
+                pois = pois[['area_ha','ID','geometry']]
+            else:
+                # For the rest, keep already existing unique ID and geometry
+                pois = pois[['ID','geometry']]
         else:
-            # Set ID col as source name and keep geometry
+            # If not unique_ID, ID col is source name (irrelevant), keeps geometry
             pois['ID'] = source
             pois = pois[['ID','geometry']]
         # ----------
 
         # Format
-        if pois.crs:
+        try:
             pois = pois.to_crs("EPSG:4326")
-        else:
+        except:
             pois = pois.set_crs("EPSG:4326")
 
-        # 1.1b) Clip pois to aoi
+        # 1.2) Clip pois to aoi
         source_pois = gpd.sjoin(pois, aoi)
-        source_pois = source_pois[['ID','geometry']]
-        aup.log(f"--- Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
+
+        # ----------
+        # SMALL PARKS CONSIDERATION
+        if source == 'ep_plaza_small':
+            # For small parks, area is relevant to sub-divide process
+            source_pois = source_pois[['area_ha','ID','geometry']]
+        else:
+            source_pois = source_pois[['ID','geometry']]
+        # ----------
+
+        aup.log(f"--- 1.2 - Source {i}/{k}: Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
 
         if save_space:
             del pois
 
-        # 1.1c) Calculate nodes proximity (Function pois_time())
-        aup.log(f"--- Calculating nodes proximity.")
+        # 1.3) Calculate nodes proximity
+        aup.log(f"--- 1.3 - Source {i}/{k}: Calculating nodes proximity.")
 
         # ----------
-        # UNIQUE ID CONSIDERATION
+        # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
-            # Function id_pois_time() consideres the unique ID belonging to each geometry of interest (goi).
-            source_nodes_time = aup.id_pois_time(G, nodes, edges, source_pois, source, 'length', walking_speed, 
-                                                 goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
+            #################################################### SMALL PARKS ONLY [SECTION STARTS]
+            if source == 'ep_plaza_small':
+                # pois_time() [for public spaces below 2000m2]
+                # For VERY small public spaces (below 2000m2), the proximity analysis will consider any poi derived from the geometry of interest (goi, polygon) because anyway it is small.
+                # Because we just care about one poi only (any), this step filters and drops duplicate IDs, keeping the first occurrence.
+                very_small_source_pois = source_pois.loc[source_pois['area_ha']<0.2].copy().drop_duplicates(subset='ID')
+                # Calculate time data from nodes to source for very_small_source_pois (Has 1 pois for each goi)
+                aup.log(f"--- Calculating very small {source} nodes proximity with function pois_time().")
+                source_nodes_time_1 = aup.pois_time(G, nodes, edges, very_small_source_pois, source,'length',
+                                                    walking_speed, count_pois, projected_crs)
+                if save_space:
+                    del very_small_source_pois
+                
+                # id_pois_time() [for public spaces above 2000m2]
+                # For larger public spaces (above 2000m2), having several accesses becomes relevant, and goi IDs becomes necessary (needs id_pois_time() function)
+                small_source_pois = source_pois.loc[source_pois['area_ha']>=0.2].copy()
+                # Calculate time data from nodes to source for small_source_pois (Has n pois for each goi, needs goi_id)
+                aup.log(f"--- Calculating not that small {source} nodes proximity with function id_pois_time().")
+                source_nodes_time_2 = aup.id_pois_time(G, nodes, edges, small_source_pois, source,'length',
+                                                       walking_speed, goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
+                if save_space:
+                    del small_source_pois
+
+                # Now merge source_nodes_time_1 results with source_nodes_time_2 results
+                if count_pois[0]:
+                    source_nodes_time_all = source_nodes_time_1.merge(source_nodes_time_2[['osmid', 'time_'+source, f'{source}_{count_pois[1]}min']],on='osmid')
+                else:
+                    source_nodes_time_all = source_nodes_time_1.merge(source_nodes_time_2[['osmid', 'time_'+source]],on='osmid')
+
+                if save_space:
+                    del source_nodes_time_1
+                    del source_nodes_time_2
+                
+                # For time data, find *min* time between both source_nodes_time.
+                time_cols = [f'time_{source}_x', f'time_{source}_y']
+                source_nodes_time_all[f'time_{source}'] = source_nodes_time_all[time_cols].min(axis=1)
+                source_nodes_time_all.drop(columns=time_cols,inplace=True)
+
+                # For count data, find *sum* of counted pois for both source_nodes_time
+                if count_pois[0]:
+                    count_cols = [f'{source}_{count_pois[1]}min_x',f'{source}_{count_pois[1]}min_y']
+                    source_nodes_time_all[f'{source}_{count_pois[1]}min'] = source_nodes_time_all[count_cols].sum(axis=1)
+                    source_nodes_time_all.drop(columns=count_cols,inplace=True)
+
+                # Finally, rename result
+                source_nodes_time = source_nodes_time_all.copy()
+                
+                if save_space:
+                    del source_nodes_time_all
+            #################################################### SMALL PARKS ONLY [SECTION ENDS]
+
+            else:
+                # Function id_pois_time() consideres the unique ID belonging to each geometry of interest (goi).
+                source_nodes_time = aup.id_pois_time(G, nodes, edges, source_pois, source, 'length', walking_speed, 
+                                                    goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
         else:
             # Function pois_time() calculates proximity data from nodes to source (all) without considering any unique ID.
             source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',walking_speed, 
                                               count_pois, projected_crs)
         # ----------
 
-        # 1.1d) Nodes_analysis format
-        source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
-        nodes_analysis = source_nodes_time.copy()
-
         if save_space:
             del source_pois
+
+        #### Changes when comparing to Script 23, 23b and notebook 04b:
+        # Previously we formated nodes analysis as tidy format in order to be able to loop-upload nodes proximity data.
+        # That was relevant as new data was flowing each day. However, that's no longer needed.
+        # Instead, data is formated directly and added to nodes_analysis
+        ####
+
+        # 1.4) New nodes_analysis format (Not tidy data)
+        # Rename time column
+        source_nodes_time.rename(columns={'time_'+source:f'{source}_time'}, inplace=True)
+        # Rename and format count column
+        if count_pois[0]:
+            source_nodes_time.rename(columns={f'{source}_{count_pois[1]}min':f'{source}_count_{count_pois[1]}min'}, inplace=True)
+            source_nodes_time[f'{source}_count_{count_pois[1]}min'] = source_nodes_time[f'{source}_count_{count_pois[1]}min'].astype(int)
+        # Create or append to nodes_analysis
+        if i == 1:
+            if count_pois[0]:
+                nodes_analysis = source_nodes_time[['osmid','geometry',f'{source}_time',f'{source}_count_{count_pois[1]}min']]
+            else:
+                nodes_analysis = source_nodes_time[['osmid','geometry',f'{source}_time']]
+            aup.log(f"--- 1.4 - Source {i}/{k}: Created nodes analysis with {len(source_nodes_time)} for the first time.")
+        else:
+            nodes_analysis = nodes_analysis.merge(source_nodes_time, on='osmid', how='left')
+            aup.log(f"--- 1.4 - Source {i}/{k}: Appended {len(source_nodes_time)} nodes to nodes analysis.")
+        
+        if save_space:
             del source_nodes_time
 
-        # if count_pois, include generated col
+        # Append to source_cols list the time (and count if requested) column names
+        # This list will be used in PART 2.
+        source_cols.append(f'{source}_time')
         if count_pois[0]:
-            column_order = ['osmid'] + [source, f'{source}_{count_pois[1]}min'] + ['x','y','geometry']
-        else:
-            column_order = ['osmid'] + [source] + ['x','y','geometry']
-        nodes_analysis = nodes_analysis[column_order]
+            source_cols.append(f'{source}_count_{count_pois[1]}min')
 
-        # 1.1e) Tidy data format (Allows loop-upload)
-        aup.log(f"--- Reordering datased as tidy data format.")
-        # Add source column to be able to extract source proximity data. Fill with current source.
-        nodes_analysis['source'] = source
-        # Rename source-specific column names as name that apply to all sources (source_time, source_15min)
-        nodes_analysis.rename(columns={source:'source_time'},inplace=True)
-        if count_pois[0]:
-            nodes_analysis.rename(columns={f'{source}_{count_pois[1]}min':f'source_{count_pois[1]}min'},inplace=True)
-        # Set column order
-        if count_pois[0]:
-            nodes_analysis = nodes_analysis[['osmid','source','source_time',f'source_{count_pois[1]}min','x','y','geometry']]
-        else:
-            nodes_analysis = nodes_analysis[['osmid','source','source_time','x','y','geometry']]
-        # Add city data
-        nodes_analysis['city'] = city
-        nodes_analysis[f'source_{count_pois[1]}min'] = nodes_analysis[f'source_{count_pois[1]}min'].astype(int)
+        i+=1
+    
+    ############################################################### PART 2 ###############################################################
+    #################################################### NODES DATA TO AREA OF ANALYSIS ##################################################
+    # Avoid overestimating universities
+    nodes_analysis.loc[nodes_analysis.universidad_count_15min > 3, 'universidad_count_15min'] = 3
+
+    area_dict = {'unidadesvecinales':'COD_UNICO_',
+                 'zonascensales':'GEOCODI',
+                 'hex':'hex_id'
+                 }
+    
+    k = len(area_dict.keys())
+    i = 1
+
+    for area_analysis in area_dict.keys():
+
+        aup.log(f"STARTING PART 2: NODES DATA TO AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
+
+        # 2.1 --------------- LOAD AND FORMAT AREA OF ANALYSIS GDF
+        # ------------------- This step loads the current area of analysis and prepares it as an empty container
+
+        code_column = area_dict[area_analysis]
         
-        # 1.1f) Save output
-        aup.log(f"--- Saving nodes proximity to {source}.")
-        if save:
-            aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
-            aup.log(f"--- Saved nodes proximity to {source} in database.")
+        # Load area of analysis gdf
+        if area_analysis == 'unidadesvecinales':
+            gdf = gpd.read_file(areas_dir+"santiago_unidadesvecinales_zonaurbana.geojson")
+            gdf = gdf[[code_column,'geometry']].copy()
+            aup.log(f"--- 2.1 - Area of analysis {i}/{k}: Loaded area of analysis gdf.")
+
+        elif area_analysis == 'zonascensales':
+            gdf = gpd.read_file(areas_dir+"zonas_censales_hogares_RM.shp")
+            gdf = gdf[[code_column,'geometry']].copy()
+            aup.log(f"--- 2.1 - Area of analysis {i}/{k}: Loaded area of analysis gdf.")
+
+        elif area_analysis == 'hex':
+            # For this script, will only use res=10
+            res = 10
+
+            gdf = aup.create_hexgrid(aoi, res)
+            gdf.rename(columns={f'hex_id_{res}':'hex_id'}, inplace=True)
+            gdf['res'] = res
+            gdf = gdf[[code_column,'geometry']].copy()  
+            aup.log(f"--- 2.1 - Area of analysis {i}/{k}: Created {len(gdf)} hexagons at resolution {res}.")
+        
+        # Explode area of analysis gdf
+        gdf = gdf.explode(ignore_index=True)
+
+        # 2.2 --------------- GROUP DATA BY AREA OF ANALYSIS
+        # ------------------- This groups proximity data by area of analysis
+
+        if area_analysis == 'hex':
+
+            hex_gdf = gdf.copy()
+            poly_proximity = gpd.GeoDataFrame()
+
+            for r in hex_gdf.res.unique():
+
+                # Calculate mean proximity within area of analysis
+                hex_tmp = hex_gdf[hex_gdf.res == r].copy()
+                hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_cols, 'hex_id')
+                hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
+                hex_tmp['res'] = r
+                aup.log(f"--- 2.2 - Area of analysis {i}/{k}: Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
+
+                # Merge to poly_proximity gdf
+                poly_proximity = pd.concat([poly_proximity, hex_tmp], 
+                                           ignore_index = True, 
+                                           axis = 0)
+                aup.log(f"--- 2.2 - Area of analysis {i}/{k}: Merged {len(hex_tmp)} hexagons to poly_proximity gdf.")
+
+                del hex_tmp
+        
+        # If not hex
+        else:
+            r = 0 # no resolution needed for polygons different from h3 hexagons
+            poly_proximity = aup.group_by_hex_mean(nodes_analysis, gdf, r, source_cols, code_column)
+        aup.log(f"--- 2.2 - Area of analysis {i}/{k}: Calculated mean proximity for {len(poly_proximity)} polygons.")
+
+
+        # 2.3 --------------- FINAL FORMAT AND SAVE
+        # ------------------- This step gives final formating to proximity data and saves it localy
+        aup.log(f"--- 2.3 - Area of analysis {i}/{k}: Giving final format and saving {area_analysis} proximity data.")
+
+        poly_proximity = poly_proximity.set_geometry('geometry')
+        poly_proximity = poly_proximity.set_crs("EPSG:4326")
+        poly_proximity['city'] = 'Santiago'
 
         if local_save:
-            nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
-            aup.log(f"--- Saved nodes proximity to {source} locally.")
-            
-        if save_space:
-            del nodes_analysis
+            area_proximity_table = f"santiago_{area_analysis}proximity_{str_walk_speed}_kmh.gpkg"
+            poly_proximity.to_file(local_save_dir + area_proximity_table, driver='GPKG')
+            aup.log(f"--- 2.3 - Area of analysis {i}/{k}: Saved {area_analysis} proximity data locally.")
 
+    ########################################################## PART 3 ####################################################################
+    ########################################################### HQSL #####################################################################
+
+        aup.log(f"--- STARTING PART 3 (HQSL) FOR AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
+
+        prox_gdf = poly_proximity.copy()
+
+        # 3.1 --------------- AREAL DATA
+        # ------------------- This step loads areal data (Not processed through proximity analysis).
+        aup.log(f"--- 3.1 - Area of analysis {i}/{k}: Loading areal data.")
+
+        if area_analysis == 'hex':
+            poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal_res{res}.gpkg')
+        else:
+            poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal.gpkg')
+            
+        poly_areal = poly_areal.rename(columns={'oficinas_sum':'oficinas_count',
+                                                'pct_social_viv':'social_viv_count',
+                                                'viv_sum':'houses_count',
+                                                'pct_hotel':'hotel_count',
+                                                'ndvi_mean':'ndvi_count'})
+        
+        # 3.2 --------------- DATA TREATMENT
+        # ------------------- This step prepares proximity data and merges it with areal data
+        aup.log(f"--- 3.2 - Area of analysis {i}/{k}: Joining _priv and _pub pois in {area_analysis}.")
+        
+        join_pois_list = ['hospital','clinica','consult_ado', 'museos','vacunatorio','eq_deportivo',]
+        
+        for source in join_pois_list:
+            # join count columns for private and public in one encompassing column
+            prox_gdf[f"{source}_count_15min"] = prox_gdf[f"{source}_priv_count_15min"] + prox_gdf[f"{source}_pub_count_15min"]
+            # remove 0 values from time
+            prox_gdf.loc[prox_gdf[f"{source}_pub_time"]==0] = np.nan
+            prox_gdf.loc[prox_gdf[f"{source}_priv_time"]==0] = np.nan
+            # assign general minimum time
+            prox_gdf[f"{source}_time"] = prox_gdf[[f"{source}_pub_time", f"{source}_priv_time"]].min(axis=1)
+            # remove duplicate info columns
+            prox_gdf = prox_gdf.drop(columns=[f"{source}_pub_count_15min", f"{source}_priv_count_15min",
+                                              f"{source}_pub_time", f"{source}_priv_time"])
+            # fill na with 0 for future processing
+            prox_gdf['hospital_time'].fillna(0, inplace=True)
+
+        # Merge areal and proximity data
+        poly_analysis = poly_areal.merge(prox_gdf.drop(columns='geometry'), on=code_column, how='left')
+        poly_analysis = poly_analysis.explode(ignore_index=True)
+        poly_analysis = poly_analysis.dissolve(by=code_column)
+        poly_analysis = poly_analysis.reset_index()
+
+        # 3.3 --------------- HQSL Function - Variables analysis
+        # ------------------- This step scales data
+        aup.log(f"--- 3.3 - Area of analysis {i}/{k}: Processing variables analysis.")
+        # ------------------------------
+        # use scale functions for each column
+        for i in tqdm(range(len(weight_dict.keys())),position=0,leave=True):
+            # gather specific source
+            source = list(weight_dict.keys())[i]
+            # iterate over columns
+            for col_name in poly_analysis.columns:
+                # select column with count information -- refers to the amount of opportunities available at 15 min
+                if source in col_name and 'count' in col_name:
+                    if f'{source}_time' in poly_analysis.columns:
+                        poly_analysis[f'{source}_time'].fillna(0, inplace=True)
+                    poly_analysis[col_name].fillna(0, inplace=True)
+
+                    # source scaling
+                    poly_analysis[f'{source}_scaled'] = poly_analysis[col_name].apply(lambda x:scale_source_fn(x,
+                                                                                                               source,
+                                                                                                               weight_dict,
+                                                                                                               poly_analysis[col_name].mean(),
+                                                                                                               poly_analysis[col_name].std()))
+                    # treat 0 time values -- hexagons without nodes 
+                    if area_analysis == 'hex':
+                        if weight_dict[source] != 'specific':
+                            # assign nan values to hexagons without nodes to avoid affecting the mean calculation process
+                            #if source in join_pois_list:
+                            #    hex_analysis.loc[hex_analysis.supermercado_time==0,f'{source}_scaled'] = np.nan
+                            if source == 'hotel' or source == 'oficinas':
+                                continue
+                            else:
+                                poly_analysis.loc[poly_analysis[f'{source}_time']==0,f'{source}_scaled'] = np.nan
+                                
+                            # calculate mean count value
+                            poly_analysis.loc[poly_analysis[f'{source}_time']==0, f'{source}_scaled'] = poly_analysis.loc[poly_analysis[f'{source}_time']==0].apply(lambda x: neighbour_mean(x['hex_id'],
+                                                                                                                                                                                             'hex_id',
+                                                                                                                                                                                             poly_analysis,
+                                                                                                                                                                                             f'{source}_scaled'), axis=1)
+        # 3.4 --------------- HQSL Function - HQSL Index calculation
+        # ------------------- This step calculates HQSL
+        aup.log(f"--- 3.4 - Area of analysis {i}/{k}: Calculating HQSL.")
+
+        # ------------------------------
+        hex_ind = indicator_fn(poly_analysis, parameters_dict)
+        hex_social_fn = social_fn(poly_analysis, parameters_dict)
+        hex_hqsl = hqsl_fn(hex_social_fn, parameters_dict)
+        
+        hex_idx = hex_ind.merge(hex_social_fn.drop(columns='geometry'), on=code_column)
+        hex_idx = hex_idx.merge(hex_hqsl.drop(columns='geometry'), on=code_column)
+
+        # 3.5 --------------- SAVING
+        # ------------------- This step saves HQSL result.
+        if area_analysis == 'hex':
+            hex_idx['res'] = res
+        
+        hex_idx = hex_idx.dropna()
+                                
+        if local_save:
+            aup.log(f"--- 3.5 - Area of analysis {i}/{k}: Saving HQSL index locally.")
+            hex_idx.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}analysis_{str_walk_speed}_kmh.gpkg', driver='GPKG')
+        
         i+=1
 
 if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 27.')
 
-    ########################################################## DATA FOR PART 1 ###########################################################
+    #################################################### DATA FOR PART 1 and 2 ###########################################################
     ############################################## NAVIGABLE NETWORK AND PROXIMITY DATA ##################################################
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
@@ -206,7 +716,7 @@ if __name__ == "__main__":
     # --------------- LIST OF POIS TO BE EXAMINED
     # This list should contain the source_name that will be assigned to each processed poi.
     # That source_name will be stored in a 'source' column at first and be turned into a column name after all pois are processed.
-    # That source_name must also be the name of the file stored in gral_dir (.gpkg)
+    # That source_name must also be the name of the file stored in pois_dir (.gpkg)
     # e.g if source_list = ['vacunatorio_pub'], vacanatorio_pub.gpkg must exist.
 
     source_list = ['carniceria','hogar','bakeries','supermercado','banco', #supplying-wellbeing
@@ -249,15 +759,27 @@ if __name__ == "__main__":
     # --------------- UNIQUE ID POIS (Special proximity cases)
     # From source_list, sources that have an unique ID and require special processing (id_pois_time function)
     # Unique ID for each of them is 'ID'.
-    unique_id_sources = ['ferias','ep_plaza_big','ciclovias']
-    # From source_list, sources that require normal and special processing (pois_time + id_pois_time functions)
-    # Unique ID for each of them is 'ID'.
-    special_sources = ['ep_plaza_small']
+    unique_id_sources = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 
-    # --------------- POIS LOCAL DIR
-    # general pois local dir
-    gral_dir = '../data/external/temporal_fromjupyter/santiago/pois/'
+    # --------------- LOCAL INPUT AND OUTPUT DIRECTORIES
+    # general directory (All directories derive from here)
+    gral_dir = '../data/external/santiago/'
 
+    # Dir 1 - If not using OSMnx network (INPUT NETWORK), will use this file to create a navigable network (create_filtered_navigable_network() function)
+    public_space_quality_dir = gral_dir + "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
+
+    # Dir 2 - Local directory where pois files are located
+    all_pois_dir = gral_dir + "pois/"
+
+    # Dir 3 - Local directory where areas of analysis are located (Used in PART 2 and PART 3)
+    areas_dir = gral_dir + "areas_of_analysis/"
+
+    # Dir 4 - Local directory where outputs are saved
+    local_save_dir = gral_dir + "output/"
+
+    # Dir 5 - Local directory where areal data is located
+    areal_dir = gral_dir + 'areal_data/'
+    
     # --------------- AREA OF INTEREST
     # Area of interest (aoi)
     aoi_schema = 'projects_research'
@@ -265,11 +787,12 @@ if __name__ == "__main__":
     # 'AM_Santiago' represents Santiago's metropolitan area, 'alamedabuffer_4500m' also available
     city = 'alamedabuffer_4500m'
 
-    # --------------- PROYECTION
+    # --------------- PROJECTION
+    # Projection to be used whenever necessary
     projected_crs = 'EPSG:32719'
 
     # --------------- METHODOLOGY
-    # Pois proximity methodology - Count pois at a given time proximity?
+    # Pois proximity methodology - Count pois at a given time proximity? (If true, second tupple value is distance in minutes)
     count_pois = (True,15)
 
     # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
@@ -278,14 +801,13 @@ if __name__ == "__main__":
     
     # --------------- INPUT NETWORK
     # If using previously downloaded OSMnx network available in database, set following to true
-    osmnx_network = True
+    osmnx_network = False
     # If true, set schemas and tables
     network_schema = 'projects_research'
     edges_table = 'santiago_edges'
     nodes_table = 'santiago_nodes'
     # Else, set external network data (Allows for filtering network according to a given column value)
-    public_space_quality_dir = "../data/external/temporal_todocker/santiago/compiler_process/calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
-    projected_crs = "EPSG:32719"
+    # (Make sure public_space_quality_dir file exists)
     filtering_column = 'pje_ep'
     filtering_value = 0.5 # Will keep equal or more than this value
 
@@ -294,17 +816,173 @@ if __name__ == "__main__":
     save_space = True
 
     # --------------- SAVING DATA
-    ##### WARNING ##### WARNING ##### WARNING #####
-    save = True # save output to database?
-    project_code = 'p00' #Code to be added to saved files
-    save_schema = 'projects_research'
-    local_save = False # save output to local? (Make sure nodes_local_save_dir directory exists)
-    ##### WARNING ##### WARNING ##### WARNING #####
+    local_save = False # save output to local? (Make sure output directory exists)
 
-    ########################################################## SCRIPT START ###########################################################
+    ###################################################### DATA FOR PART 3 ###############################################################
+    ########################################################### HQSL #####################################################################
 
-    # 0.0 --------------- BASE DATA FOR POIS-NODES ANALYSIS
-    # ------------------- This step downloads the area of interest and network used to measure distance.
+    # --------------- PARAMETERS AND WEIGHT DICTS
+    # Structure: {social_functions:{themes:[source_names]}}
+    parameters_dict = {'supplying':{'wellbeing':['carniceria', #Accessibility to Butcher/Fish Shops
+                                                'hogar', #Accessibility to Hardware/Paint Shops
+                                                #Not available: Accessibility to Greengrocers
+                                                'bakeries', #Accessibility to Bakeries and delis
+                                                'supermercado',#Accessibility to supermarkets
+                                                'banco'#Accessibility to bank
+                                                ],
+                                    'sociability':['ferias',#Accessibility to city fairs/markets
+                                                'local_mini_market',#Accessibility to local and mini markets
+                                                'correos'#ADDED: MAIL SERVICE
+                                                ],
+                                    'environmental_impact':['centro_recyc'#Accessibility to recycling center
+                                                            #Not available: Accessibility to compost
+                                                        ]
+                                },
+                    'caring':{'wellbeing':['hospital', #Accessibility to hospital
+                                            'clinica',#Accessibility to public clinics
+                                            'farmacia',#Accessibility to pharmacies
+                                            'vacunatorio',#Accessibility to vaccination center
+                                            'consult_ado',#Accessibility to optician/audiologist(###ADDED DENTIST)
+                                            'salud_mental',###ADDED: MENTAL HEALTH
+                                            'labs_priv',###ADDED: LABORATORIES
+                                            'residencia_adumayor'###ADDED: ELDERLY PERMANENT RESIDENCIES
+                                            ],
+                                'sociability':['eq_deportivo',#Accessibility to sports equipments
+                                                'club_deportivo'#Accessibility to sport clubs
+                                            ],
+                                'environmental_impact':['noise',
+                                                        'temp'
+                                    #Not available: Air polution
+                                                        ]
+                                },
+                    'living':{'wellbeing':['civic_office',#Accessibility to civic offices
+                                            #Not available: Number of street bentches
+                                            'tax_collection',#ADDED: AFIP(TAX COLLECTOR)
+                                            'social_security',#ADDED: SOCIAL SECURITY
+                                            'police',#Accessibility to police(###MOVED FROM LIVING TO CARING)
+                                            'bomberos'#Accessibility to fire stations
+                                            #Not available: Accessibility to street lamp
+                                            ],
+                                'sociability':['houses',#Accessibility to permanent residencies
+                                                'social_viv',#Accessibility to social housing
+                                                #Not available: Accessibility to student housing
+                                                'hotel'#ADDED: HOTELS
+                                            ],
+                                'environmental_impact':['inter',
+                                                        #Not available: Corrected compactness
+                                                        #Not available: Width of sidewalks
+                                                        ],
+                                },
+                    'enjoying':{'wellbeing':['museos',#Accessibility to museums
+                                                #Not available: Accessibility to theater,operas
+                                                'cines',#Accessibility to cinemas
+                                                'sitios_historicos',#Accessibility to historical places
+                                                'ndvi'#Number of trees
+                                            ],
+                                'sociability':['restaurantes_bar_cafe',#Accessibility to bars/cafes + Accessibility to restaurants
+                                                'librerias',#Accessibility to record and book stores, galleries, fairs
+                                                #Not available: Accessibility to cultural and/or formative spaces
+                                                #Not available: Accessibility to places of workship
+                                                'ep_plaza_small'#Accessibility to boulevards, linear parks, small squares + Accessibility to squares
+                                                ],
+                                'environmental_impact':['ep_plaza_big'#Accessibility to big parks
+                                                        #Not available: Accessibility to shared gardens
+                                                        #Not available: Accessibility to urban playgrounds
+                                                        ]
+                                },
+                    'learning':{'wellbeing':['edu_basica_pub',#'edu_basica_priv',#Accessibility to public elementary school
+                                                'edu_media_pub',#'edu_media_priv',#Accessibility to public high school
+                                                'jardin_inf_pub',#'jardin_inf_priv',#Similar to Accessibility to childcare
+                                                'universidad',#Accessibility to university
+                                                'edu_tecnica',#ADDED: TECHNICAL EDUCATION
+                                            ],
+                                'sociability':['edu_adultos_pub',#'edu_adultos_priv',#Accessibility to adult formation centers
+                                                'edu_especial_pub',#'edu_especial_priv',#Accessibility to specialized educational centers
+                                                #Not available: Accesibility to establishments and services for disabled adults
+                                                'bibliotecas'#Accessibility to libraries(###MOVED FROM ENJOYING TO LEARNING)
+                                                ],
+                                'environmental_impact':['centro_edu_amb'#Accessibility to centers for learning environmental activities
+                                                        #Not available: Accessibility to gardening schools
+                                                        ],
+                                },
+                    'working':{'wellbeing':['paradas_tp_ruta',#Accessibility to bus stop
+                                            'paradas_tp_metro',#Accessibility to metro
+                                            'paradas_tp_tren'#Accessibility to train stop
+                                            ],
+                                'sociability':['oficinas'#Accessibility to office
+                                                #Not available: Accessibility to incubators
+                                                #Not available: AccSeveral other articles cite 60dB as a safe noise zone. essibility to coworking places
+                                            ],
+                                'environmental_impact':['ciclovias',
+                                                        'estaciones_bicicletas'#Accessibility to bike lanes
+                                                        #Not available: Accessibility to shared bike stations
+                                                        ]
+                                }
+                    }
+
+    weight_dict = {'carniceria':'rare', #SUPPLYING
+                'hogar':'rare',
+                'bakeries':'rare',
+                'supermercado':'rare',
+                'banco':'rare',
+                'ferias':'rare',
+                'local_mini_market':'rare',
+                'correos':'very_rare',
+                'centro_recyc':'rare',
+                #CARING
+                'hospital':'very_rare',
+                'clinica':'rare',
+                'farmacia':'rare',
+                'vacunatorio':'very_rare',
+                'consult_ado':'very_rare',
+                'salud_mental':'very_rare',
+                'labs_priv':'very_rare',
+                'residencia_adumayor':'rare',
+                'eq_deportivo':'rare',
+                'club_deportivo':'rare',
+                'noise':'specific',
+                'temp':'specific',
+                #LIVING
+                'civic_office':'rare', 
+                'tax_collection':'very_rare',
+                'social_security':'very_rare',
+                'police':'very_rare',
+                'bomberos':'very_rare',
+                'houses':'specific',
+                'social_viv':'specific',
+                'hotel':'rare',
+                'inter':'specific',
+                #ENJOYING
+                'museos':'very_rare',
+                'cines':'very_rare',
+                'sitios_historicos':'rare',
+                'ndvi':'specific',
+                'restaurantes_bar_cafe':'frequent',
+                'librerias':'rare',
+                'ep_plaza_small':'frequent',
+                'ep_plaza_big':'rare',
+                #LEARNING
+                'edu_basica_pub':'rare', 
+                'edu_media_pub':'rare',
+                'jardin_inf_pub':'rare',
+                'universidad':'very_rare',
+                'edu_tecnica':'very_rare',
+                'edu_adultos_pub':'rare',
+                'edu_especial_pub':'rare',
+                'bibliotecas':'very_rare',
+                'centro_edu_amb':'very_rare',
+                #WORKING
+                'paradas_tp_ruta':'frequent',
+                'paradas_tp_metro':'very_rare',
+                'paradas_tp_tren':'very_rare',
+                'oficinas':'specific',
+                'ciclovias':'rare',
+                'estaciones_bicicletas':'rare',
+                }
+    
+    ######################################################################################################################################
+    ########################################################## SCRIPT START ##############################################################
+    ######################################################################################################################################
 
     # Area of interest (aoi)
     aup.log("--- Downloading area of interest.")
@@ -320,33 +998,12 @@ if __name__ == "__main__":
         aup.log("--- Converting local data to OSMnx format network.")
         G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
 
-    # Nodes proximity
+    # Main function
     for walking_speed in walking_speed_list:
         aup.log('--'*45)
-        aup.log(f"--- Running Script [Modified] for ep_plaza_small for speed = {walking_speed}km/hr.")
+        aup.log(f"--- Setting speed = {walking_speed}km/hr.")
         str_walk_speed = str(walking_speed).replace('.','_')
-
-        # Set saving dir and database table names
-        nodes_local_save_dir = f"../data/processed/santiago/santiago_{project_code}_nodesproximity_{str_walk_speed}.gpkg"
-        nodes_save_table = f'santiago_{project_code}_nodesproximity_{str_walk_speed}_kmh'
-
-        if save:
-            # Saved sources check (prevents us from uploading same source twice/errors on source list)
-            aup.log(f"--- Verifying sources by comparing to data already uploaded.")
-            try:
-                # Load sources already processed
-                query = f"SELECT DISTINCT source FROM {save_schema}.{nodes_save_table}"
-                saved_data = aup.df_from_query(query)
-                saved_sources = list(saved_data.source.unique())
-            except:
-                saved_sources = []
-                aup.log(f"--- No data found for {nodes_save_table}.")
             
-            # Verify current source list
-            source_speed_list = [source_check for source_check in source_speed_list
-                                  if source_check not in saved_sources]
-            aup.log(f"--- {len(source_speed_list)} sources to be processed.")
-            
-        # If passed source check, proceed to main function
+        # Proceed to main function
         aup.log(f"--- Running Script for verified sources.")
-        main(source_list, aoi, G, nodes, edges, walking_speed, local_save, save)
+        main(source_list, aoi, G, nodes, edges, walking_speed, local_save)
