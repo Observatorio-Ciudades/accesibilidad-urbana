@@ -9,6 +9,7 @@ from shapely.geometry import Point
 import osmnx as ox
 
 from tqdm import tqdm
+import h3
 
 import os
 import sys
@@ -188,7 +189,7 @@ def noise_fn(cont):
         return res_val_regression(min_x, max_x, min_y, max_y, cont)
 
 
-def temp_fn(cont, mean, std):
+def temp_fn(area_analysis, cont, mean, std):
     if cont >= (mean + 2*std):
         res_val = 0
     elif cont < (mean + 2*std) and cont >= (mean + std):
@@ -224,9 +225,9 @@ def social_viv_fn(cont):
         return 0
     else:
         return res_val_regression(min_x, max_x, min_y, max_y, cont)
+    
 
-
-def specific_fn(cont, source, mean, std):
+def specific_fn(cont, source, area_analysis, mean, std):
     if 'ndvi' in source:
         return ndvi_fn(cont)
     elif 'inter' in source:
@@ -234,7 +235,7 @@ def specific_fn(cont, source, mean, std):
     elif 'noise' in source:
         return noise_fn(cont)
     elif 'temp' in source:
-        return temp_fn(cont, mean, std)
+        return temp_fn(area_analysis, cont, mean, std)
     elif 'houses' in source:
         return household_fn(cont)
     elif 'social_viv' in source:
@@ -243,7 +244,7 @@ def specific_fn(cont, source, mean, std):
         return office_fn(cont)
 
 
-def scale_source_fn(cont, source, weight_dict, mean, std):
+def scale_source_fn(cont, source, weight_dict, area_analysis, mean, std):
     if weight_dict[source] == 'rare':
         return rare_fn(cont)
     elif weight_dict[source] == 'very_rare':
@@ -251,12 +252,16 @@ def scale_source_fn(cont, source, weight_dict, mean, std):
     elif weight_dict[source] == 'frequent':
         return frequent_fn(cont)
     elif weight_dict[source] == 'specific':
-        return specific_fn(cont, source, mean, std)
+        return specific_fn(cont, source, area_analysis, mean, std)
+    
+
+def neighbour_mean(hex_id, hex_id_name, hex_bins, col_name):
+    return hex_bins.loc[hex_bins[hex_id_name].isin(h3.k_ring(hex_id,1)),col_name].mean()
 
 ##########################################################################################################################################
 # HQSL FUNCTIONS
 
-def hqsl_fn(hex_gdf, parameters_dict):
+def hqsl_fn(hex_gdf, parameters_dict, code_column):
 
     hex_gdf = hex_gdf.copy()
     
@@ -275,7 +280,7 @@ def hqsl_fn(hex_gdf, parameters_dict):
     return hex_gdf
 
 
-def social_fn(hex_gdf, parameters_dict):
+def social_fn(hex_gdf, parameters_dict, code_column):
     
     hex_gdf = hex_gdf.copy()
     
@@ -296,8 +301,8 @@ def social_fn(hex_gdf, parameters_dict):
     return hex_gdf
 
 
-def indicator_fn(hex_gdf, parameters_dict):
-    hex_ind = hex_analysis.copy()
+def indicator_fn(hex_gdf, parameters_dict, code_column):
+    hex_ind = hex_gdf.copy()
 
     filter_list = []
     
@@ -326,7 +331,7 @@ def indicator_fn(hex_gdf, parameters_dict):
 ##########################################################################################################################################
 # MAIN FUNCTION
 
-def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
+def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
     
     ############################################################### PART 1 ###############################################################
     #################################################### FIND NODES PROXIMITY TO POIS ####################################################
@@ -336,9 +341,11 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
 
     k = len(source_list)
     i = 1
-    source_cols =[]
+    all_source_cols =[]
 
     for source in source_list:
+
+        source_cols =[]
 
         # ----------
         # UNIQUE ID CONSIDERATION
@@ -350,10 +357,10 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
         # ----------
 
         aup.log("--"*40)
-        aup.log(f"--- Starting nodes proximity to pois using speed {walking_speed}km/hr for source {i}/{k}: {source}. ")
+        aup.log(f"--- Starting nodes proximity to pois for source {i}/{k}: {source}. ")
 
         # 1.1) Read pois from pois dir
-        aup.log(f"--- 1.1 - Source {i}/{k}: Reading pois dir.")
+        aup.log(f"--- Source {i}/{k} (1.1) - Reading pois dir.")
         # Directory where pois to be examined are located
         pois_dir = all_pois_dir + f'{source}.gpkg'
         # Load all pois from directory
@@ -392,19 +399,19 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
             source_pois = source_pois[['ID','geometry']]
         # ----------
 
-        aup.log(f"--- 1.2 - Source {i}/{k}: Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
+        aup.log(f"--- Source {i}/{k} (1.2) - Keeping {len(source_pois)} pois inside aoi from original {len(pois)} pois.")
 
         if save_space:
             del pois
 
         # 1.3) Calculate nodes proximity
-        aup.log(f"--- 1.3 - Source {i}/{k}: Calculating nodes proximity.")
-
         # ----------
         # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
             #################################################### SMALL PARKS ONLY [SECTION STARTS]
             if source == 'ep_plaza_small':
+                aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for special case.")
+
                 # pois_time() [for public spaces below 2000m2]
                 # For VERY small public spaces (below 2000m2), the proximity analysis will consider any poi derived from the geometry of interest (goi, polygon) because anyway it is small.
                 # Because we just care about one poi only (any), this step filters and drops duplicate IDs, keeping the first occurrence.
@@ -455,10 +462,12 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
             #################################################### SMALL PARKS ONLY [SECTION ENDS]
 
             else:
+                aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for unique ID case.")
                 # Function id_pois_time() consideres the unique ID belonging to each geometry of interest (goi).
                 source_nodes_time = aup.id_pois_time(G, nodes, edges, source_pois, source, 'length', walking_speed, 
                                                     goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
         else:
+            aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for regular case.")
             # Function pois_time() calculates proximity data from nodes to source (all) without considering any unique ID.
             source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',walking_speed, 
                                               count_pois, projected_crs)
@@ -476,30 +485,29 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
         # 1.4) New nodes_analysis format (Not tidy data)
         # Rename time column
         source_nodes_time.rename(columns={'time_'+source:f'{source}_time'}, inplace=True)
+        # Register time column
+        source_cols.append(f'{source}_time') # Current source only
+        all_source_cols.append(f'{source}_time') # All sources, this list will be used in PART 2.
+
         # Rename and format count column
         if count_pois[0]:
             source_nodes_time.rename(columns={f'{source}_{count_pois[1]}min':f'{source}_count_{count_pois[1]}min'}, inplace=True)
             source_nodes_time[f'{source}_count_{count_pois[1]}min'] = source_nodes_time[f'{source}_count_{count_pois[1]}min'].astype(int)
+            # Register count column
+            source_cols.append(f'{source}_count_{count_pois[1]}min') # Current source only
+            all_source_cols.append(f'{source}_count_{count_pois[1]}min') # All sources, this list will be used in PART 2.
+
         # Create or append to nodes_analysis
         if i == 1:
-            if count_pois[0]:
-                nodes_analysis = source_nodes_time[['osmid','geometry',f'{source}_time',f'{source}_count_{count_pois[1]}min']]
-            else:
-                nodes_analysis = source_nodes_time[['osmid','geometry',f'{source}_time']]
-            aup.log(f"--- 1.4 - Source {i}/{k}: Created nodes analysis with {len(source_nodes_time)} for the first time.")
+            nodes_analysis = source_nodes_time[['osmid','geometry']+source_cols]
+            aup.log(f"--- Source {i}/{k} (1.4) - Created nodes analysis with {len(source_nodes_time)} for the first time.")
         else:
-            nodes_analysis = nodes_analysis.merge(source_nodes_time, on='osmid', how='left')
-            aup.log(f"--- 1.4 - Source {i}/{k}: Appended {len(source_nodes_time)} nodes to nodes analysis.")
+            nodes_analysis = nodes_analysis.merge(source_nodes_time[['osmid']+source_cols], on='osmid', how='left')
+            aup.log(f"--- Source {i}/{k} (1.4) - Appended {len(source_nodes_time)} nodes to nodes analysis.")
         
         if save_space:
             del source_nodes_time
-
-        # Append to source_cols list the time (and count if requested) column names
-        # This list will be used in PART 2.
-        source_cols.append(f'{source}_time')
-        if count_pois[0]:
-            source_cols.append(f'{source}_count_{count_pois[1]}min')
-
+        
         i+=1
     
     ############################################################### PART 2 ###############################################################
@@ -528,12 +536,12 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
         if area_analysis == 'unidadesvecinales':
             gdf = gpd.read_file(areas_dir+"santiago_unidadesvecinales_zonaurbana.geojson")
             gdf = gdf[[code_column,'geometry']].copy()
-            aup.log(f"--- 2.1 - Area of analysis {i}/{k}: Loaded area of analysis gdf.")
+            aup.log(f"--- Area of analysis {i}/{k} (2.1) - Loaded area of analysis gdf.")
 
         elif area_analysis == 'zonascensales':
             gdf = gpd.read_file(areas_dir+"zonas_censales_hogares_RM.shp")
             gdf = gdf[[code_column,'geometry']].copy()
-            aup.log(f"--- 2.1 - Area of analysis {i}/{k}: Loaded area of analysis gdf.")
+            aup.log(f"--- Area of analysis {i}/{k} (2.1) - Loaded area of analysis gdf.")
 
         elif area_analysis == 'hex':
             # For this script, will only use res=10
@@ -542,8 +550,14 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
             gdf = aup.create_hexgrid(aoi, res)
             gdf.rename(columns={f'hex_id_{res}':'hex_id'}, inplace=True)
             gdf['res'] = res
-            gdf = gdf[[code_column,'geometry']].copy()  
-            aup.log(f"--- 2.1 - Area of analysis {i}/{k}: Created {len(gdf)} hexagons at resolution {res}.")
+            gdf = gdf[[code_column,'res','geometry']].copy()  
+            aup.log(f"--- Area of analysis {i}/{k} (2.1) - Created {len(gdf)} hexagons at resolution {res}.")
+        
+        # Set gdf CRS
+        try:
+            gdf = gdf.to_crs("EPSG:4326")
+        except:
+            gdf = gdf.set_crs("EPSG:4326")
         
         # Explode area of analysis gdf
         gdf = gdf.explode(ignore_index=True)
@@ -560,38 +574,42 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
 
                 # Calculate mean proximity within area of analysis
                 hex_tmp = hex_gdf[hex_gdf.res == r].copy()
-                hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, source_cols, 'hex_id')
+                hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, all_source_cols, 'hex_id')
                 hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
                 hex_tmp['res'] = r
-                aup.log(f"--- 2.2 - Area of analysis {i}/{k}: Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
+                aup.log(f"--- Area of analysis {i}/{k} (2.2) - Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
 
                 # Merge to poly_proximity gdf
                 poly_proximity = pd.concat([poly_proximity, hex_tmp], 
                                            ignore_index = True, 
                                            axis = 0)
-                aup.log(f"--- 2.2 - Area of analysis {i}/{k}: Merged {len(hex_tmp)} hexagons to poly_proximity gdf.")
+                aup.log(f"--- Area of analysis {i}/{k} (2.2) - Merged {len(hex_tmp)} hexagons to poly_proximity gdf.")
 
                 del hex_tmp
         
         # If not hex
         else:
             r = 0 # no resolution needed for polygons different from h3 hexagons
-            poly_proximity = aup.group_by_hex_mean(nodes_analysis, gdf, r, source_cols, code_column)
-        aup.log(f"--- 2.2 - Area of analysis {i}/{k}: Calculated mean proximity for {len(poly_proximity)} polygons.")
+            poly_proximity = aup.group_by_hex_mean(nodes_analysis, gdf, r, all_source_cols, code_column)
+        aup.log(f"--- Area of analysis {i}/{k} (2.2) - Calculated mean proximity for {len(poly_proximity)} polygons.")
 
 
         # 2.3 --------------- FINAL FORMAT AND SAVE
         # ------------------- This step gives final formating to proximity data and saves it localy
-        aup.log(f"--- 2.3 - Area of analysis {i}/{k}: Giving final format and saving {area_analysis} proximity data.")
+        aup.log(f"--- Area of analysis {i}/{k} (2.3) - Giving final format and saving {area_analysis} proximity data.")
 
         poly_proximity = poly_proximity.set_geometry('geometry')
-        poly_proximity = poly_proximity.set_crs("EPSG:4326")
+        try:
+            poly_proximity = poly_proximity.to_crs("EPSG:4326")
+        except:
+            poly_proximity = poly_proximity.set_crs("EPSG:4326")
+        
         poly_proximity['city'] = 'Santiago'
 
         if local_save:
             area_proximity_table = f"santiago_{area_analysis}proximity_{str_walk_speed}_kmh.gpkg"
             poly_proximity.to_file(local_save_dir + area_proximity_table, driver='GPKG')
-            aup.log(f"--- 2.3 - Area of analysis {i}/{k}: Saved {area_analysis} proximity data locally.")
+            aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved {area_analysis} proximity data locally.")
 
     ########################################################## PART 3 ####################################################################
     ########################################################### HQSL #####################################################################
@@ -602,7 +620,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
 
         # 3.1 --------------- AREAL DATA
         # ------------------- This step loads areal data (Not processed through proximity analysis).
-        aup.log(f"--- 3.1 - Area of analysis {i}/{k}: Loading areal data.")
+        aup.log(f"--- Area of analysis {i}/{k} (3.1) - Loading areal data.")
 
         if area_analysis == 'hex':
             poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal_res{res}.gpkg')
@@ -617,7 +635,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
         
         # 3.2 --------------- DATA TREATMENT
         # ------------------- This step prepares proximity data and merges it with areal data
-        aup.log(f"--- 3.2 - Area of analysis {i}/{k}: Joining _priv and _pub pois in {area_analysis}.")
+        aup.log(f"--- Area of analysis {i}/{k} (3.2) - Joining _priv and _pub pois in {area_analysis}.")
         
         join_pois_list = ['hospital','clinica','consult_ado', 'museos','vacunatorio','eq_deportivo',]
         
@@ -643,12 +661,12 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
 
         # 3.3 --------------- HQSL Function - Variables analysis
         # ------------------- This step scales data
-        aup.log(f"--- 3.3 - Area of analysis {i}/{k}: Processing variables analysis.")
+        aup.log(f"--- Area of analysis {i}/{k} (3.3) - Processing variables analysis.")
         # ------------------------------
         # use scale functions for each column
-        for i in tqdm(range(len(weight_dict.keys())),position=0,leave=True):
+        for j in tqdm(range(len(weight_dict.keys())),position=0,leave=True):
             # gather specific source
-            source = list(weight_dict.keys())[i]
+            source = list(weight_dict.keys())[j]
             # iterate over columns
             for col_name in poly_analysis.columns:
                 # select column with count information -- refers to the amount of opportunities available at 15 min
@@ -661,6 +679,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
                     poly_analysis[f'{source}_scaled'] = poly_analysis[col_name].apply(lambda x:scale_source_fn(x,
                                                                                                                source,
                                                                                                                weight_dict,
+                                                                                                               area_analysis,
                                                                                                                poly_analysis[col_name].mean(),
                                                                                                                poly_analysis[col_name].std()))
                     # treat 0 time values -- hexagons without nodes 
@@ -681,12 +700,12 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
                                                                                                                                                                                              f'{source}_scaled'), axis=1)
         # 3.4 --------------- HQSL Function - HQSL Index calculation
         # ------------------- This step calculates HQSL
-        aup.log(f"--- 3.4 - Area of analysis {i}/{k}: Calculating HQSL.")
+        aup.log(f"--- Area of analysis {i}/{k} (3.4) - Calculating HQSL.")
 
         # ------------------------------
-        hex_ind = indicator_fn(poly_analysis, parameters_dict)
-        hex_social_fn = social_fn(poly_analysis, parameters_dict)
-        hex_hqsl = hqsl_fn(hex_social_fn, parameters_dict)
+        hex_ind = indicator_fn(poly_analysis, parameters_dict, code_column)
+        hex_social_fn = social_fn(poly_analysis, parameters_dict, code_column)
+        hex_hqsl = hqsl_fn(hex_social_fn, parameters_dict, code_column)
         
         hex_idx = hex_ind.merge(hex_social_fn.drop(columns='geometry'), on=code_column)
         hex_idx = hex_idx.merge(hex_hqsl.drop(columns='geometry'), on=code_column)
@@ -699,7 +718,7 @@ def main(source_list, aoi, nodes, edges, G, walking_speed, local_save):
         hex_idx = hex_idx.dropna()
                                 
         if local_save:
-            aup.log(f"--- 3.5 - Area of analysis {i}/{k}: Saving HQSL index locally.")
+            aup.log(f"--- Area of analysis {i}/{k} (3.5) - Saving HQSL index locally.")
             hex_idx.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}analysis_{str_walk_speed}_kmh.gpkg', driver='GPKG')
         
         i+=1
@@ -757,11 +776,12 @@ if __name__ == "__main__":
                    'ciclovias','estaciones_bicicletas']
     
     # --------------- UNIQUE ID POIS (Special proximity cases)
-    # From source_list, sources that have an unique ID and require special processing (id_pois_time function)
+    # From source_list, sources that have an unique ID and require special processing (id_pois_time() function instead of pois_time() function)
     # Unique ID for each of them is 'ID'.
     unique_id_sources = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 
     # --------------- LOCAL INPUT AND OUTPUT DIRECTORIES
+    # IMPORTANT NOTE: Make sure all directories exist.
     # general directory (All directories derive from here)
     gral_dir = '../data/external/santiago/'
 
@@ -801,13 +821,13 @@ if __name__ == "__main__":
     
     # --------------- INPUT NETWORK
     # If using previously downloaded OSMnx network available in database, set following to true
-    osmnx_network = False
+    osmnx_network = True
     # If true, set schemas and tables
     network_schema = 'projects_research'
     edges_table = 'santiago_edges'
     nodes_table = 'santiago_nodes'
-    # Else, set external network data (Allows for filtering network according to a given column value)
-    # (Make sure public_space_quality_dir file exists)
+    # Else (osmnx_network = False), set external network data (Allows for filtering network according to a given column value)
+    # IMPORTANT NOTE: Make sure public_space_quality_dir file exists.
     filtering_column = 'pje_ep'
     filtering_value = 0.5 # Will keep equal or more than this value
 
@@ -816,7 +836,8 @@ if __name__ == "__main__":
     save_space = True
 
     # --------------- SAVING DATA
-    local_save = False # save output to local? (Make sure output directory exists)
+    # IMPORTANT NOTE: Make sure local_save_dir exists
+    local_save = True # save output to local?
 
     ###################################################### DATA FOR PART 3 ###############################################################
     ########################################################### HQSL #####################################################################
@@ -1001,9 +1022,8 @@ if __name__ == "__main__":
     # Main function
     for walking_speed in walking_speed_list:
         aup.log('--'*45)
-        aup.log(f"--- Setting speed = {walking_speed}km/hr.")
         str_walk_speed = str(walking_speed).replace('.','_')
             
         # Proceed to main function
-        aup.log(f"--- Running Script for verified sources.")
+        aup.log(f"--- Running Script for speed: {walking_speed}km/hr.")
         main(source_list, aoi, G, nodes, edges, walking_speed, local_save)
