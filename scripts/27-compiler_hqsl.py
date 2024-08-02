@@ -29,6 +29,7 @@ def create_filtered_navigable_network(public_space_quality_dir, projected_crs, f
     pub_space_qty = pub_space_qty.set_crs(projected_crs)
     # Filter for data of relevance
     gdf = pub_space_qty[[filtering_column,'geometry']].copy()
+    gdf = gdf.to_crs("EPSG:4326")
 
     # 2.0 --------------- EXTRACT VERTICES
     # ------------------- This step extracts points from each linestring and stores them in gdf_points.
@@ -56,8 +57,17 @@ def create_filtered_navigable_network(public_space_quality_dir, projected_crs, f
     # Create nodes and edges
     nodes = gdf_points.copy()
     edges = gdf_exploded.copy()
-    nodes = nodes.set_crs("EPSG:4326")
-    edges = edges.set_crs("EPSG:4326")
+
+    # Set gdf CRS
+    try:
+        nodes = nodes.to_crs("EPSG:4326")
+    except:
+        nodes = nodes.set_crs("EPSG:4326")
+    try:
+        edges = edges.to_crs("EPSG:4326")
+    except:
+        edges = edges.set_crs("EPSG:4326")
+
     nodes, edges = aup.create_network(nodes, edges, projected_crs)
     # Filter them
     edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
@@ -525,7 +535,9 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
 
     for area_analysis in area_dict.keys():
 
-        aup.log(f"STARTING PART 2: NODES DATA TO AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
+        aup.log(f"CALCULATING PROXIMITY AND HQSL FOR AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
+
+        aup.log(f"--- STARTING PART 2: NODES DATA TO {area_analysis}.")
 
         # 2.1 --------------- LOAD AND FORMAT AREA OF ANALYSIS GDF
         # ------------------- This step loads the current area of analysis and prepares it as an empty container
@@ -561,6 +573,12 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
         
         # Explode area of analysis gdf
         gdf = gdf.explode(ignore_index=True)
+
+        # Clip area of analysis gdf to area of interest 
+        # (Data available within area of interest only, not clipping causes problems when computing neighbors data.)
+        gdf_cut = gpd.sjoin(gdf, aoi[['geometry']])
+        gdf_cut.drop(columns=['index_right'],inplace=True)
+        gdf = gdf_cut.copy()
 
         # 2.2 --------------- GROUP DATA BY AREA OF ANALYSIS
         # ------------------- This groups proximity data by area of analysis
@@ -614,7 +632,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
     ########################################################## PART 3 ####################################################################
     ########################################################### HQSL #####################################################################
 
-        aup.log(f"--- STARTING PART 3 (HQSL) FOR AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
+        aup.log(f"--- STARTING PART 3 (HQSL) FOR {area_analysis}.")
 
         prox_gdf = poly_proximity.copy()
 
@@ -632,6 +650,12 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
                                                 'viv_sum':'houses_count',
                                                 'pct_hotel':'hotel_count',
                                                 'ndvi_mean':'ndvi_count'})
+        
+        # Clip poly_aereal gdf to area of interest 
+        # (Data available within area of interest only, not clipping causes problems when computing neighbors data.)
+        poly_areal_cut = gpd.sjoin(poly_areal, aoi[['geometry']])
+        poly_areal_cut.drop(columns=['index_right'],inplace=True)
+        poly_areal = poly_areal_cut.copy()
         
         # 3.2 --------------- DATA TREATMENT
         # ------------------- This step prepares proximity data and merges it with areal data
@@ -786,7 +810,11 @@ if __name__ == "__main__":
     gral_dir = '../data/external/santiago/'
 
     # Dir 1 - If not using OSMnx network (INPUT NETWORK), will use this file to create a navigable network (create_filtered_navigable_network() function)
-    public_space_quality_dir = gral_dir + "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
+    public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
+    
+    # "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
+    # "calidad_ep/red_buena_calidad.shp"
+    # "calidad_ep/red_buena_calidad_pza_italia.shp"
 
     # Dir 2 - Local directory where pois files are located
     all_pois_dir = gral_dir + "pois/"
@@ -821,7 +849,7 @@ if __name__ == "__main__":
     
     # --------------- INPUT NETWORK
     # If using previously downloaded OSMnx network available in database, set following to true
-    osmnx_network = True
+    osmnx_network = False
     # If true, set schemas and tables
     network_schema = 'projects_research'
     edges_table = 'santiago_edges'
