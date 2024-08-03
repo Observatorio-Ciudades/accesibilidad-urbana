@@ -341,7 +341,7 @@ def indicator_fn(hex_gdf, parameters_dict, code_column):
 ##########################################################################################################################################
 # MAIN FUNCTION
 
-def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
+def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_tmp_fix):
     
     ############################################################### PART 1 ###############################################################
     #################################################### FIND NODES PROXIMITY TO POIS ####################################################
@@ -379,9 +379,13 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
         # ----------
         # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
-            if source == 'ep_plaza_small':
+            if source == 'ep_plaza_small(canceled)':
+                # 'ep_plaza_small' different processing was canceled due to implementation
+                # of new nearest data.
+                a="""
                 # For small parks, area is relevant to sub-divide process (below 2000m2 --> pois_time(), above 2000m2 --> id_pois_time())
                 pois = pois[['area_ha','ID','geometry']]
+                """
             else:
                 # For the rest, keep already existing unique ID and geometry
                 pois = pois[['ID','geometry']]
@@ -402,9 +406,13 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
 
         # ----------
         # SMALL PARKS CONSIDERATION
-        if source == 'ep_plaza_small':
+        if source == 'ep_plaza_small(canceled)':
+            # 'ep_plaza_small' different processing was canceled due to implementation
+            # of new nearest data.
+            a="""
             # For small parks, area is relevant to sub-divide process
             source_pois = source_pois[['area_ha','ID','geometry']]
+            """
         else:
             source_pois = source_pois[['ID','geometry']]
         # ----------
@@ -419,7 +427,10 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
         # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
             #################################################### SMALL PARKS ONLY [SECTION STARTS]
-            if source == 'ep_plaza_small':
+            if source == 'ep_plaza_small(canceled)':
+                # 'ep_plaza_small' different processing was canceled due to implementation
+                # of new nearest data.
+                a = """
                 aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for special case.")
 
                 # pois_time() [for public spaces below 2000m2]
@@ -443,7 +454,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
                 if save_space:
                     del small_source_pois
 
-                # Now merge source_nodes_time_1 results with source_nodes_time_2 results
+                # Now merge source_nodes_time_1 results with source_nodes_time_2 results.
                 if count_pois[0]:
                     source_nodes_time_all = source_nodes_time_1.merge(source_nodes_time_2[['osmid', 'time_'+source, f'{source}_{count_pois[1]}min']],on='osmid')
                 else:
@@ -469,18 +480,21 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save):
                 
                 if save_space:
                     del source_nodes_time_all
+                    """
             #################################################### SMALL PARKS ONLY [SECTION ENDS]
 
             else:
                 aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for unique ID case.")
                 # Function id_pois_time() consideres the unique ID belonging to each geometry of interest (goi).
                 source_nodes_time = aup.id_pois_time(G, nodes, edges, source_pois, source, 'length', walking_speed, 
-                                                    goi_id='ID', count_pois=count_pois, projected_crs=projected_crs)
+                                                    goi_id='ID', count_pois=count_pois, projected_crs=projected_crs,
+                                                    santiago_tmp_fix=santiago_tmp_fix)
         else:
             aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for regular case.")
             # Function pois_time() calculates proximity data from nodes to source (all) without considering any unique ID.
             source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',walking_speed, 
-                                              count_pois, projected_crs)
+                                              count_pois, projected_crs,
+                                              santiago_tmp_fix=santiago_tmp_fix)
         # ----------
 
         if save_space:
@@ -808,9 +822,10 @@ if __name__ == "__main__":
     # IMPORTANT NOTE: Make sure all directories exist.
     # general directory (All directories derive from here)
     gral_dir = '../data/external/santiago/'
-
-    # Dir 1 - If not using OSMnx network (INPUT NETWORK), will use this file to create a navigable network (create_filtered_navigable_network() function)
-    public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
+    
+    # Dir 1 - If not using OSMnx network (INPUT NETWORK), will use this file to create a filtered network.
+    #public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
+    #NOT WORKING. Use QGIS files and edit before main function.
     
     # "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
     # "calidad_ep/red_buena_calidad.shp"
@@ -1043,33 +1058,40 @@ if __name__ == "__main__":
     if osmnx_network:
         aup.log("--- Downloading OSMnx network.")
         G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
+        # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
+        santiago_tmp_fix = False
     else:
         aup.log("--- Converting local data to OSMnx format network.")
         #G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
 
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
-        # Load edges
-        network_edges = gpd.read_file(gral_dir+'calidad_ep/red_buena_calidad_pza_italia_single_parts.gpkg')
-        network_edges = network_edges.set_crs(projected_crs)
-        # Load nodes
-        network_nodes = gpd.read_file(gral_dir +'calidad_ep/red_buena_calidad_pza_italia_nodes.shp')
-        network_nodes = network_nodes.set_crs("EPSG:32719")
-        # Create navigable network
-        nodes, edges = aup.create_network(network_nodes, network_edges,"EPSG:32719")
+        # Filtered network - Load edges
+        edges_file = gpd.read_file(gral_dir+'calidad_ep/red_buena_calidad_single_parts.gpkg')
+        edges_file = edges_file.set_crs(projected_crs)
+        # Filtered network - Load nodes
+        nodes_file = gpd.read_file(gral_dir +'calidad_ep/red_buena_calidad_nodes.shp')
+        nodes_file = nodes_file.set_crs("EPSG:32719")
+        # Filtered network - Create navigable network
+        nodes, edges = aup.create_network(nodes_file, edges_file,"EPSG:32719")
         nodes = nodes.drop_duplicates(subset=['osmid'])
-        # Filter navigable network
+        # Filtered network - Filter navigable network
         edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
-        # Create G
+        # Filtered network - Prepare nodes
         nodes_gdf = nodes.copy()
         nodes_gdf.set_index('osmid',inplace=True)
-        edges_gdf = edges_filt.copy()
-        edges_gdf.set_index(['u','v','key'],inplace=True)
         nodes_gdf['x'] = nodes_gdf['geometry'].x
         nodes_gdf['y'] = nodes_gdf['geometry'].y
+        # Filtered network -  Prepare edges
+        edges_gdf = edges_filt.copy()
+        edges_gdf.set_index(['u','v','key'],inplace=True)
+        # Filtered network - Create G and rename nodes and edges
         G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
         nodes = nodes_gdf.copy()
         edges = edges_gdf.copy()
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
+
+        # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
+        santiago_tmp_fix = True
 
     # Main function
     for walking_speed in walking_speed_list:
@@ -1078,4 +1100,4 @@ if __name__ == "__main__":
             
         # Proceed to main function
         aup.log(f"--- Running Script for speed: {walking_speed}km/hr.")
-        main(source_list, aoi, G, nodes, edges, walking_speed, local_save)
+        main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_tmp_fix)
