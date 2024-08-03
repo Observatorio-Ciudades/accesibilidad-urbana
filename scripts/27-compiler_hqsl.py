@@ -1045,7 +1045,31 @@ if __name__ == "__main__":
         G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
     else:
         aup.log("--- Converting local data to OSMnx format network.")
-        G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
+        #G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
+
+        ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
+        # Load edges
+        network_edges = gpd.read_file(gral_dir+'calidad_ep/red_buena_calidad_pza_italia_single_parts.gpkg')
+        network_edges = network_edges.set_crs(projected_crs)
+        # Load nodes
+        network_nodes = gpd.read_file(gral_dir +'calidad_ep/red_buena_calidad_pza_italia_nodes.shp')
+        network_nodes = network_nodes.set_crs("EPSG:32719")
+        # Create navigable network
+        nodes, edges = aup.create_network(network_nodes, network_edges,"EPSG:32719")
+        nodes = nodes.drop_duplicates(subset=['osmid'])
+        # Filter navigable network
+        edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
+        # Create G
+        nodes_gdf = nodes.copy()
+        nodes_gdf.set_index('osmid',inplace=True)
+        edges_gdf = edges_filt.copy()
+        edges_gdf.set_index(['u','v','key'],inplace=True)
+        nodes_gdf['x'] = nodes_gdf['geometry'].x
+        nodes_gdf['y'] = nodes_gdf['geometry'].y
+        G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
+        nodes = nodes_gdf.copy()
+        edges = edges_gdf.copy()
+        ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
 
     # Main function
     for walking_speed in walking_speed_list:
