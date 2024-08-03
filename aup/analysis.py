@@ -833,7 +833,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372"):
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",santiago_tmp_fix=False):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
 		G (networkx.MultiDiGraph): Graph with edge bearing attributes
@@ -883,10 +883,14 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 			return nodes_time
 	
 	else:
-		### Find nearest osmnx node for each DENUE point.
-		nearest = find_nearest(G, nodes, pois, return_distance= True)
-		nearest = nearest.set_crs("EPSG:4326")
-		print(f"Found and assigned nearest node osmid to each {poi_name}.")
+		if santiago_tmp_fix:
+			nearest = gpd.read_file(f"../data/external/santiago/nearest/nearest_{poi_name}.gpkg")
+			print(f"Loaded previously calculated nearest data for {poi_name}.")
+		else:
+			### Find nearest osmnx node for each DENUE point.
+			nearest = find_nearest(G, nodes, pois, return_distance= True)
+			nearest = nearest.set_crs("EPSG:4326")
+			print(f"Found and assigned nearest node osmid to each {poi_name}.")
 
 		##########################################################################################
 		# STEP 2: DISTANCE NEAREST POI. 
@@ -1677,7 +1681,7 @@ def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, pro
 	
 	return hull_geometry
 
-def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, goi_id, count_pois=(False,0), projected_crs="EPSG:6372"):
+def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, goi_id, count_pois=(False,0), projected_crs="EPSG:6372",santiago_tmp_fix=False):
 	""" Finds time from each node to nearest poi (point of interest). Function to be used when pois came from another geometry.
 		Function id_pois_time takes into account an ID column that contains information of origin of each poi.
         The original geometry of interest (goi)'s unique ID is called goi_id.
@@ -1746,34 +1750,38 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
 			return nodes_time
 	else:
-        ### Find nearest osmnx node for each DENUE point.
-		nearest = find_nearest(G, nodes, pois, return_distance= True)
-		nearest = nearest.set_crs("EPSG:4326")
-		print(f"Found and assigned nearest node osmid to each {poi_name}.")
-    
+		if santiago_tmp_fix:
+			nearest = gpd.read_file(f"../data/external/santiago/nearest/nearest_{poi_name}.gpkg")
+			print(f"Loaded previously calculated nearest data for {poi_name}.")
+		else:
+			### Find nearest osmnx node for each DENUE point.
+			nearest = find_nearest(G, nodes, pois, return_distance= True)
+			nearest = nearest.set_crs("EPSG:4326")
+			print(f"Found and assigned nearest node osmid to each {poi_name}.")
+
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # ADAPTATION - FOLLOWING CODE DOES NOT EXIST IN POIS_TIME()
-        
-        # Up to this point 'nearest' has all osmnx nodes closest to a given poi (Originated from a given geometry of interest (goi)), 
-        # one osmnx node might be assigned to 2 or more poi of the SAME geometry of interest (goi). 
-        # (For example, node 54 is closest to poi 12 and poi 13, both vertexes from the same park).
-        
-        # If we leave it like that, that nearest will be repeted (e.g. the same park assigned twice to the same node) even if it is just close to 1 goi.
-        # This step keeps the minimum distance (distance_node) from node osmid to each poi when originating from the same geometry of interest (goi), 
-        # so that if one node is close to 5 pois of the same goi, it keeps only 1 node assigned to 1 poi, not 5.
-        
-        # Group by node (osmid) and polygon (green space) considering only the closest vertex (min)
-		groupby = nearest.groupby(['osmid',goi_id]).agg({'distance_node':np.min})
-        
-        # Turns back into gdf merging back with nodes geometry
-		geom_gdf = nodes.reset_index()[['osmid','geometry']]
-		groupby.reset_index(inplace=True)
-		nearest = pd.merge(groupby,geom_gdf,on='osmid',how='left')
-		nearest = gpd.GeoDataFrame(nearest, geometry="geometry")
-        
-        # Filters for pois assigned to nodes at a maximum distance of 80 meters (aprox. 1 minute)
-        # That is to consider a 1 minute additional walk as acceptable (if goi is inside a park, e.g. a bike lane).
-		nearest = nearest.loc[nearest.distance_node <= 80]
+
+			# Up to this point 'nearest' has all osmnx nodes closest to a given poi (Originated from a given geometry of interest (goi)), 
+			# one osmnx node might be assigned to 2 or more poi of the SAME geometry of interest (goi). 
+			# (For example, node 54 is closest to poi 12 and poi 13, both vertexes from the same park).
+			
+			# If we leave it like that, that nearest will be repeted (e.g. the same park assigned twice to the same node) even if it is just close to 1 goi.
+			# This step keeps the minimum distance (distance_node) from node osmid to each poi when originating from the same geometry of interest (goi), 
+			# so that if one node is close to 5 pois of the same goi, it keeps only 1 node assigned to 1 poi, not 5.
+
+			# Group by node (osmid) and polygon (green space) considering only the closest vertex (min)
+			groupby = nearest.groupby(['osmid',goi_id]).agg({'distance_node':np.min})
+			
+			# Turns back into gdf merging back with nodes geometry
+			geom_gdf = nodes.reset_index()[['osmid','geometry']]
+			groupby.reset_index(inplace=True)
+			nearest = pd.merge(groupby,geom_gdf,on='osmid',how='left')
+			nearest = gpd.GeoDataFrame(nearest, geometry="geometry")
+			
+			# Filters for pois assigned to nodes at a maximum distance of 80 meters (aprox. 1 minute)
+			# That is to consider a 1 minute additional walk as acceptable (if goi is inside a park, e.g. a bike lane).
+			nearest = nearest.loc[nearest.distance_node <= 80]
         
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
