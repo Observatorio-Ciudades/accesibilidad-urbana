@@ -379,13 +379,10 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
         # ----------
         # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
-            if source == 'ep_plaza_small(canceled)':
-                # 'ep_plaza_small' different processing was canceled due to implementation
-                # of new nearest data.
-                a="""
+            # Small parks different processing is not implemented when loading new nearest data.
+            if (source == 'ep_plaza_small') and (not santiago_tmp_fix):
                 # For small parks, area is relevant to sub-divide process (below 2000m2 --> pois_time(), above 2000m2 --> id_pois_time())
                 pois = pois[['area_ha','ID','geometry']]
-                """
             else:
                 # For the rest, keep already existing unique ID and geometry
                 pois = pois[['ID','geometry']]
@@ -406,13 +403,10 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
 
         # ----------
         # SMALL PARKS CONSIDERATION
-        if source == 'ep_plaza_small(canceled)':
-            # 'ep_plaza_small' different processing was canceled due to implementation
-            # of new nearest data.
-            a="""
+        # Small parks different processing is not implemented when loading new nearest data.
+        if (source == 'ep_plaza_small') and (not santiago_tmp_fix):
             # For small parks, area is relevant to sub-divide process
             source_pois = source_pois[['area_ha','ID','geometry']]
-            """
         else:
             source_pois = source_pois[['ID','geometry']]
         # ----------
@@ -427,10 +421,8 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
         # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
             #################################################### SMALL PARKS ONLY [SECTION STARTS]
-            if source == 'ep_plaza_small(canceled)':
-                # 'ep_plaza_small' different processing was canceled due to implementation
-                # of new nearest data.
-                a = """
+            # Small parks different processing is not implemented when loading new nearest data.
+            if (source == 'ep_plaza_small') and (not santiago_tmp_fix):
                 aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for special case.")
 
                 # pois_time() [for public spaces below 2000m2]
@@ -480,7 +472,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
                 
                 if save_space:
                     del source_nodes_time_all
-                    """
+                    
             #################################################### SMALL PARKS ONLY [SECTION ENDS]
 
             else:
@@ -1066,10 +1058,10 @@ if __name__ == "__main__":
 
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
         # Filtered network - Load edges
-        edges_file = gpd.read_file(gral_dir+'calidad_ep/red_buena_calidad_single_parts.gpkg')
+        edges_file = gpd.read_file(gral_dir+'calidad_ep/red_buena_calidad_pza_italia_single_parts.gpkg')
         edges_file = edges_file.set_crs(projected_crs)
         # Filtered network - Load nodes
-        nodes_file = gpd.read_file(gral_dir +'calidad_ep/red_buena_calidad_nodes.shp')
+        nodes_file = gpd.read_file(gral_dir +'calidad_ep/red_buena_calidad_pza_italia_nodes.shp')
         nodes_file = nodes_file.set_crs("EPSG:32719")
         # Filtered network - Create navigable network
         nodes, edges = aup.create_network(nodes_file, edges_file,"EPSG:32719")

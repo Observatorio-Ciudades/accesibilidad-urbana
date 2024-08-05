@@ -884,7 +884,11 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 	
 	else:
 		if santiago_tmp_fix:
+			# Load precalculated (with entire network) nearest gdf.
 			nearest = gpd.read_file(f"../data/external/santiago/nearest/nearest_{poi_name}.gpkg")
+			# Filter nearest by keeping osmids located in current nodes (filtered network) gdf.
+			osmid_check_list = list(nodes.reset_index().osmid.unique())
+			nearest = nearest.loc[nearest.osmid.isin(osmid_check_list)]
 			print(f"Loaded previously calculated nearest data for {poi_name}.")
 		else:
 			### Find nearest osmnx node for each DENUE point.
@@ -1751,8 +1755,11 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 			return nodes_time
 	else:
 		if santiago_tmp_fix:
+			# Load precalculated (with entire network) nearest gdf.
 			nearest = gpd.read_file(f"../data/external/santiago/nearest/nearest_{poi_name}.gpkg")
-			print(f"Loaded previously calculated nearest data for {poi_name}.")
+			# Filter nearest by keeping osmids located in current nodes (filtered network) gdf.
+			osmid_check_list = list(nodes.reset_index().osmid.unique())
+			nearest = nearest.loc[nearest.osmid.isin(osmid_check_list)]
 		else:
 			### Find nearest osmnx node for each DENUE point.
 			nearest = find_nearest(G, nodes, pois, return_distance= True)
