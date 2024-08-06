@@ -631,7 +631,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
         poly_proximity['city'] = 'Santiago'
 
         if local_save:
-            area_proximity_table = f"santiago_{area_analysis}proximity_{str_walk_speed}_kmh.gpkg"
+            area_proximity_table = f"santiago_{area_analysis}proximity_project_{p_code}.gpkg"
             poly_proximity.to_file(local_save_dir + area_proximity_table, driver='GPKG')
             aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved {area_analysis} proximity data locally.")
 
@@ -673,21 +673,25 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
             # join count columns for private and public in one encompassing column
             prox_gdf[f"{source}_count_15min"] = prox_gdf[f"{source}_priv_count_15min"] + prox_gdf[f"{source}_pub_count_15min"]
             # remove 0 values from time
-            prox_gdf.loc[prox_gdf[f"{source}_pub_time"]==0] = np.nan
-            prox_gdf.loc[prox_gdf[f"{source}_priv_time"]==0] = np.nan
+            prox_gdf.loc[prox_gdf[f"{source}_pub_time"]==0,f"{source}_pub_time"] = np.nan
+            prox_gdf.loc[prox_gdf[f"{source}_priv_time"]==0,f"{source}_priv_time"] = np.nan
             # assign general minimum time
             prox_gdf[f"{source}_time"] = prox_gdf[[f"{source}_pub_time", f"{source}_priv_time"]].min(axis=1)
             # remove duplicate info columns
             prox_gdf = prox_gdf.drop(columns=[f"{source}_pub_count_15min", f"{source}_priv_count_15min",
                                               f"{source}_pub_time", f"{source}_priv_time"])
             # fill na with 0 for future processing
-            prox_gdf['hospital_time'].fillna(0, inplace=True)
+            prox_gdf[f'{source}_time'].fillna(0, inplace=True)
 
         # Merge areal and proximity data
         poly_analysis = poly_areal.merge(prox_gdf.drop(columns='geometry'), on=code_column, how='left')
         poly_analysis = poly_analysis.explode(ignore_index=True)
         poly_analysis = poly_analysis.dissolve(by=code_column)
         poly_analysis = poly_analysis.reset_index()
+
+        if (local_save) and (area_analysis=='hex'):
+            aup.log(f"--- Area of analysis {i}/{k} (3.2) - Saving pre-variables analysis locally.")
+            poly_analysis.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}pre_variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
 
         # 3.3 --------------- HQSL Function - Variables analysis
         # ------------------- This step scales data
@@ -712,7 +716,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
                                                                                                                area_analysis,
                                                                                                                poly_analysis[col_name].mean(),
                                                                                                                poly_analysis[col_name].std()))
-                    # treat 0 time values -- hexagons without nodes 
+                    # treat 0 time values -- hexagons without nodes
                     if area_analysis == 'hex':
                         if weight_dict[source] != 'specific':
                             # assign nan values to hexagons without nodes to avoid affecting the mean calculation process
@@ -724,10 +728,17 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
                                 poly_analysis.loc[poly_analysis[f'{source}_time']==0,f'{source}_scaled'] = np.nan
                                 
                             # calculate mean count value
-                            poly_analysis.loc[poly_analysis[f'{source}_time']==0, f'{source}_scaled'] = poly_analysis.loc[poly_analysis[f'{source}_time']==0].apply(lambda x: neighbour_mean(x['hex_id'],
-                                                                                                                                                                                             'hex_id',
-                                                                                                                                                                                             poly_analysis,
-                                                                                                                                                                                             f'{source}_scaled'), axis=1)
+                            poly_analysis.loc[poly_analysis[f'{source}_time']==0,
+                                               f'{source}_scaled'] = poly_analysis.loc[poly_analysis[f'{source}_time']==0].apply(
+                                                   lambda x: neighbour_mean(x['hex_id'],
+                                                                            'hex_id',
+                                                                            poly_analysis,
+                                                                            f'{source}_scaled'),
+                                                                            axis=1)
+        if (local_save) and (area_analysis=='hex'):
+            aup.log(f"--- Area of analysis {i}/{k} (3.3) - Saving variables analysis locally.")
+            poly_analysis.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
+
         # 3.4 --------------- HQSL Function - HQSL Index calculation
         # ------------------- This step calculates HQSL
         aup.log(f"--- Area of analysis {i}/{k} (3.4) - Calculating HQSL.")
@@ -745,11 +756,11 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
         if area_analysis == 'hex':
             hex_idx['res'] = res
         
-        hex_idx = hex_idx.dropna()
+        #hex_idx = hex_idx.dropna()
                                 
         if local_save:
             aup.log(f"--- Area of analysis {i}/{k} (3.5) - Saving HQSL index locally.")
-            hex_idx.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}analysis_{str_walk_speed}_kmh.gpkg', driver='GPKG')
+            hex_idx.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}analysis_project_{p_code}.gpkg', driver='GPKG')
         
         i+=1
 
@@ -818,7 +829,18 @@ if __name__ == "__main__":
     # Dir 1 - If not using OSMnx network (INPUT NETWORK), will use this file to create a filtered network.
     #public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
     #NOT WORKING. Use QGIS files and edit before main function.
-    
+
+    project_name = 'red_buena_calidad_pza_italia'
+    # Red buena calidad
+    if project_name == 'red_buena_calidad':
+        p_code = '01'
+    # Plaza italia
+    elif project_name =='red_buena_calidad_pza_italia':
+        p_code = '02'
+    # No project
+    elif project_name == 'noproject':
+        p_code = '00'
+
     # "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
     # "calidad_ep/red_buena_calidad.shp"
     # "calidad_ep/red_buena_calidad_pza_italia.shp"
@@ -1058,16 +1080,23 @@ if __name__ == "__main__":
 
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
         # Filtered network - Load edges
-        edges_file = gpd.read_file(gral_dir+'calidad_ep/red_buena_calidad_pza_italia_single_parts.gpkg')
+        edges_file = gpd.read_file(gral_dir+f'calidad_ep/{project_name}/{project_name}_single_parts.gpkg')
         edges_file = edges_file.set_crs(projected_crs)
         # Filtered network - Load nodes
-        nodes_file = gpd.read_file(gral_dir +'calidad_ep/red_buena_calidad_pza_italia_nodes.shp')
+        nodes_file = gpd.read_file(gral_dir +f'calidad_ep/{project_name}/{project_name}_nodes.shp')
         nodes_file = nodes_file.set_crs("EPSG:32719")
         # Filtered network - Create navigable network
         nodes, edges = aup.create_network(nodes_file, edges_file,"EPSG:32719")
         nodes = nodes.drop_duplicates(subset=['osmid'])
         # Filtered network - Filter navigable network
         edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
+        # Filtered network - Filter nodes from edges
+        nodes_id = list(edges_filt.v.unique())
+        u = list(edges_filt.u.unique())
+        nodes_id.extend(u)
+        myset = set(nodes_id)
+        osmids_lst = list(myset)
+        nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
         # Filtered network - Prepare nodes
         nodes_gdf = nodes.copy()
         nodes_gdf.set_index('osmid',inplace=True)
