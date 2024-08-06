@@ -830,16 +830,16 @@ if __name__ == "__main__":
     #public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
     #NOT WORKING. Use QGIS files and edit before main function.
 
-    project_name = 'red_buena_calidad_pza_italia'
+    project_name = 'redvial2019_buffer_3750m_c_utilidad_2'
+    # Complete network
+    if project_name == 'redvial2019_buffer_3750m_c_utilidad_2':
+        p_code = '00'
     # Red buena calidad
-    if project_name == 'red_buena_calidad':
+    elif project_name == 'red_buena_calidad':
         p_code = '01'
     # Plaza italia
     elif project_name =='red_buena_calidad_pza_italia':
         p_code = '02'
-    # No project
-    elif project_name == 'noproject':
-        p_code = '00'
 
     # "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
     # "calidad_ep/red_buena_calidad.shp"
@@ -1080,16 +1080,19 @@ if __name__ == "__main__":
 
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
         # Filtered network - Load edges
-        edges_file = gpd.read_file(gral_dir+f'calidad_ep/{project_name}/{project_name}_single_parts.gpkg')
+        edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/{project_name}_single_parts.gpkg')
         edges_file = edges_file.set_crs(projected_crs)
         # Filtered network - Load nodes
-        nodes_file = gpd.read_file(gral_dir +f'calidad_ep/{project_name}/{project_name}_nodes.shp')
+        nodes_file = gpd.read_file(gral_dir +f'calidad_ep/{p_code}_{project_name}/{project_name}_nodes.shp')
         nodes_file = nodes_file.set_crs("EPSG:32719")
         # Filtered network - Create navigable network
         nodes, edges = aup.create_network(nodes_file, edges_file,"EPSG:32719")
         nodes = nodes.drop_duplicates(subset=['osmid'])
         # Filtered network - Filter navigable network
-        edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
+        if project_name != 'redvial2019_buffer_3750m_c_utilidad_2':
+            edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
+        else:
+            edges_filt = edges.copy()
         # Filtered network - Filter nodes from edges
         nodes_id = list(edges_filt.v.unique())
         u = list(edges_filt.u.unique())
