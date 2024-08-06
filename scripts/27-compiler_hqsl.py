@@ -631,8 +631,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
         poly_proximity['city'] = 'Santiago'
 
         if local_save:
-            area_proximity_table = f"santiago_{area_analysis}proximity_project_{p_code}.gpkg"
-            poly_proximity.to_file(local_save_dir + area_proximity_table, driver='GPKG')
+            poly_proximity.to_file(local_save_dir + f"santiago_{area_analysis}proximity_project_{p_code}.gpkg", driver='GPKG')
             aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved {area_analysis} proximity data locally.")
 
     ########################################################## PART 3 ####################################################################
@@ -691,7 +690,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
 
         if (local_save) and (area_analysis=='hex'):
             aup.log(f"--- Area of analysis {i}/{k} (3.2) - Saving pre-variables analysis locally.")
-            poly_analysis.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}pre_variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
+            poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}pre_variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
 
         # 3.3 --------------- HQSL Function - Variables analysis
         # ------------------- This step scales data
@@ -737,7 +736,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
                                                                             axis=1)
         if (local_save) and (area_analysis=='hex'):
             aup.log(f"--- Area of analysis {i}/{k} (3.3) - Saving variables analysis locally.")
-            poly_analysis.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
+            poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
 
         # 3.4 --------------- HQSL Function - HQSL Index calculation
         # ------------------- This step calculates HQSL
@@ -760,7 +759,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_t
                                 
         if local_save:
             aup.log(f"--- Area of analysis {i}/{k} (3.5) - Saving HQSL index locally.")
-            hex_idx.to_file(gral_dir +'output/'+ f'santiago_{area_analysis}analysis_project_{p_code}.gpkg', driver='GPKG')
+            hex_idx.to_file(local_save_dir + f'santiago_{area_analysis}analysis_project_{p_code}.gpkg', driver='GPKG')
         
         i+=1
 
@@ -830,7 +829,10 @@ if __name__ == "__main__":
     #public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
     #NOT WORKING. Use QGIS files and edit before main function.
 
-    project_name = 'redvial2019_buffer_3750m_c_utilidad_2'
+    # Following data is used as input (edges_file, nodes_file) when osmnx_network = False
+    # and used as output (p_code goes into saving table name) always. 
+    # (When osmnx_network = True, project_name doesn't matter and p_code is automatically set to 'osmnx')
+    project_name = 'red_buena_calidad_parque_bueras'
     # Complete network
     if project_name == 'redvial2019_buffer_3750m_c_utilidad_2':
         p_code = '00'
@@ -840,10 +842,12 @@ if __name__ == "__main__":
     # Plaza italia
     elif project_name =='red_buena_calidad_pza_italia':
         p_code = '02'
-
-    # "calidad_ep/redvial2019_buffer_3750m_c_utilidad_2.shp"
-    # "calidad_ep/red_buena_calidad.shp"
-    # "calidad_ep/red_buena_calidad_pza_italia.shp"
+    # Plaza italia
+    elif project_name =='red_buena_calidad_norte_sur':
+        p_code = '03'
+    # Plaza italia
+    elif project_name =='red_buena_calidad_parque_bueras':
+        p_code = '04'
 
     # Dir 2 - Local directory where pois files are located
     all_pois_dir = gral_dir + "pois/"
@@ -852,7 +856,7 @@ if __name__ == "__main__":
     areas_dir = gral_dir + "areas_of_analysis/"
 
     # Dir 4 - Local directory where outputs are saved
-    local_save_dir = gral_dir + "output/"
+    local_save_dir = gral_dir + f'output/project_{p_code}/'
 
     # Dir 5 - Local directory where areal data is located
     areal_dir = gral_dir + 'areal_data/'
@@ -1074,6 +1078,7 @@ if __name__ == "__main__":
         G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
         # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
         santiago_tmp_fix = False
+        p_code = 'osmnx'
     else:
         aup.log("--- Converting local data to OSMnx format network.")
         #G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
