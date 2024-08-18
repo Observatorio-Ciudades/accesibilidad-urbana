@@ -1088,10 +1088,12 @@ if __name__ == "__main__":
 
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
         # Filtered network - Load edges
-        edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/{project_name}_single_parts.gpkg')
+        #edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/{project_name}_single_parts.gpkg')
+        edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_edges.gpkg')
         edges_file = edges_file.set_crs(projected_crs)
         # Filtered network - Load nodes
-        nodes_file = gpd.read_file(gral_dir +f'calidad_ep/{p_code}_{project_name}/{project_name}_nodes.shp')
+        #nodes_file = gpd.read_file(gral_dir +f'calidad_ep/{p_code}_{project_name}/{project_name}_nodes.shp')
+        nodes_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_nodes.shp')
         nodes_file = nodes_file.set_crs("EPSG:32719")
         # Filtered network - Create navigable network
         nodes, edges = aup.create_network(nodes_file, edges_file,"EPSG:32719")
@@ -1102,12 +1104,12 @@ if __name__ == "__main__":
         else:
             edges_filt = edges.copy()
         # Filtered network - Filter nodes from edges
-        nodes_id = list(edges_filt.v.unique())
-        u = list(edges_filt.u.unique())
-        nodes_id.extend(u)
-        myset = set(nodes_id)
-        osmids_lst = list(myset)
-        nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
+        #nodes_id = list(edges_filt.v.unique())
+        #u = list(edges_filt.u.unique())
+        #nodes_id.extend(u)
+        #myset = set(nodes_id)
+        #osmids_lst = list(myset)
+        #nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
         # Filtered network - Prepare nodes
         nodes_gdf = nodes.copy()
         nodes_gdf.set_index('osmid',inplace=True)
