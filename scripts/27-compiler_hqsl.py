@@ -8,6 +8,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from shapely.geometry import Point
 import osmnx as ox
 
+from shapely.ops import split #Used to pre-process input/non-osmnx network
+
 from tqdm import tqdm
 import h3
 
@@ -86,6 +88,83 @@ def create_filtered_navigable_network(public_space_quality_dir, projected_crs, f
     G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
 
     return G, nodes_gdf, edges_gdf
+
+##########################################################################################################################################
+# UPDATED CREATE FILTERED NAVIGABLE NETWORK FUNCTIONS (Process located on Notebook 28a)
+def precompute_unary_union(gdf):
+    """ This function saves to a new gdf column the geometry of the unary union of the lines that intersect (sjoin) each line.
+        Each row's line is excluded from the unary geometry to avoid trying intersect with itself.
+        The gdf keeps its original geometry, but has a new 'unary_geometry' col.
+    """
+    
+    # Reset index in order to keep track of original line id
+    lines_gdf = gdf.copy()
+    lines_gdf = lines_gdf.reset_index()
+    lines_gdf = lines_gdf.rename(columns={'index':'original_id'})
+
+    # Create unary union of all lines except itself
+    lines_gdf['unary_geometry'] = None
+
+    # Create and save unary_union corresponding to each row 
+    for idx, row in lines_gdf.iterrows():
+        
+        # rest_of_lines is lines that intersect line_of_interest (Remove itself to avoid trying to intersect with itself)
+        line_of_interest = lines_gdf.loc[lines_gdf.original_id==idx].copy()
+        intersecting_idxs = list(line_of_interest.sjoin(lines_gdf).original_id_right.unique())
+        intersecting_idxs.remove(idx)
+        rest_of_lines = lines_gdf.loc[lines_gdf.original_id.isin(intersecting_idxs)].copy().explode()
+
+        # Create unary union
+        lines_gdf.at[idx, 'unary_geometry'] = rest_of_lines.unary_union
+        
+    return lines_gdf
+
+
+def split_line(row):
+    """ This function is used with each gdf row (.apply()).
+        The function splits the line geometry using the previously calculated unary_union geometry and
+        returns a list of new geometries (split_lines_geoms).
+    """
+    # Load line geometry and unary union geometry
+    line_geom = row['geometry']
+    unary_geom = row['unary_geometry']
+
+    # Try splitting
+    try:
+        split_result = split(line_geom, unary_geom)
+        split_lines_geoms = list(split_result.geoms)
+        return split_lines_geoms
+    # If it fails, it doesn't intersect the unary union. Return unsplitted line geometry.
+    except:
+        split_lines_geoms = [line_geom]
+        return split_lines_geoms
+
+
+def split_lines_with_themselves(gdf):
+    """ This function splits each line using the lines that intersect it, keeping the values of all original columns.
+    """
+    
+    # Function precompute_unary_union(): Creates and saves unary_union of lines intersecting each line, except itself.
+    aup.log("Preprocess lines - Precomputing unary union of all lines except line in each row.")
+    lines_gdf = precompute_unary_union(gdf)
+    
+    # Function split_line(): Splits the lines geometry using the previously calculated unary_union geometry.
+    # (Creates a list of splitted geometries in col split_lines.)
+    aup.log("Preprocess lines - Splitting lines with the precomputed unary union.")
+    lines_gdf = lines_gdf.explode(ignore_index=True)
+    lines_gdf['split_lines'] = lines_gdf.apply(split_line, axis=1)
+    
+    # Explode the split lines into separate rows according to the list of splitted geometries
+    exploded_split_lines = lines_gdf.explode('split_lines').drop(columns=['geometry']).rename(columns={'split_lines': 'geometry'})
+    
+    # Create a new GeoDataFrame with the split lines
+    aup.log("Preprocess lines - Creating new split lines gdf.")
+    split_lines_gdf = gpd.GeoDataFrame(exploded_split_lines, geometry='geometry', crs=lines_gdf.crs)
+    
+    # Drop unary_geometry col
+    split_lines_gdf.drop(columns=['unary_geometry'],inplace=True)
+
+    return split_lines_gdf
 
 ##########################################################################################################################################
 # SCALE FUNCTIONS
@@ -341,7 +420,7 @@ def indicator_fn(hex_gdf, parameters_dict, code_column):
 ##########################################################################################################################################
 # MAIN FUNCTION
 
-def main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_tmp_fix):
+def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_tmp_fix):
     
     ############################################################### PART 1 ###############################################################
     #################################################### FIND NODES PROXIMITY TO POIS ####################################################
@@ -888,10 +967,17 @@ if __name__ == "__main__":
     network_schema = 'projects_research'
     edges_table = 'santiago_edges'
     nodes_table = 'santiago_nodes'
+
     # Else (osmnx_network = False), set external network data (Allows for filtering network according to a given column value)
-    # IMPORTANT NOTE: Make sure public_space_quality_dir file exists.
+    # IMPORTANT NOTE: Check and confirm input network files and dirs (Section 'Using network with project data')
     filtering_column = 'pje_ep'
     filtering_value = 0.5 # Will keep equal or more than this value
+
+    # The network needs to be preprocessed.
+    # If loading QGIS preprocessed file
+    qgis_file = False
+    # If not loading preprocessed file, preprocess (If already preprocessed this network, can set to False)
+    preprocess_lines = True
 
     # --------------- SAVING SPACE IN DISK
     # Save space in disk by deleting data that won't be used again?
@@ -1075,41 +1161,145 @@ if __name__ == "__main__":
     aoi = aup.gdf_from_query(query, geometry_col='geometry')
     aoi = aoi.set_crs("EPSG:4326")
 
-    # Network
+    # Using network from OSMnx
     if osmnx_network:
-        aup.log("--- Downloading OSMnx network.")
+        aup.log("--- Loading OSMnx network.")
         G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
         # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
         santiago_tmp_fix = False
         p_code = 'osmnx'
+    
+    # Using network with project data
     else:
-        aup.log("--- Converting local data to OSMnx format network.")
+        aup.log(f"--- Loading project {project_name} network.")
+        # NOT WORKING
         #G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
 
-        ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
-        # Filtered network - Load edges
-        #edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/{project_name}_single_parts.gpkg')
-        edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_edges.gpkg')
-        edges_file = edges_file.set_crs(projected_crs)
-        # Filtered network - Load nodes
-        #nodes_file = gpd.read_file(gral_dir +f'calidad_ep/{p_code}_{project_name}/{project_name}_nodes.shp')
-        nodes_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_nodes.shp')
-        nodes_file = nodes_file.set_crs("EPSG:32719")
+        # Preprocessing done using QGIS:
+        if qgis_file:
+            # Filtered network - Load edges
+            edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/qgis_preprocessing_03reorder/{project_name}_single_parts.gpkg')
+            edges_file = edges_file.set_crs(projected_crs)
+            # Filtered network - Load nodes
+            nodes_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/qgis_preprocessing_03reorder/{project_name}_nodes.shp')
+            nodes_file = nodes_file.set_crs(projected_crs)
+
+            aup.log(f"Loaded GIS-preprocessed file with {len(edges_file)} edges.")
+            aup.log(f"Loaded GIS-preprocessed file with {len(nodes_file)} nodes.")
+
+        # Code preprocessing (Based on QGIS preprocessing)
+        else:
+            if preprocess_lines:
+                # a) ---------------- LOAD DATA
+                # ------------------- This step loads the project file gdf containing the streets and public space quality data for the current project
+                # Load data
+                aup.log("Preprocess lines - Loading project lines.")
+                project_lines = gpd.read_file(gral_dir+f"calidad_ep/{p_code}_{project_name}/original_file/{project_name}.shp")
+                # Set CRS
+                if project_lines.crs != projected_crs:
+                    try:
+                        project_lines = project_lines.to_crs(projected_crs)
+                    except:
+                        project_lines = project_lines.set_crs(projected_crs)
+                # Filter for data of relevance
+                project_lines = project_lines[[filtering_column,'geometry']].copy()
+                
+                # b) ---------------- SPLIT LINES WITH THEMSELVES
+                # ------------------- This step replicates "Split with lines" processing in QGIS.
+                # ------------------- (Splits each line using a unary union of the rest of the lines.)
+                split_lines = split_lines_with_themselves(project_lines)
+
+                # c) ---------------- MULTIPART TO SINGLEPARTS
+                # ------------------- This step replicates "Multipart to singleparts" processing in QGIS.
+                split_lines_singleparts = split_lines.explode(ignore_index=True)
+
+                # d) ---------------- EXTRACT SPECIFIC VERTICES
+                # ------------------- This step replicates "Extract specific vertices" processing in QGIS.
+                # ------------------- (Extracts the first and last vertex of each line.)
+                aup.log("Preprocess lines - Extracting first and last vertex of each row.")
+                # Reset index 
+                lines_gdf = split_lines_singleparts.copy()
+                lines_gdf.reset_index(inplace=True)
+                lines_gdf.drop(columns=['index'],inplace=True)
+
+                #Initialize an empty list to store the points
+                points = []
+                attributes = []
+
+                #Iterate through each LineString and extract its vertices
+                for idx, row in lines_gdf.iterrows():
+
+                    # Identify line, its coordinates and how many there are
+                    line = row.geometry
+                    line_coords = line.coords
+                    num_points = len(line_coords)
+
+                    # Save starting coord
+                    starting_coord = line_coords[0]
+                    points.append(Point(starting_coord))
+                    attributes.append(row[filtering_column])
+
+                    # Save ending coord
+                    ending_coord = line_coords[num_points-1]
+                    points.append(Point(ending_coord))
+                    attributes.append(row[filtering_column])
+                        
+                # Create a new GeoDataFrame from the points
+                gdf_points = gpd.GeoDataFrame(attributes,geometry=points, crs=lines_gdf.crs)
+                gdf_points.rename(columns={0:filtering_column},inplace=True)
+
+                # e) ---------------- DROP DUPLICATES
+                # ------------------- This step replicates MMQGIS "Delete duplicate geometries" processing in QGIS.
+                aup.log("Preprocess lines - Dropping points duplicates.")
+                points_gdf = gdf_points.drop_duplicates(subset='geometry')
+
+                # f) ---------------- SAVE RESULT
+                # Preprocessed edges and nodes
+                edges_file = split_lines_singleparts.copy()
+                nodes_file = points_gdf.copy()
+                # Saving to avoid preprocess again
+                aup.log(f"Preprocess lines - Saving preprocessed nodes and edges.")
+                edges_file.to_file(gral_dir+f"calidad_ep/{p_code}_{project_name}/project_{p_code}_edges.gpkg")
+                nodes_file.to_file(gral_dir+f"calidad_ep/{p_code}_{project_name}/project_{p_code}_nodes.gpkg")
+                
+                aup.log(f"Preprocess lines - {len(edges_file)} edges.")
+                aup.log(f"Preprocess lines - {len(nodes_file)} nodes.")
+
+                if save_space:
+                    del project_lines
+                    del split_lines
+                    del split_lines_singleparts
+                    del lines_gdf
+                    del gdf_points
+                    del points_gdf
+
+            else:
+                edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_edges.gpkg')
+                edges_file = edges_file.set_crs(projected_crs)
+                nodes_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_nodes.gpkg')
+                nodes_file = nodes_file.set_crs(projected_crs)
+
+                aup.log(f"Loaded preprocessed file with {len(edges_file)} edges.")
+                aup.log(f"Loaded preprocessed file with {len(nodes_file)} nodes.")
+
         # Filtered network - Create navigable network
-        nodes, edges = aup.create_network(nodes_file, edges_file,"EPSG:32719")
+        #edges_file = edges_file.explode(ignore_index=True)
+        nodes, edges = aup.create_network(nodes_file, edges_file,projected_crs)
         nodes = nodes.drop_duplicates(subset=['osmid'])
+        aup.log(f"--- Created network with {len(nodes)} edges and {len(edges)} nodes.")
         # Filtered network - Filter navigable network
         if project_name != 'redvial2019_buffer_3750m_c_utilidad_2':
             edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
         else:
             edges_filt = edges.copy()
         # Filtered network - Filter nodes from edges
-        #nodes_id = list(edges_filt.v.unique())
-        #u = list(edges_filt.u.unique())
-        #nodes_id.extend(u)
-        #myset = set(nodes_id)
-        #osmids_lst = list(myset)
-        #nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
+        nodes_id = list(edges_filt.v.unique())
+        u = list(edges_filt.u.unique())
+        nodes_id.extend(u)
+        myset = set(nodes_id)
+        osmids_lst = list(myset)
+        nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
+        aup.log(f"--- Filtered nodes using edges, kept {len(nodes)} nodes.")
         # Filtered network - Prepare nodes
         nodes_gdf = nodes.copy()
         nodes_gdf.set_index('osmid',inplace=True)
@@ -1122,6 +1312,7 @@ if __name__ == "__main__":
         G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
         nodes = nodes_gdf.copy()
         edges = edges_gdf.copy()
+        aup.log(f"--- Created G network.")
         ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
 
         # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
@@ -1134,4 +1325,4 @@ if __name__ == "__main__":
             
         # Proceed to main function
         aup.log(f"--- Running Script for speed: {walking_speed}km/hr.")
-        main(source_list, aoi, G, nodes, edges, walking_speed, local_save,santiago_tmp_fix)
+        main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_tmp_fix)
