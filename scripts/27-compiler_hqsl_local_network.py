@@ -21,74 +21,6 @@ if module_path not in sys.path:
     import aup
 
 
-def create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value):
-
-    # 1.0 --------------- LOAD DATA
-    # ------------------- This step loads the public space quality index gdf for the current project
-    # Load data
-    pub_space_qty = gpd.read_file(public_space_quality_dir)
-    # Set CRS
-    pub_space_qty = pub_space_qty.set_crs(projected_crs)
-    # Filter for data of relevance
-    gdf = pub_space_qty[[filtering_column,'geometry']].copy()
-    gdf = gdf.to_crs("EPSG:4326")
-
-    # 2.0 --------------- EXTRACT VERTICES
-    # ------------------- This step extracts points from each linestring and stores them in gdf_points.
-    # Explode multi-part geometries into single parts
-    gdf_exploded = gdf.explode(index_parts=False)
-    # Reset index
-    gdf_exploded.reset_index(inplace=True)
-    gdf_exploded.drop(columns=['index'],inplace=True)
-    #Initialize an empty list to store the points and its values
-    points = []
-    attributes = []
-    #Iterate through each LineString and extract its vertices
-    for idx, row in gdf_exploded.iterrows():
-        line = row.geometry
-        for coord in line.coords:
-            points.append(Point(coord))
-            attributes.append(row[filtering_column])
-    # Create a new GeoDataFrame from the points
-    gdf_points = gpd.GeoDataFrame(attributes,geometry=points)
-    # Rename data
-    gdf_points.rename(columns={0:filtering_column},inplace=True)
-
-    # 3.0 --------------- CREATE NODES AND EDGES COMPATIBLE WITH OSMnx AND FILTER THEM.
-    # ------------------- This step uses the lines and points available to create nodes and edges, then filters by filtering value.
-    # Create nodes and edges
-    nodes = gdf_points.copy()
-    edges = gdf_exploded.copy()
-
-    # Set gdf CRS
-    try:
-        nodes = nodes.to_crs("EPSG:4326")
-    except:
-        nodes = nodes.set_crs("EPSG:4326")
-    try:
-        edges = edges.to_crs("EPSG:4326")
-    except:
-        edges = edges.set_crs("EPSG:4326")
-
-    nodes, edges = aup.create_network(nodes, edges, projected_crs)
-    # Filter them
-    edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
-
-    # 4.0 --------------- CREATE NAVIGABLE NETWORK
-    # ------------------- This step creates G from the previous nodes and edges_filt.
-    # Format nodes and edges
-    nodes_gdf = nodes.copy()
-    nodes_gdf.set_index('osmid',inplace=True)
-    edges_gdf = edges_filt.copy()
-    edges_gdf.set_index(['u','v','key'],inplace=True)
-    # Set x and y columns
-    nodes_gdf['x'] = nodes_gdf['geometry'].x
-    nodes_gdf['y'] = nodes_gdf['geometry'].y
-    # Create network G
-    G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
-
-    return G, nodes_gdf, edges_gdf
-
 ##########################################################################################################################################
 # UPDATED CREATE FILTERED NAVIGABLE NETWORK FUNCTIONS (Process located on Notebook 28a)
 def precompute_unary_union(gdf):
@@ -1172,8 +1104,6 @@ if __name__ == "__main__":
     # Using network with project data
     else:
         aup.log(f"--- Loading project {project_name} network.")
-        # NOT WORKING
-        #G, nodes, edges = create_filtered_navigable_network(public_space_quality_dir, projected_crs, filtering_column, filtering_value)
 
         # Preprocessing done using QGIS:
         if qgis_file:
