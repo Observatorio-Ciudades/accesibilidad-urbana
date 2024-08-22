@@ -833,7 +833,8 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",santiago_tmp_fix=False):
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",
+			  preprocessed_nearest=(False,'dir')):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
 		G (networkx.MultiDiGraph): Graph with edge bearing attributes
@@ -883,9 +884,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 			return nodes_time
 	
 	else:
-		if santiago_tmp_fix:
+		if preprocessed_nearest[0]:
 			# Load precalculated (with entire network) nearest gdf.
-			nearest = gpd.read_file(f"../data/external/santiago/nearest/nearest_{poi_name}.gpkg")
+			nearest = gpd.read_file(preprocessed_nearest[1]+f"nearest_{poi_name}.gpkg")
 			# Filter nearest by keeping osmids located in current nodes (filtered network) gdf.
 			osmid_check_list = list(nodes.reset_index().osmid.unique())
 			nearest = nearest.loc[nearest.osmid.isin(osmid_check_list)]
@@ -1685,7 +1686,8 @@ def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, pro
 	
 	return hull_geometry
 
-def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, goi_id, count_pois=(False,0), projected_crs="EPSG:6372",santiago_tmp_fix=False):
+def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, goi_id, count_pois=(False,0), projected_crs="EPSG:6372",
+				 preprocessed_nearest=(False,'dir')):
 	""" Finds time from each node to nearest poi (point of interest). Function to be used when pois came from another geometry.
 		Function id_pois_time takes into account an ID column that contains information of origin of each poi.
         The original geometry of interest (goi)'s unique ID is called goi_id.
@@ -1754,9 +1756,9 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
 			return nodes_time
 	else:
-		if santiago_tmp_fix:
+		if preprocessed_nearest[0]:
 			# Load precalculated (with entire network) nearest gdf.
-			nearest = gpd.read_file(f"../data/external/santiago/nearest/nearest_{poi_name}.gpkg")
+			nearest = gpd.read_file(preprocessed_nearest[1]+f"nearest_{poi_name}.gpkg")
 			# Filter nearest by keeping osmids located in current nodes (filtered network) gdf.
 			osmid_check_list = list(nodes.reset_index().osmid.unique())
 			nearest = nearest.loc[nearest.osmid.isin(osmid_check_list)]
