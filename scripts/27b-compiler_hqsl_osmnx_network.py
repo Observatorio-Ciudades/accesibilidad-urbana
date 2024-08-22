@@ -352,7 +352,7 @@ def indicator_fn(hex_gdf, parameters_dict, code_column):
 ##########################################################################################################################################
 # MAIN FUNCTION
 
-def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_tmp_fix):
+def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preprocessed_nearest):
     
     ############################################################### PART 1 ###############################################################
     #################################################### FIND NODES PROXIMITY TO POIS ####################################################
@@ -391,7 +391,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_
         # UNIQUE ID AND SMALL PARKS CONSIDERATION
         if unique_id:
             # Small parks different processing is not implemented when loading new nearest data.
-            if (source == 'ep_plaza_small') and (not santiago_tmp_fix):
+            if (source == 'ep_plaza_small') and (not preprocessed_nearest[0]):
                 # For small parks, area is relevant to sub-divide process (below 2000m2 --> pois_time(), above 2000m2 --> id_pois_time())
                 pois = pois[['area_ha','ID','geometry']]
             else:
@@ -415,7 +415,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_
         # ----------
         # SMALL PARKS CONSIDERATION
         # Small parks different processing is not implemented when loading new nearest data.
-        if (source == 'ep_plaza_small') and (not santiago_tmp_fix):
+        if (source == 'ep_plaza_small') and (not preprocessed_nearest[0]):
             # For small parks, area is relevant to sub-divide process
             source_pois = source_pois[['area_ha','ID','geometry']]
         else:
@@ -433,7 +433,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_
         if unique_id:
             #################################################### SMALL PARKS ONLY [SECTION STARTS]
             # Small parks different processing is not implemented when loading new nearest data.
-            if (source == 'ep_plaza_small') and (not santiago_tmp_fix):
+            if (source == 'ep_plaza_small') and (not preprocessed_nearest[0]):
                 aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for special case.")
 
                 # pois_time() [for public spaces below 2000m2]
@@ -491,13 +491,13 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_
                 # Function id_pois_time() consideres the unique ID belonging to each geometry of interest (goi).
                 source_nodes_time = aup.id_pois_time(G, nodes, edges, source_pois, source, 'length', walking_speed, 
                                                     goi_id='ID', count_pois=count_pois, projected_crs=projected_crs,
-                                                    santiago_tmp_fix=santiago_tmp_fix)
+                                                    preprocessed_nearest=preprocessed_nearest)
         else:
             aup.log(f"--- Source {i}/{k} (1.3) - Calculating nodes proximity for regular case.")
             # Function pois_time() calculates proximity data from nodes to source (all) without considering any unique ID.
             source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',walking_speed, 
                                               count_pois, projected_crs,
-                                              santiago_tmp_fix=santiago_tmp_fix)
+                                              preprocessed_nearest=preprocessed_nearest)
         # ----------
 
         if save_space:
@@ -775,9 +775,9 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_
             
             i+=1
 
+    aup.log("--- FINISHED SCRIPT 27.")
+
 if __name__ == "__main__":
-    aup.log('--'*50)
-    aup.log('--- STARTING SCRIPT 27.')
 
     #################################################### DATA FOR PART 1 and 2 ###########################################################
     ############################################## NAVIGABLE NETWORK AND PROXIMITY DATA ##################################################
@@ -832,427 +832,353 @@ if __name__ == "__main__":
     # Unique ID for each of them is 'ID'.
     unique_id_sources = ['ferias','ep_plaza_small','ep_plaza_big','ciclovias']
 
-    # --------------- LOCAL INPUT AND OUTPUT DIRECTORIES
-    # IMPORTANT NOTE: Make sure all directories exist.
-    # general directory (All directories derive from here)
-    gral_dir = '../data/external/santiago/'
-    
-    # Dir 1 - If not using OSMnx network (INPUT NETWORK), will use this file to create a filtered network.
-    #public_space_quality_dir = gral_dir + "calidad_ep/red_buena_calidad.shp"
-    #NOT WORKING. Use QGIS files and edit before main function.
-
-    # Following data is used as input (edges_file, nodes_file) when osmnx_network = False
-    # and used as output (p_code goes into saving table name) always. 
-    # (When osmnx_network = True, project_name doesn't matter and p_code is automatically set to 'osmnx')
-    project_name = 'red_buena_calidad_pza_italia'
-    # Complete network
-    if project_name == 'redvial2019_buffer_3750m_c_utilidad_2':
-        p_code = '00'
-    # Red buena calidad
-    elif project_name == 'red_buena_calidad':
-        p_code = '01'
-    # Plaza italia
-    elif project_name =='red_buena_calidad_pza_italia':
-        p_code = '02'
-    # Plaza italia
-    elif project_name =='red_buena_calidad_norte_sur':
-        p_code = '03'
-    # Plaza italia
-    elif project_name =='red_buena_calidad_parque_bueras':
-        p_code = '04'
-
-    # Dir 2 - Local directory where pois files are located
-    all_pois_dir = gral_dir + "pois/"
-
-    # Dir 3 - Local directory where areas of analysis are located (Used in PART 2 and PART 3)
-    areas_dir = gral_dir + "areas_of_analysis/"
-
-    # Dir 4 - Local directory where outputs are saved
-    local_save_dir = gral_dir + f'output/project_{p_code}/'
-
-    # Dir 5 - Local directory where areal data is located
-    areal_dir = gral_dir + 'areal_data/'
-    
-    # --------------- AREA OF INTEREST
-    # Area of interest (aoi)
-    aoi_schema = 'projects_research'
-    aoi_table = 'santiago_aoi'
-    # 'AM_Santiago' represents Santiago's metropolitan area, 'alamedabuffer_4500m' also available
-    city = 'alamedabuffer_4500m'
-
-    # --------------- PROJECTION
-    # Projection to be used whenever necessary
-    projected_crs = 'EPSG:32719'
-
-    # --------------- METHODOLOGY
-    # Pois proximity methodology - Count pois at a given time proximity? (If true, second tupple value is distance in minutes)
-    count_pois = (True,15)
-
-    # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
-	#						 or if prox_measure="time_min" but needing to fill time_min NaNs.
-    walking_speed_list = [4.5] #[3.5,4.5,5,12,24,20,40]
-    
     # --------------- INPUT NETWORK
-    # If using previously downloaded OSMnx network available in database, set following to true
-    osmnx_network = False
-    # If true, set schemas and tables
-    network_schema = 'projects_research'
-    edges_table = 'santiago_edges'
-    nodes_table = 'santiago_nodes'
+    # If using original OSMnx network available in database, set following to true.
+    # If using project OSMnx network (has Public Space Quality Index pje_ep col), set following to false.
+    db_osmnx_network = False
+    if db_osmnx_network:
+        network_schema = 'projects_research'
+        edges_table = 'santiago_edges'
+        nodes_table = 'santiago_nodes'
+        p_code = 'db_osmnx'
+    else:
+        network_schema = 'projects_research'
+        edges_table = 'pje_ep_edges'
+        nodes_table = 'santiago_nodes'
+        # p_code selected according to project_name
 
-    # Else (osmnx_network = False), set external network data (Allows for filtering network according to a given column value)
-    # IMPORTANT NOTE: Check and confirm input network files and dirs (Section 'Using network with project data')
+    # If db_osmnx_network = False, set external network data (Allows for filtering network according to a given column value)
     filtering_column = 'pje_ep'
     filtering_value = 0.5 # Will keep equal or more than this value
 
-    # The network needs to be preprocessed.
-    # If loading QGIS preprocessed file
-    qgis_file = False
-    # If not loading preprocessed file, preprocess (If already preprocessed this network, can set to False)
-    preprocess_lines = True
+    # If db_osmnx_network = False, it is necessary to select a project.
+    # According to the project, the value of pje_ep for some edges will be changed and than those edges will be filtered, changing proximity and HQSL data.
+    
+    # Selecting project_name will choose a p_code, delete_ids and project_ids
+    #    p_code is used as output name (p_code goes into saving table name)
+    #    delete_ids are ids which will be dropped from the project analysis
+    #    project_ids will have it's pje_ep changed to filtering value + 0.01 to include them.
+    # (When db_osmnx_network = True, project_name doesn't matter, p_code is automatically set to 'db_osmnx' and delete_ids and project_ids are not used.)
+    #project_name = 'red_buena_calidad_pza_italia'
+    projects_name_list = ['red_completa','red_buena_calidad','red_buena_calidad_pza_italia',
+                          'red_buena_calidad_norte_sur','red_buena_calidad_parque_bueras']
+    
+    for project_name in projects_name_list:
+        # delete_ids: line_ids belonging to a unexistent footpath in Parque Bueras project, is deleted from all projects.
+        # (Also deleted in Script 31b, where the nearest data was calculated.)
+        delete_ids = [51047,51048,54031,54032,87638,89508,89512,89513]
 
-    # --------------- SAVING SPACE IN DISK
-    # Save space in disk by deleting data that won't be used again?
-    save_space = True
+        # Complete network (Won't be filtered by pje_ep)
+        if project_name == 'red_completa':
+            p_code = '00'
+            project_ids = []
+        # Red buena calidad (Will be filtered by pje_ep, equivalent to baseline/current situation)
+        elif project_name == 'red_buena_calidad':
+            p_code = '01'
+            project_ids = []
+        # Plaza italia
+        elif project_name =='red_buena_calidad_pza_italia':
+            p_code = '02'
+            project_ids = [20828,20917,21015,21016,21018,21149,44247,45577,45578,56085,59768,59844,60523,60528,60529,60530,60531,60532,63208,63210,65960,68538,68541,84146,96419]
+        # Plaza italia
+        elif project_name =='red_buena_calidad_norte_sur':
+            p_code = '03'
+            project_ids = [20394,20395,20577,20580,20736,20975,23202,24877,24881,25435,38324,44777,44783,44785,51696,59335,62336,68725,68726,82306,114137]
+        # Plaza italia
+        elif project_name =='red_buena_calidad_parque_bueras':
+            p_code = '04'
+            existent_increase_pje_ep = [45261,45269,45270,45271,45273,45274,45275,45277,50345,61581,88877,88880,45259,46780] # OSMnx edges
+            drawn_lines = [114163,114164,114165,114166,114167] # Drawn manually in GIS assigning u, v, pje_ep, and line_id
+            project_ids = existent_increase_pje_ep + drawn_lines
 
-    # --------------- SAVING DATA
-    # IMPORTANT NOTE: Make sure local_save_dir exists
-    local_save = True # save output to local?
+        # --------------- LOCAL INPUT AND OUTPUT DIRECTORIES
+        # IMPORTANT NOTE: Make sure all directories exist.
+        # general directory (All directories derive from here)
+        gral_dir = '../data/external/santiago/'
+        
+        # Dir 1 - Local directory where pois files are located
+        all_pois_dir = gral_dir + "pois/"
 
-    ###################################################### DATA FOR PART 3 ###############################################################
-    ########################################################### HQSL #####################################################################
+        # Dir 2 - Local directory where nearest precomputed data (Notebook 31b) is located. (Used when db_osmnx_network = False)
+        nearest_dir = "../data/external/santiago/nearest/"
 
-    compute_part_3 = False
+        # Dir 3 - Local directory where areas of analysis are located (Used in PART 2 and PART 3)
+        areas_dir = gral_dir + "areas_of_analysis/"
 
-    # --------------- PARAMETERS AND WEIGHT DICTS
-    # Structure: {social_functions:{themes:[source_names]}}
-    parameters_dict = {'supplying':{'wellbeing':['carniceria', #Accessibility to Butcher/Fish Shops
-                                                'hogar', #Accessibility to Hardware/Paint Shops
-                                                #Not available: Accessibility to Greengrocers
-                                                'bakeries', #Accessibility to Bakeries and delis
-                                                'supermercado',#Accessibility to supermarkets
-                                                'banco'#Accessibility to bank
+        # Dir 4 - Local directory where outputs are saved
+        local_save_dir = gral_dir + f'output/project_{p_code}_osmnx/'
+
+        # Dir 5 - Local directory where areal data is located
+        areal_dir = gral_dir + 'areal_data/'
+        
+        # --------------- AREA OF INTEREST
+        # Area of interest (aoi)
+        aoi_schema = 'projects_research'
+        aoi_table = 'santiago_aoi'
+        # 'AM_Santiago' represents Santiago's metropolitan area, 'alamedabuffer_4500m' also available
+        city = 'alamedabuffer_4500m'
+
+        # --------------- PROJECTION
+        # Projection to be used whenever necessary
+        projected_crs = 'EPSG:32719'
+
+        # --------------- METHODOLOGY
+        # Pois proximity methodology - Count pois at a given time proximity? (If true, second tupple value is distance in minutes)
+        count_pois = (True,15)
+
+        # walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
+        #						 or if prox_measure="time_min" but needing to fill time_min NaNs.
+        walking_speed_list = [4.5] #[3.5,4.5,5,12,24,20,40]
+        
+        # --------------- SAVING SPACE IN DISK
+        # Save space in disk by deleting data that won't be used again?
+        save_space = True
+
+        # --------------- SAVING DATA
+        # IMPORTANT NOTE: Make sure local_save_dir exists
+        local_save = True # save output to local?
+
+        ###################################################### DATA FOR PART 3 ###############################################################
+        ########################################################### HQSL #####################################################################
+
+        compute_part_3 = True
+
+        # --------------- PARAMETERS AND WEIGHT DICTS
+        # Structure: {social_functions:{themes:[source_names]}}
+        parameters_dict = {'supplying':{'wellbeing':['carniceria', #Accessibility to Butcher/Fish Shops
+                                                    'hogar', #Accessibility to Hardware/Paint Shops
+                                                    #Not available: Accessibility to Greengrocers
+                                                    'bakeries', #Accessibility to Bakeries and delis
+                                                    'supermercado',#Accessibility to supermarkets
+                                                    'banco'#Accessibility to bank
+                                                    ],
+                                        'sociability':['ferias',#Accessibility to city fairs/markets
+                                                    'local_mini_market',#Accessibility to local and mini markets
+                                                    'correos'#ADDED: MAIL SERVICE
+                                                    ],
+                                        'environmental_impact':['centro_recyc'#Accessibility to recycling center
+                                                                #Not available: Accessibility to compost
+                                                            ]
+                                    },
+                        'caring':{'wellbeing':['hospital', #Accessibility to hospital
+                                                'clinica',#Accessibility to public clinics
+                                                'farmacia',#Accessibility to pharmacies
+                                                'vacunatorio',#Accessibility to vaccination center
+                                                'consult_ado',#Accessibility to optician/audiologist(###ADDED DENTIST)
+                                                'salud_mental',###ADDED: MENTAL HEALTH
+                                                'labs_priv',###ADDED: LABORATORIES
+                                                'residencia_adumayor'###ADDED: ELDERLY PERMANENT RESIDENCIES
                                                 ],
-                                    'sociability':['ferias',#Accessibility to city fairs/markets
-                                                'local_mini_market',#Accessibility to local and mini markets
-                                                'correos'#ADDED: MAIL SERVICE
+                                    'sociability':['eq_deportivo',#Accessibility to sports equipments
+                                                    'club_deportivo'#Accessibility to sport clubs
                                                 ],
-                                    'environmental_impact':['centro_recyc'#Accessibility to recycling center
-                                                            #Not available: Accessibility to compost
-                                                        ]
-                                },
-                    'caring':{'wellbeing':['hospital', #Accessibility to hospital
-                                            'clinica',#Accessibility to public clinics
-                                            'farmacia',#Accessibility to pharmacies
-                                            'vacunatorio',#Accessibility to vaccination center
-                                            'consult_ado',#Accessibility to optician/audiologist(###ADDED DENTIST)
-                                            'salud_mental',###ADDED: MENTAL HEALTH
-                                            'labs_priv',###ADDED: LABORATORIES
-                                            'residencia_adumayor'###ADDED: ELDERLY PERMANENT RESIDENCIES
-                                            ],
-                                'sociability':['eq_deportivo',#Accessibility to sports equipments
-                                                'club_deportivo'#Accessibility to sport clubs
-                                            ],
-                                'environmental_impact':['noise',
-                                                        'temp'
-                                    #Not available: Air polution
-                                                        ]
-                                },
-                    'living':{'wellbeing':['civic_office',#Accessibility to civic offices
-                                            #Not available: Number of street bentches
-                                            'tax_collection',#ADDED: AFIP(TAX COLLECTOR)
-                                            'social_security',#ADDED: SOCIAL SECURITY
-                                            'police',#Accessibility to police(###MOVED FROM LIVING TO CARING)
-                                            'bomberos'#Accessibility to fire stations
-                                            #Not available: Accessibility to street lamp
-                                            ],
-                                'sociability':['houses',#Accessibility to permanent residencies
-                                                'social_viv',#Accessibility to social housing
-                                                #Not available: Accessibility to student housing
-                                                'hotel'#ADDED: HOTELS
-                                            ],
-                                'environmental_impact':['inter',
-                                                        #Not available: Corrected compactness
-                                                        #Not available: Width of sidewalks
-                                                        ],
-                                },
-                    'enjoying':{'wellbeing':['museos',#Accessibility to museums
-                                                #Not available: Accessibility to theater,operas
-                                                'cines',#Accessibility to cinemas
-                                                'sitios_historicos',#Accessibility to historical places
-                                                'ndvi'#Number of trees
-                                            ],
-                                'sociability':['restaurantes_bar_cafe',#Accessibility to bars/cafes + Accessibility to restaurants
-                                                'librerias',#Accessibility to record and book stores, galleries, fairs
-                                                #Not available: Accessibility to cultural and/or formative spaces
-                                                #Not available: Accessibility to places of workship
-                                                'ep_plaza_small'#Accessibility to boulevards, linear parks, small squares + Accessibility to squares
+                                    'environmental_impact':['noise',
+                                                            'temp'
+                                        #Not available: Air polution
+                                                            ]
+                                    },
+                        'living':{'wellbeing':['civic_office',#Accessibility to civic offices
+                                                #Not available: Number of street bentches
+                                                'tax_collection',#ADDED: AFIP(TAX COLLECTOR)
+                                                'social_security',#ADDED: SOCIAL SECURITY
+                                                'police',#Accessibility to police(###MOVED FROM LIVING TO CARING)
+                                                'bomberos'#Accessibility to fire stations
+                                                #Not available: Accessibility to street lamp
                                                 ],
-                                'environmental_impact':['ep_plaza_big'#Accessibility to big parks
-                                                        #Not available: Accessibility to shared gardens
-                                                        #Not available: Accessibility to urban playgrounds
-                                                        ]
-                                },
-                    'learning':{'wellbeing':['edu_basica_pub',#'edu_basica_priv',#Accessibility to public elementary school
-                                                'edu_media_pub',#'edu_media_priv',#Accessibility to public high school
-                                                'jardin_inf_pub',#'jardin_inf_priv',#Similar to Accessibility to childcare
-                                                'universidad',#Accessibility to university
-                                                'edu_tecnica',#ADDED: TECHNICAL EDUCATION
-                                            ],
-                                'sociability':['edu_adultos_pub',#'edu_adultos_priv',#Accessibility to adult formation centers
-                                                'edu_especial_pub',#'edu_especial_priv',#Accessibility to specialized educational centers
-                                                #Not available: Accesibility to establishments and services for disabled adults
-                                                'bibliotecas'#Accessibility to libraries(###MOVED FROM ENJOYING TO LEARNING)
+                                    'sociability':['houses',#Accessibility to permanent residencies
+                                                    'social_viv',#Accessibility to social housing
+                                                    #Not available: Accessibility to student housing
+                                                    'hotel'#ADDED: HOTELS
                                                 ],
-                                'environmental_impact':['centro_edu_amb'#Accessibility to centers for learning environmental activities
-                                                        #Not available: Accessibility to gardening schools
-                                                        ],
-                                },
-                    'working':{'wellbeing':['paradas_tp_ruta',#Accessibility to bus stop
-                                            'paradas_tp_metro',#Accessibility to metro
-                                            'paradas_tp_tren'#Accessibility to train stop
-                                            ],
-                                'sociability':['oficinas'#Accessibility to office
-                                                #Not available: Accessibility to incubators
-                                                #Not available: AccSeveral other articles cite 60dB as a safe noise zone. essibility to coworking places
-                                            ],
-                                'environmental_impact':['ciclovias',
-                                                        'estaciones_bicicletas'#Accessibility to bike lanes
-                                                        #Not available: Accessibility to shared bike stations
-                                                        ]
-                                }
+                                    'environmental_impact':['inter',
+                                                            #Not available: Corrected compactness
+                                                            #Not available: Width of sidewalks
+                                                            ],
+                                    },
+                        'enjoying':{'wellbeing':['museos',#Accessibility to museums
+                                                    #Not available: Accessibility to theater,operas
+                                                    'cines',#Accessibility to cinemas
+                                                    'sitios_historicos',#Accessibility to historical places
+                                                    'ndvi'#Number of trees
+                                                ],
+                                    'sociability':['restaurantes_bar_cafe',#Accessibility to bars/cafes + Accessibility to restaurants
+                                                    'librerias',#Accessibility to record and book stores, galleries, fairs
+                                                    #Not available: Accessibility to cultural and/or formative spaces
+                                                    #Not available: Accessibility to places of workship
+                                                    'ep_plaza_small'#Accessibility to boulevards, linear parks, small squares + Accessibility to squares
+                                                    ],
+                                    'environmental_impact':['ep_plaza_big'#Accessibility to big parks
+                                                            #Not available: Accessibility to shared gardens
+                                                            #Not available: Accessibility to urban playgrounds
+                                                            ]
+                                    },
+                        'learning':{'wellbeing':['edu_basica_pub',#'edu_basica_priv',#Accessibility to public elementary school
+                                                    'edu_media_pub',#'edu_media_priv',#Accessibility to public high school
+                                                    'jardin_inf_pub',#'jardin_inf_priv',#Similar to Accessibility to childcare
+                                                    'universidad',#Accessibility to university
+                                                    'edu_tecnica',#ADDED: TECHNICAL EDUCATION
+                                                ],
+                                    'sociability':['edu_adultos_pub',#'edu_adultos_priv',#Accessibility to adult formation centers
+                                                    'edu_especial_pub',#'edu_especial_priv',#Accessibility to specialized educational centers
+                                                    #Not available: Accesibility to establishments and services for disabled adults
+                                                    'bibliotecas'#Accessibility to libraries(###MOVED FROM ENJOYING TO LEARNING)
+                                                    ],
+                                    'environmental_impact':['centro_edu_amb'#Accessibility to centers for learning environmental activities
+                                                            #Not available: Accessibility to gardening schools
+                                                            ],
+                                    },
+                        'working':{'wellbeing':['paradas_tp_ruta',#Accessibility to bus stop
+                                                'paradas_tp_metro',#Accessibility to metro
+                                                'paradas_tp_tren'#Accessibility to train stop
+                                                ],
+                                    'sociability':['oficinas'#Accessibility to office
+                                                    #Not available: Accessibility to incubators
+                                                    #Not available: AccSeveral other articles cite 60dB as a safe noise zone. essibility to coworking places
+                                                ],
+                                    'environmental_impact':['ciclovias',
+                                                            'estaciones_bicicletas'#Accessibility to bike lanes
+                                                            #Not available: Accessibility to shared bike stations
+                                                            ]
+                                    }
+                        }
+
+        weight_dict = {'carniceria':'rare', #SUPPLYING
+                    'hogar':'rare',
+                    'bakeries':'rare',
+                    'supermercado':'rare',
+                    'banco':'rare',
+                    'ferias':'rare',
+                    'local_mini_market':'rare',
+                    'correos':'very_rare',
+                    'centro_recyc':'rare',
+                    #CARING
+                    'hospital':'very_rare',
+                    'clinica':'rare',
+                    'farmacia':'rare',
+                    'vacunatorio':'very_rare',
+                    'consult_ado':'very_rare',
+                    'salud_mental':'very_rare',
+                    'labs_priv':'very_rare',
+                    'residencia_adumayor':'rare',
+                    'eq_deportivo':'rare',
+                    'club_deportivo':'rare',
+                    'noise':'specific',
+                    'temp':'specific',
+                    #LIVING
+                    'civic_office':'rare', 
+                    'tax_collection':'very_rare',
+                    'social_security':'very_rare',
+                    'police':'very_rare',
+                    'bomberos':'very_rare',
+                    'houses':'specific',
+                    'social_viv':'specific',
+                    'hotel':'rare',
+                    'inter':'specific',
+                    #ENJOYING
+                    'museos':'very_rare',
+                    'cines':'very_rare',
+                    'sitios_historicos':'rare',
+                    'ndvi':'specific',
+                    'restaurantes_bar_cafe':'frequent',
+                    'librerias':'rare',
+                    'ep_plaza_small':'frequent',
+                    'ep_plaza_big':'rare',
+                    #LEARNING
+                    'edu_basica_pub':'rare', 
+                    'edu_media_pub':'rare',
+                    'jardin_inf_pub':'rare',
+                    'universidad':'very_rare',
+                    'edu_tecnica':'very_rare',
+                    'edu_adultos_pub':'rare',
+                    'edu_especial_pub':'rare',
+                    'bibliotecas':'very_rare',
+                    'centro_edu_amb':'very_rare',
+                    #WORKING
+                    'paradas_tp_ruta':'frequent',
+                    'paradas_tp_metro':'very_rare',
+                    'paradas_tp_tren':'very_rare',
+                    'oficinas':'specific',
+                    'ciclovias':'rare',
+                    'estaciones_bicicletas':'rare',
                     }
+        
+        ######################################################################################################################################
+        ########################################################## SCRIPT START ##############################################################
+        ######################################################################################################################################
+        aup.log('--'*50)
+        aup.log(F'--- STARTING SCRIPT 27 FOR PROJECT {p_code}.')
 
-    weight_dict = {'carniceria':'rare', #SUPPLYING
-                'hogar':'rare',
-                'bakeries':'rare',
-                'supermercado':'rare',
-                'banco':'rare',
-                'ferias':'rare',
-                'local_mini_market':'rare',
-                'correos':'very_rare',
-                'centro_recyc':'rare',
-                #CARING
-                'hospital':'very_rare',
-                'clinica':'rare',
-                'farmacia':'rare',
-                'vacunatorio':'very_rare',
-                'consult_ado':'very_rare',
-                'salud_mental':'very_rare',
-                'labs_priv':'very_rare',
-                'residencia_adumayor':'rare',
-                'eq_deportivo':'rare',
-                'club_deportivo':'rare',
-                'noise':'specific',
-                'temp':'specific',
-                #LIVING
-                'civic_office':'rare', 
-                'tax_collection':'very_rare',
-                'social_security':'very_rare',
-                'police':'very_rare',
-                'bomberos':'very_rare',
-                'houses':'specific',
-                'social_viv':'specific',
-                'hotel':'rare',
-                'inter':'specific',
-                #ENJOYING
-                'museos':'very_rare',
-                'cines':'very_rare',
-                'sitios_historicos':'rare',
-                'ndvi':'specific',
-                'restaurantes_bar_cafe':'frequent',
-                'librerias':'rare',
-                'ep_plaza_small':'frequent',
-                'ep_plaza_big':'rare',
-                #LEARNING
-                'edu_basica_pub':'rare', 
-                'edu_media_pub':'rare',
-                'jardin_inf_pub':'rare',
-                'universidad':'very_rare',
-                'edu_tecnica':'very_rare',
-                'edu_adultos_pub':'rare',
-                'edu_especial_pub':'rare',
-                'bibliotecas':'very_rare',
-                'centro_edu_amb':'very_rare',
-                #WORKING
-                'paradas_tp_ruta':'frequent',
-                'paradas_tp_metro':'very_rare',
-                'paradas_tp_tren':'very_rare',
-                'oficinas':'specific',
-                'ciclovias':'rare',
-                'estaciones_bicicletas':'rare',
-                }
-    
-    ######################################################################################################################################
-    ########################################################## SCRIPT START ##############################################################
-    ######################################################################################################################################
+        # Area of interest (aoi)
+        aup.log("--- Downloading area of interest.")
+        query = f"SELECT * FROM {aoi_schema}.{aoi_table} WHERE \"city\" LIKE \'{city}\'"
+        aoi = aup.gdf_from_query(query, geometry_col='geometry')
+        aoi = aoi.set_crs("EPSG:4326")
 
-    # Area of interest (aoi)
-    aup.log("--- Downloading area of interest.")
-    query = f"SELECT * FROM {aoi_schema}.{aoi_table} WHERE \"city\" LIKE \'{city}\'"
-    aoi = aup.gdf_from_query(query, geometry_col='geometry')
-    aoi = aoi.set_crs("EPSG:4326")
+        # Using network from OSMnx
+        if db_osmnx_network:
+            aup.log("--- Loading OSMnx network.")
+            G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
 
-    # Using network from OSMnx
-    if osmnx_network:
-        aup.log("--- Loading OSMnx network.")
-        G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
-        # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
-        santiago_tmp_fix = False
-        p_code = 'osmnx'
-    
-    # Using network with project data
-    else:
-        aup.log(f"--- Loading project {project_name} network.")
-
-        # Preprocessing done using QGIS:
-        if qgis_file:
-            # Filtered network - Load edges
-            edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/qgis_preprocessing_03reorder/{project_name}_single_parts.gpkg')
-            edges_file = edges_file.set_crs(projected_crs)
-            # Filtered network - Load nodes
-            nodes_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/qgis_preprocessing_03reorder/{project_name}_nodes.shp')
-            nodes_file = nodes_file.set_crs(projected_crs)
-
-            aup.log(f"Loaded GIS-preprocessed file with {len(edges_file)} edges.")
-            aup.log(f"Loaded GIS-preprocessed file with {len(nodes_file)} nodes.")
-
-        # Code preprocessing (Based on QGIS preprocessing)
+            # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file.
+            # Not necessary if using original complete db_osmnx_network.
+            preprocessed_nearest = (False,0)
+        
+        # Using network with project data
         else:
-            if preprocess_lines:
-                # a) ---------------- LOAD DATA
-                # ------------------- This step loads the project file gdf containing the streets and public space quality data for the current project
-                # Load data
-                aup.log("Preprocess lines - Loading project lines.")
-                project_lines = gpd.read_file(gral_dir+f"calidad_ep/{p_code}_{project_name}/original_file/{project_name}.shp")
-                # Set CRS
-                if project_lines.crs != projected_crs:
-                    try:
-                        project_lines = project_lines.to_crs(projected_crs)
-                    except:
-                        project_lines = project_lines.set_crs(projected_crs)
-                # Filter for data of relevance
-                project_lines = project_lines[[filtering_column,'geometry']].copy()
-                
-                # b) ---------------- SPLIT LINES WITH THEMSELVES
-                # ------------------- This step replicates "Split with lines" processing in QGIS.
-                # ------------------- (Splits each line using a unary union of the rest of the lines.)
-                split_lines = split_lines_with_themselves(project_lines)
+            # Using graph_from_hippo allows us to also select nodes that are outside aoi but connect to a given edge.
+            aup.log("--- Loading project network.")
+            G, nodes, edges = aup.graph_from_hippo(aoi, network_schema, edges_table, nodes_table, projected_crs)
+            nodes = nodes.reset_index()
+            edges = edges.reset_index()
+            aup.log(f"Loaded file with {len(edges)} edges.")
+            aup.log(f"Loaded file with {len(nodes)} nodes.")
 
-                # c) ---------------- MULTIPART TO SINGLEPARTS
-                # ------------------- This step replicates "Multipart to singleparts" processing in QGIS.
-                split_lines_singleparts = split_lines.explode(ignore_index=True)
-
-                # d) ---------------- EXTRACT SPECIFIC VERTICES
-                # ------------------- This step replicates "Extract specific vertices" processing in QGIS.
-                # ------------------- (Extracts the first and last vertex of each line.)
-                aup.log("Preprocess lines - Extracting first and last vertex of each row.")
-                # Reset index 
-                lines_gdf = split_lines_singleparts.copy()
-                lines_gdf.reset_index(inplace=True)
-                lines_gdf.drop(columns=['index'],inplace=True)
-
-                #Initialize an empty list to store the points
-                points = []
-                attributes = []
-
-                #Iterate through each LineString and extract its vertices
-                for idx, row in lines_gdf.iterrows():
-
-                    # Identify line, its coordinates and how many there are
-                    line = row.geometry
-                    line_coords = line.coords
-                    num_points = len(line_coords)
-
-                    # Save starting coord
-                    starting_coord = line_coords[0]
-                    points.append(Point(starting_coord))
-                    attributes.append(row[filtering_column])
-
-                    # Save ending coord
-                    ending_coord = line_coords[num_points-1]
-                    points.append(Point(ending_coord))
-                    attributes.append(row[filtering_column])
-                        
-                # Create a new GeoDataFrame from the points
-                gdf_points = gpd.GeoDataFrame(attributes,geometry=points, crs=lines_gdf.crs)
-                gdf_points.rename(columns={0:filtering_column},inplace=True)
-
-                # e) ---------------- DROP DUPLICATES
-                # ------------------- This step replicates MMQGIS "Delete duplicate geometries" processing in QGIS.
-                aup.log("Preprocess lines - Dropping points duplicates.")
-                points_gdf = gdf_points.drop_duplicates(subset='geometry')
-
-                # f) ---------------- SAVE RESULT
-                # Preprocessed edges and nodes
-                edges_file = split_lines_singleparts.copy()
-                nodes_file = points_gdf.copy()
-                # Saving to avoid preprocess again
-                aup.log(f"Preprocess lines - Saving preprocessed nodes and edges.")
-                edges_file.to_file(gral_dir+f"calidad_ep/{p_code}_{project_name}/project_{p_code}_edges.gpkg")
-                nodes_file.to_file(gral_dir+f"calidad_ep/{p_code}_{project_name}/project_{p_code}_nodes.gpkg")
-                
-                aup.log(f"Preprocess lines - {len(edges_file)} edges.")
-                aup.log(f"Preprocess lines - {len(nodes_file)} nodes.")
-
-                if save_space:
-                    del project_lines
-                    del split_lines
-                    del split_lines_singleparts
-                    del lines_gdf
-                    del gdf_points
-                    del points_gdf
-
+            # Delete lines that shouldn't be there
+            edges_f = edges.loc[~edges['line_id'].isin(delete_ids)].copy()
+            # Change filtering_column values in project lines to include them
+            idx = edges_f['line_id'].isin(project_ids)
+            edges_f.loc[idx,filtering_column] = filtering_value+0.01
+            # Filter edges by filtering_value
+            if project_name != 'red_completa':
+                edges_filt = edges_f.loc[edges_f[filtering_column] >= filtering_value].copy()
+                aup.log("--- Filtered project network's edges by filtering value.")
             else:
-                edges_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_edges.gpkg')
-                edges_file = edges_file.set_crs(projected_crs)
-                nodes_file = gpd.read_file(gral_dir+f'calidad_ep/{p_code}_{project_name}/project_{p_code}_nodes.gpkg')
-                nodes_file = nodes_file.set_crs(projected_crs)
-
-                aup.log(f"Loaded preprocessed file with {len(edges_file)} edges.")
-                aup.log(f"Loaded preprocessed file with {len(nodes_file)} nodes.")
-
-        # Filtered network - Create navigable network
-        #edges_file = edges_file.explode(ignore_index=True)
-        nodes, edges = aup.create_network(nodes_file, edges_file,projected_crs)
-        nodes = nodes.drop_duplicates(subset=['osmid'])
-        aup.log(f"--- Created network with {len(nodes)} edges and {len(edges)} nodes.")
-        # Filtered network - Filter navigable network
-        if project_name != 'redvial2019_buffer_3750m_c_utilidad_2':
-            edges_filt = edges.loc[edges[filtering_column] >= filtering_value]
-        else:
-            edges_filt = edges.copy()
-        # Filtered network - Filter nodes from edges
-        nodes_id = list(edges_filt.v.unique())
-        u = list(edges_filt.u.unique())
-        nodes_id.extend(u)
-        myset = set(nodes_id)
-        osmids_lst = list(myset)
-        nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
-        aup.log(f"--- Filtered nodes using edges, kept {len(nodes)} nodes.")
-        # Filtered network - Prepare nodes
-        nodes_gdf = nodes.copy()
-        nodes_gdf.set_index('osmid',inplace=True)
-        nodes_gdf['x'] = nodes_gdf['geometry'].x
-        nodes_gdf['y'] = nodes_gdf['geometry'].y
-        # Filtered network -  Prepare edges
-        edges_gdf = edges_filt.copy()
-        edges_gdf.set_index(['u','v','key'],inplace=True)
-        # Filtered network - Create G and rename nodes and edges
-        G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
-        nodes = nodes_gdf.copy()
-        edges = edges_gdf.copy()
-        aup.log(f"--- Created G network.")
-        ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
-
-        # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file
-        santiago_tmp_fix = True
-
-    # Main function
-    for walking_speed in walking_speed_list:
-        aup.log('--'*45)
-        str_walk_speed = str(walking_speed).replace('.','_')
+                edges_filt = edges_f.copy()
+                aup.log("--- Copied network's edges without filtering.")
             
-        # Proceed to main function
-        aup.log(f"--- Running Script for speed: {walking_speed}km/hr.")
-        main(source_list, aoi, G, nodes, edges, walking_speed, local_save, santiago_tmp_fix)
+            # Filtered network - Some edges were dropped, so filter nodes from edges
+            nodes_id = list(edges_filt.v.unique())
+            u = list(edges_filt.u.unique())
+            nodes_id.extend(u)
+            myset = set(nodes_id)
+            osmids_lst = list(myset)
+            nodes = nodes.loc[nodes.osmid.isin(osmids_lst)]
+            aup.log(f"--- Filtered nodes using edges, kept {len(nodes)} nodes.")
+
+            # Filtered network - Prepare nodes
+            nodes_gdf = nodes.copy()
+            nodes_gdf.set_index('osmid',inplace=True)
+            # Filtered network -  Prepare edges
+            edges_gdf = edges_filt.copy()
+            edges_gdf.set_index(['u','v','key'],inplace=True)
+            # Filtered network - Create G and rename nodes and edges
+            G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
+            nodes = nodes_gdf.copy()
+            edges = edges_gdf.copy()
+            aup.log("--- Created G network.")
+            ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
+
+            # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file.
+            # Necessary if using filtered network because inside pois_time() and id_pois_time(), each poi gets assigned to the nearest node.
+            # If not using precomputed nearest, the pois would assign themselves to the nearest node of a filtered network instead of the actual nearest node,
+            # Creating fake proximity in all the filtered network
+            preprocessed_nearest = (True,nearest_dir)
+
+        # Main function
+        for walking_speed in walking_speed_list:
+            aup.log('--'*45)
+            str_walk_speed = str(walking_speed).replace('.','_')
+                
+            # Proceed to main function
+            aup.log(f"--- Running Script for speed: {walking_speed}km/hr.")
+            main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preprocessed_nearest)
