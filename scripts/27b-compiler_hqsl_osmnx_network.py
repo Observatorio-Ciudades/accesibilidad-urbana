@@ -1144,7 +1144,7 @@ if __name__ == "__main__":
 
             # Delete lines that shouldn't be there
             edges_f = edges.loc[~edges['line_id'].isin(delete_ids)].copy()
-            aup.log(f"--- Deleted {len(edges_f) - len(edges)} edges belonging to a unexistent footpath relevant for the analysis.")
+            aup.log(f"--- Deleted {len(edges) - len(edges_f)} edges belonging to a unexistent footpath relevant for the analysis.")
             # Change filtering_column values in project lines to include them
             idx = edges_f['line_id'].isin(project_ids)
             edges_f.loc[idx,filtering_column] = filtering_value+0.01
