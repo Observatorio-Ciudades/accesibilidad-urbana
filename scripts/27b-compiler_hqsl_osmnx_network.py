@@ -537,113 +537,119 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
         
         i+=1
     
+    if local_save:
+        nodes_analysis.to_file(local_save_dir + f"santiago_nodesanalysis_project_{p_code}.gpkg", driver='GPKG')
+        aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved nodes analysis data locally.")
+
+    
     ############################################################### PART 2 ###############################################################
     #################################################### NODES DATA TO AREA OF ANALYSIS ##################################################
-    # Avoid overestimating universities
-    nodes_analysis.loc[nodes_analysis.universidad_count_15min > 3, 'universidad_count_15min'] = 3
+    if compute_nodes_to_hex:
+        # Avoid overestimating universities
+        nodes_analysis.loc[nodes_analysis.universidad_count_15min > 3, 'universidad_count_15min'] = 3
 
-    area_dict = {'unidadesvecinales':'COD_UNICO_',
-                 'zonascensales':'GEOCODI',
-                 'hex':'hex_id'
-                 }
-    
-    k = len(area_dict.keys())
-    i = 1
-
-    for area_analysis in area_dict.keys():
-
-        aup.log(f"CALCULATING PROXIMITY AND HQSL FOR AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
-
-        aup.log(f"--- STARTING PART 2: NODES DATA TO {area_analysis}.")
-
-        # 2.1 --------------- LOAD AND FORMAT AREA OF ANALYSIS GDF
-        # ------------------- This step loads the current area of analysis and prepares it as an empty container
-
-        code_column = area_dict[area_analysis]
+        area_dict = {'unidadesvecinales':'COD_UNICO_',
+                    'zonascensales':'GEOCODI',
+                    'hex':'hex_id'
+                    }
         
-        # Load area of analysis gdf
-        if area_analysis == 'unidadesvecinales':
-            gdf = gpd.read_file(areas_dir+"santiago_unidadesvecinales_zonaurbana.geojson")
-            gdf = gdf[[code_column,'geometry']].copy()
-            aup.log(f"--- Area of analysis {i}/{k} (2.1) - Loaded area of analysis gdf.")
+        k = len(area_dict.keys())
+        i = 1
 
-        elif area_analysis == 'zonascensales':
-            gdf = gpd.read_file(areas_dir+"zonas_censales_hogares_RM.shp")
-            gdf = gdf[[code_column,'geometry']].copy()
-            aup.log(f"--- Area of analysis {i}/{k} (2.1) - Loaded area of analysis gdf.")
+        for area_analysis in area_dict.keys():
 
-        elif area_analysis == 'hex':
-            # For this script, will only use res=10
-            res = 10
+            aup.log(f"CALCULATING PROXIMITY AND HQSL FOR AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
 
-            gdf = aup.create_hexgrid(aoi, res)
-            gdf.rename(columns={f'hex_id_{res}':'hex_id'}, inplace=True)
-            gdf['res'] = res
-            gdf = gdf[[code_column,'res','geometry']].copy()  
-            aup.log(f"--- Area of analysis {i}/{k} (2.1) - Created {len(gdf)} hexagons at resolution {res}.")
-        
-        # Set gdf CRS
-        try:
-            gdf = gdf.to_crs("EPSG:4326")
-        except:
-            gdf = gdf.set_crs("EPSG:4326")
-        
-        # Explode area of analysis gdf
-        gdf = gdf.explode(ignore_index=True)
+            aup.log(f"--- STARTING PART 2: NODES DATA TO {area_analysis}.")
 
-        # Clip area of analysis gdf to area of interest 
-        # (Data available within area of interest only, not clipping causes problems when computing neighbors data.)
-        gdf_cut = gpd.sjoin(gdf, aoi[['geometry']])
-        gdf_cut.drop(columns=['index_right'],inplace=True)
-        gdf = gdf_cut.copy()
+            # 2.1 --------------- LOAD AND FORMAT AREA OF ANALYSIS GDF
+            # ------------------- This step loads the current area of analysis and prepares it as an empty container
 
-        # 2.2 --------------- GROUP DATA BY AREA OF ANALYSIS
-        # ------------------- This groups proximity data by area of analysis
+            code_column = area_dict[area_analysis]
+            
+            # Load area of analysis gdf
+            if area_analysis == 'unidadesvecinales':
+                gdf = gpd.read_file(areas_dir+"santiago_unidadesvecinales_zonaurbana.geojson")
+                gdf = gdf[[code_column,'geometry']].copy()
+                aup.log(f"--- Area of analysis {i}/{k} (2.1) - Loaded area of analysis gdf.")
 
-        if area_analysis == 'hex':
+            elif area_analysis == 'zonascensales':
+                gdf = gpd.read_file(areas_dir+"zonas_censales_hogares_RM.shp")
+                gdf = gdf[[code_column,'geometry']].copy()
+                aup.log(f"--- Area of analysis {i}/{k} (2.1) - Loaded area of analysis gdf.")
 
-            hex_gdf = gdf.copy()
-            poly_proximity = gpd.GeoDataFrame()
+            elif area_analysis == 'hex':
+                # For this script, will only use res=10
+                res = 10
 
-            for r in hex_gdf.res.unique():
+                gdf = aup.create_hexgrid(aoi, res)
+                gdf.rename(columns={f'hex_id_{res}':'hex_id'}, inplace=True)
+                gdf['res'] = res
+                gdf = gdf[[code_column,'res','geometry']].copy()  
+                aup.log(f"--- Area of analysis {i}/{k} (2.1) - Created {len(gdf)} hexagons at resolution {res}.")
+            
+            # Set gdf CRS
+            try:
+                gdf = gdf.to_crs("EPSG:4326")
+            except:
+                gdf = gdf.set_crs("EPSG:4326")
+            
+            # Explode area of analysis gdf
+            gdf = gdf.explode(ignore_index=True)
 
-                # Calculate mean proximity within area of analysis
-                hex_tmp = hex_gdf[hex_gdf.res == r].copy()
-                hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, all_source_cols, 'hex_id')
-                hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
-                hex_tmp['res'] = r
-                aup.log(f"--- Area of analysis {i}/{k} (2.2) - Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
+            # Clip area of analysis gdf to area of interest 
+            # (Data available within area of interest only, not clipping causes problems when computing neighbors data.)
+            gdf_cut = gpd.sjoin(gdf, aoi[['geometry']])
+            gdf_cut.drop(columns=['index_right'],inplace=True)
+            gdf = gdf_cut.copy()
 
-                # Merge to poly_proximity gdf
-                poly_proximity = pd.concat([poly_proximity, hex_tmp], 
-                                           ignore_index = True, 
-                                           axis = 0)
-                aup.log(f"--- Area of analysis {i}/{k} (2.2) - Merged {len(hex_tmp)} hexagons to poly_proximity gdf.")
+            # 2.2 --------------- GROUP DATA BY AREA OF ANALYSIS
+            # ------------------- This groups proximity data by area of analysis
 
-                del hex_tmp
-        
-        # If not hex
-        else:
-            r = 0 # no resolution needed for polygons different from h3 hexagons
-            poly_proximity = aup.group_by_hex_mean(nodes_analysis, gdf, r, all_source_cols, code_column)
-        aup.log(f"--- Area of analysis {i}/{k} (2.2) - Calculated mean proximity for {len(poly_proximity)} polygons.")
+            if area_analysis == 'hex':
+
+                hex_gdf = gdf.copy()
+                poly_proximity = gpd.GeoDataFrame()
+
+                for r in hex_gdf.res.unique():
+
+                    # Calculate mean proximity within area of analysis
+                    hex_tmp = hex_gdf[hex_gdf.res == r].copy()
+                    hex_tmp = aup.group_by_hex_mean(nodes_analysis, hex_tmp, r, all_source_cols, 'hex_id')
+                    hex_tmp = hex_tmp.drop(columns=['res_x','res_y'])
+                    hex_tmp['res'] = r
+                    aup.log(f"--- Area of analysis {i}/{k} (2.2) - Calculated mean proximity for {len(hex_tmp)} hexagons at resolution {r}.")
+
+                    # Merge to poly_proximity gdf
+                    poly_proximity = pd.concat([poly_proximity, hex_tmp], 
+                                            ignore_index = True, 
+                                            axis = 0)
+                    aup.log(f"--- Area of analysis {i}/{k} (2.2) - Merged {len(hex_tmp)} hexagons to poly_proximity gdf.")
+
+                    del hex_tmp
+            
+            # If not hex
+            else:
+                r = 0 # no resolution needed for polygons different from h3 hexagons
+                poly_proximity = aup.group_by_hex_mean(nodes_analysis, gdf, r, all_source_cols, code_column)
+            aup.log(f"--- Area of analysis {i}/{k} (2.2) - Calculated mean proximity for {len(poly_proximity)} polygons.")
 
 
-        # 2.3 --------------- FINAL FORMAT AND SAVE
-        # ------------------- This step gives final formating to proximity data and saves it localy
-        aup.log(f"--- Area of analysis {i}/{k} (2.3) - Giving final format and saving {area_analysis} proximity data.")
+            # 2.3 --------------- FINAL FORMAT AND SAVE
+            # ------------------- This step gives final formating to proximity data and saves it localy
+            aup.log(f"--- Area of analysis {i}/{k} (2.3) - Giving final format and saving {area_analysis} proximity data.")
 
-        poly_proximity = poly_proximity.set_geometry('geometry')
-        try:
-            poly_proximity = poly_proximity.to_crs("EPSG:4326")
-        except:
-            poly_proximity = poly_proximity.set_crs("EPSG:4326")
-        
-        poly_proximity['city'] = 'Santiago'
+            poly_proximity = poly_proximity.set_geometry('geometry')
+            try:
+                poly_proximity = poly_proximity.to_crs("EPSG:4326")
+            except:
+                poly_proximity = poly_proximity.set_crs("EPSG:4326")
+            
+            poly_proximity['city'] = 'Santiago'
 
-        if local_save:
-            poly_proximity.to_file(local_save_dir + f"santiago_{area_analysis}proximity_project_{p_code}.gpkg", driver='GPKG')
-            aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved {area_analysis} proximity data locally.")
+            if local_save:
+                poly_proximity.to_file(local_save_dir + f"santiago_{area_analysis}proximity_project_{p_code}.gpkg", driver='GPKG')
+                aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved {area_analysis} proximity data locally.")
 
     ########################################################## PART 3 ####################################################################
     ########################################################### HQSL #####################################################################
@@ -790,6 +796,8 @@ if __name__ == "__main__":
     # That source_name must also be the name of the file stored in pois_dir (.gpkg)
     # e.g if source_list = ['vacunatorio_pub'], vacanatorio_pub.gpkg must exist.
 
+    #source_list = ['restaurantes_bar_cafe'] #Test list
+
     source_list = ['carniceria','hogar','bakeries','supermercado','banco', #supplying-wellbeing
                    #supplying-sociability
                    'ferias','local_mini_market','correos', 
@@ -854,9 +862,8 @@ if __name__ == "__main__":
     # If db_osmnx_network = False, it is necessary to select a project.
     # According to the project, the value of pje_ep for some edges will be changed and than those edges will be filtered, changing proximity and HQSL data.
     
-    # Selecting project_name will choose a p_code, delete_ids and project_ids
+    # Selecting project_name will choose a p_code and project_ids
     #    p_code is used as output name (p_code goes into saving table name)
-    #    delete_ids are ids which will be dropped from the project analysis
     #    project_ids will have it's pje_ep changed to filtering value + 0.01 to include them.
     # (When db_osmnx_network = True, project_name doesn't matter, p_code is automatically set to 'db_osmnx' and delete_ids and project_ids are not used.)
     #project_name = 'red_buena_calidad_pza_italia'
@@ -917,6 +924,7 @@ if __name__ == "__main__":
         aoi_table = 'santiago_aoi'
         # 'AM_Santiago' represents Santiago's metropolitan area, 'alamedabuffer_4500m' also available
         city = 'alamedabuffer_4500m'
+        #city = 'test_area'
 
         # --------------- PROJECTION
         # Projection to be used whenever necessary
@@ -941,6 +949,7 @@ if __name__ == "__main__":
         ###################################################### DATA FOR PART 3 ###############################################################
         ########################################################### HQSL #####################################################################
 
+        compute_nodes_to_hex = True
         compute_part_3 = True
 
         # --------------- PARAMETERS AND WEIGHT DICTS
@@ -1135,13 +1144,14 @@ if __name__ == "__main__":
 
             # Delete lines that shouldn't be there
             edges_f = edges.loc[~edges['line_id'].isin(delete_ids)].copy()
+            aup.log(f"--- Deleted {len(edges_f) - len(edges)} edges belonging to a unexistent footpath relevant for the analysis.")
             # Change filtering_column values in project lines to include them
             idx = edges_f['line_id'].isin(project_ids)
             edges_f.loc[idx,filtering_column] = filtering_value+0.01
             # Filter edges by filtering_value
             if project_name != 'red_completa':
                 edges_filt = edges_f.loc[edges_f[filtering_column] >= filtering_value].copy()
-                aup.log("--- Filtered project network's edges by filtering value.")
+                aup.log(f"--- Filtered project network's edges by {filtering_column}. Kept {len(edges_filt)} edges.")
             else:
                 edges_filt = edges_f.copy()
                 aup.log("--- Copied network's edges without filtering.")
@@ -1165,7 +1175,7 @@ if __name__ == "__main__":
             G = ox.graph_from_gdfs(nodes_gdf, edges_gdf)
             nodes = nodes_gdf.copy()
             edges = edges_gdf.copy()
-            aup.log("--- Created G network.")
+            aup.log(f"--- Created G network with {len(nodes)} nodes and {len(edges)} edges.")
             ################################## FUNCTION NOT WORKING, TEMPORAL QGIS FIX
 
             # Temporal edit in pois_time() and id_pois_time() functions allows for using external nearest file.
