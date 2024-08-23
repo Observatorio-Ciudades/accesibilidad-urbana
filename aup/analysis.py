@@ -102,8 +102,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 		nodes[f'dist_{amenity_name}'] = distances
 		nodes[f'nearest_{amenity_name}'] = nearest_poi
 		nodes[f'{amenity_name}_{count_pois[1]}min'] = near_count
-		
-    
+
 	elif get_nearest_poi[0]: # Return distances and nearest poi idx
 		distances, nearest_poi_idx = get_distances(g,seeds,weights,voronoi_assignment,
                                                    get_nearest_poi=True)
@@ -890,12 +889,12 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 			# Filter nearest by keeping osmids located in current nodes (filtered network) gdf.
 			osmid_check_list = list(nodes.reset_index().osmid.unique())
 			nearest = nearest.loc[nearest.osmid.isin(osmid_check_list)]
-			print(f"Loaded previously calculated nearest data for {poi_name}.")
+			print(f"Loaded {len(nearest)} previously calculated nearest data for {poi_name}.")
 		else:
 			### Find nearest osmnx node for each DENUE point.
 			nearest = find_nearest(G, nodes, pois, return_distance= True)
 			nearest = nearest.set_crs("EPSG:4326")
-			print(f"Found and assigned nearest node osmid to each {poi_name}.")
+			print(f"Found and assigned {len(nearest)} nearest node osmid to each {poi_name}.")
 
 		##########################################################################################
 		# STEP 2: DISTANCE NEAREST POI. 
@@ -924,7 +923,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
 		nodes_analysis = nodes.reset_index().copy()
 		# nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
-		nodes_time = nodes.copy()
+		nodes_time = nodes.reset_index().copy()
 		
 		# --------------- 2.3 PROCESSING DISTANCE
 		print (f"Starting time analysis for {poi_name}.")
@@ -934,8 +933,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		poiscount_cols = []
 	
 		# If possible, analyses by batches of 200 pois.
-		if len(nearest) % 250:
-			batch_size = len(nearest)/201
+		if (len(nearest) % 250)==0:
+			batch_size = len(nearest)/200
 			for k in range(int(batch_size)+1):
 				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
 				# Calculate
@@ -945,13 +944,15 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				# Extract from nodes_distance_prep the calculated time data
 				batch_time_col = 'time_'+str(k)+poi_name
 				time_cols.append(batch_time_col)
-				nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
+				#nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
+				nodes_time[batch_time_col] = pd.merge(nodes_time,nodes_distance_prep[['index','dist_'+poi_name]],left_on='osmid',right_on='index')['dist_'+poi_name]
 
 				# If requested, extract from nodes_distance_prep the calculated pois count
 				if count_pois[0]:
 					batch_poiscount_col = f'{poi_name}_{str(k)}_{count_pois[1]}min'
 					poiscount_cols.append(batch_poiscount_col)
-					nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+					#nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+					nodes_time[batch_poiscount_col] = pd.merge(nodes_time,nodes_distance_prep[['index',f'{poi_name}_{count_pois[1]}min']],left_on='osmid',right_on='index')[f'{poi_name}_{count_pois[1]}min']
 
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -963,7 +964,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		
 		# Else, analyses by batches of 250 pois.
 		else:
-			batch_size = len(nearest)/251
+			batch_size = len(nearest)/250
 			for k in range(int(batch_size)+1):
 				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
@@ -973,13 +974,15 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				# Extract from nodes_distance_prep the calculated time data
 				batch_time_col = 'time_'+str(k)+poi_name
 				time_cols.append(batch_time_col)
-				nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
+				#nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
+				nodes_time[batch_time_col] = pd.merge(nodes_time,nodes_distance_prep[['index','dist_'+poi_name]],left_on='osmid',right_on='index')['dist_'+poi_name]
 
 				# If requested, extract from nodes_distance_prep the calculated pois count
 				if count_pois[0]:
 					batch_poiscount_col = f'{poi_name}_{str(k)}_{count_pois[1]}min'
 					poiscount_cols.append(batch_poiscount_col)
-					nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+					#nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
+					nodes_time[batch_poiscount_col] = pd.merge(nodes_time,nodes_distance_prep[['index',f'{poi_name}_{count_pois[1]}min']],left_on='osmid',right_on='index')[f'{poi_name}_{count_pois[1]}min']
 
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -994,8 +997,6 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		##########################################################################################
 		# STEP 3: FINAL FORMAT. 
   		# Organices and filters output data.
-		
-		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 
 		if count_pois[0]:
