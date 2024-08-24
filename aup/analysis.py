@@ -853,6 +853,10 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
 	"""
 
+	# Helps by printing steps to find solutions (If using, make sure test_save_dir exists.)
+	test_save = False
+	test_save_dir = "../data/external/debugging/pois_time/"
+
     ##########################################################################################
     # STEP 1: NEAREST. 
 	# Finds and assigns nearest node OSMID to each point of interest.
@@ -886,10 +890,11 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if preprocessed_nearest[0]:
 			# Load precalculated (with entire network) nearest gdf.
 			nearest = gpd.read_file(preprocessed_nearest[1]+f"nearest_{poi_name}.gpkg")
+			print(f"Loaded {len(nearest)} previously calculated nearest data for {poi_name}.")
 			# Filter nearest by keeping osmids located in current nodes (filtered network) gdf.
 			osmid_check_list = list(nodes.reset_index().osmid.unique())
 			nearest = nearest.loc[nearest.osmid.isin(osmid_check_list)]
-			print(f"Loaded {len(nearest)} previously calculated nearest data for {poi_name}.")
+			print(f"Filtered nearest for filtered network. Kept {len(nearest)}.")
 		else:
 			### Find nearest osmnx node for each DENUE point.
 			nearest = find_nearest(G, nodes, pois, return_distance= True)
@@ -919,12 +924,29 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# 2.2 --------------- ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
 		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
+		
+		# -----
+		if test_save:
+			nodes.to_file(test_save_dir + f"nodes_{poi_name}.geojson", driver='GeoJSON')
+			edges.to_file(test_save_dir + f"edges_{poi_name}.geojson", driver='GeoJSON')
+		# -----
 
 		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
 		nodes_analysis = nodes.reset_index().copy()
+
+		# -----
+		if test_save:
+			nodes_analysis.to_file(test_save_dir + f"empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
+		# -----
+
 		# nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
 		nodes_time = nodes.reset_index().copy()
-		
+
+		# -----
+		if test_save:
+			nodes_time.to_file(test_save_dir + f"empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
+		# -----
+
 		# --------------- 2.3 PROCESSING DISTANCE
 		print (f"Starting time analysis for {poi_name}.")
 
@@ -940,24 +962,32 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				# Calculate
 				source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
+				# Set osmid as column, not index
+				nodes_distance_prep.drop(columns=['index'],inplace=True)
+				nodes_distance_prep.reset_index(inplace=True)
+				
+				# -----
+				if test_save:
+					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
+				# -----
 
-				# Extract from nodes_distance_prep the calculated time data
+				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
 				batch_time_col = 'time_'+str(k)+poi_name
 				time_cols.append(batch_time_col)
-				#nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
-				nodes_time[batch_time_col] = pd.merge(nodes_time,nodes_distance_prep[['index','dist_'+poi_name]],left_on='osmid',right_on='index')['dist_'+poi_name]
+				nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid','dist_'+poi_name]],on='osmid',how='left')
+				nodes_time.rename(columns={'dist_'+poi_name:batch_time_col},inplace=True)
 
-				# If requested, extract from nodes_distance_prep the calculated pois count
+				# Extract from nodes_distance_prep to nodes_time the batch's calculated pois count (If requested)
 				if count_pois[0]:
 					batch_poiscount_col = f'{poi_name}_{str(k)}_{count_pois[1]}min'
 					poiscount_cols.append(batch_poiscount_col)
-					#nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
-					nodes_time[batch_poiscount_col] = pd.merge(nodes_time,nodes_distance_prep[['index',f'{poi_name}_{count_pois[1]}min']],left_on='osmid',right_on='index')[f'{poi_name}_{count_pois[1]}min']
-
+					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
+					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
 			nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
-			# If requested, apply the sum function to pois_count columns. 
+			# Apply the sum function to pois_count columns (If requested).
 			if count_pois[0]:
 				# Sum pois count
 				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[poiscount_cols].sum(axis=1)
@@ -970,29 +1000,42 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				# Calculate
 				source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
+				# Set osmid as column, not index
+				nodes_distance_prep.drop(columns=['index'],inplace=True)
+				nodes_distance_prep.reset_index(inplace=True)
 
-				# Extract from nodes_distance_prep the calculated time data
+				# -----
+				if test_save:
+					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
+				# -----
+
+				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
 				batch_time_col = 'time_'+str(k)+poi_name
 				time_cols.append(batch_time_col)
-				#nodes_time[batch_time_col] = nodes_distance_prep['dist_'+poi_name]
-				nodes_time[batch_time_col] = pd.merge(nodes_time,nodes_distance_prep[['index','dist_'+poi_name]],left_on='osmid',right_on='index')['dist_'+poi_name]
+				nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid','dist_'+poi_name]],on='osmid',how='left')
+				nodes_time.rename(columns={'dist_'+poi_name:batch_time_col},inplace=True)
 
-				# If requested, extract from nodes_distance_prep the calculated pois count
+				# Extract from nodes_distance_prep to nodes_time the batch's calculated pois count (If requested)
 				if count_pois[0]:
 					batch_poiscount_col = f'{poi_name}_{str(k)}_{count_pois[1]}min'
 					poiscount_cols.append(batch_poiscount_col)
-					#nodes_time[batch_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
-					nodes_time[batch_poiscount_col] = pd.merge(nodes_time,nodes_distance_prep[['index',f'{poi_name}_{count_pois[1]}min']],left_on='osmid',right_on='index')[f'{poi_name}_{count_pois[1]}min']
+					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
+					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
 
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
 			nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
-			# If requested, apply the sum function to pois_count columns. 
+			# Apply the sum function to pois_count columns. (If requested) 
 			if count_pois[0]:
 				# Sum pois count
 				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[poiscount_cols].sum(axis=1)
 
 		print(f"Finished time analysis for {poi_name}.")
+
+		# -----
+		if test_save:
+			nodes_time.to_file(test_save_dir + f"nodes_time_{poi_name}.gpkg", driver='GPKG')
+		# -----
 
 		##########################################################################################
 		# STEP 3: FINAL FORMAT. 

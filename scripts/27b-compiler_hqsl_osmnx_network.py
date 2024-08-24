@@ -498,6 +498,10 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
             source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',walking_speed, 
                                               count_pois, projected_crs,
                                               preprocessed_nearest=preprocessed_nearest)
+            if local_save:
+                source_nodes_time.to_file(local_save_dir + f"santiago_source_nodes_time_project_{p_code}.gpkg", driver='GPKG')
+                aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved nodes analysis data locally.")
+
         # ----------
 
         if save_space:
@@ -752,6 +756,12 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
                                                                                 poly_analysis,
                                                                                 f'{source}_scaled'),
                                                                                 axis=1)
+           
+            # Fill nans with 0 to be able to compare between projects.
+            # If not considered, baseline (red_buena_calidad) data has more nans than projects data 
+            # and the indicators, social functions and HQSL are lower because nans are not taken into account.
+            poly_analysis.fillna(0,inplace=True)
+
             if (local_save) and (area_analysis=='hex'):
                 aup.log(f"--- Area of analysis {i}/{k} (3.3) - Saving variables analysis locally.")
                 poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
@@ -796,8 +806,8 @@ if __name__ == "__main__":
     # That source_name must also be the name of the file stored in pois_dir (.gpkg)
     # e.g if source_list = ['vacunatorio_pub'], vacanatorio_pub.gpkg must exist.
 
-    #source_list = ['restaurantes_bar_cafe'] #Test list
-
+    #source_list = ['farmacia'] #Test list
+    #a="""
     source_list = ['carniceria','hogar','bakeries','supermercado','banco', #supplying-wellbeing
                    #supplying-sociability
                    'ferias','local_mini_market','correos', 
@@ -834,6 +844,7 @@ if __name__ == "__main__":
                    #working-sociability [areal data: 'oficinas']
                    #working-environmental impact
                    'ciclovias','estaciones_bicicletas']
+    #"""
     
     # --------------- UNIQUE ID POIS (Special proximity cases)
     # From source_list, sources that have an unique ID and require special processing (id_pois_time() function instead of pois_time() function)
@@ -867,8 +878,7 @@ if __name__ == "__main__":
     #    project_ids will have it's pje_ep changed to filtering value + 0.01 to include them.
     # (When db_osmnx_network = True, project_name doesn't matter, p_code is automatically set to 'db_osmnx' and delete_ids and project_ids are not used.)
     #project_name = 'red_buena_calidad_pza_italia'
-    projects_name_list = ['red_completa','red_buena_calidad','red_buena_calidad_pza_italia',
-                          'red_buena_calidad_norte_sur','red_buena_calidad_parque_bueras']
+    projects_name_list = ['red_buena_calidad','red_buena_calidad_pza_italia']
     
     for project_name in projects_name_list:
         # delete_ids: line_ids belonging to a unexistent footpath in Parque Bueras project, is deleted from all projects.
