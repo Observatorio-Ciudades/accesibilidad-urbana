@@ -543,7 +543,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
     
     if local_save:
         nodes_analysis.to_file(local_save_dir + f"santiago_nodesanalysis_project_{p_code}.gpkg", driver='GPKG')
-        aup.log(f"--- Saved nodes analysis data locally.")
+        aup.log(f"--- (1.5) - Saved nodes analysis data locally.")
 
     
     ############################################################### PART 2 ###############################################################
@@ -564,7 +564,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
 
             aup.log(f"CALCULATING PROXIMITY AND HQSL FOR AREA OF ANALYSIS {i}/{k}: {area_analysis}.")
 
-            aup.log(f"--- STARTING PART 2: NODES DATA TO {area_analysis}.")
+            aup.log(f"- STARTING PART 2: NODES DATA TO {area_analysis}.")
 
             # 2.1 --------------- LOAD AND FORMAT AREA OF ANALYSIS GDF
             # ------------------- This step loads the current area of analysis and prepares it as an empty container
@@ -658,152 +658,152 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
     ########################################################## PART 3 ####################################################################
     ########################################################### HQSL #####################################################################
 
-        if compute_part_3:
-            aup.log(f"--- STARTING PART 3 (HQSL) FOR {area_analysis}.")
+            if compute_part_3:
+                aup.log(f"- STARTING PART 3 (HQSL) FOR {area_analysis}.")
 
-            prox_gdf = poly_proximity.copy()
+                prox_gdf = poly_proximity.copy()
 
-            # 3.1 --------------- AREAL DATA
-            # ------------------- This step loads areal data (Not processed through proximity analysis).
-            aup.log(f"--- Area of analysis {i}/{k} (3.1) - Loading areal data.")
+                # 3.1 --------------- AREAL DATA
+                # ------------------- This step loads areal data (Not processed through proximity analysis).
+                aup.log(f"--- Area of analysis {i}/{k} (3.1) - Loading areal data.")
 
-            if area_analysis == 'hex':
-                poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal_res{res}.gpkg')
-            else:
-                poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal.gpkg')
+                if area_analysis == 'hex':
+                    poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal_res{res}.gpkg')
+                else:
+                    poly_areal = gpd.read_file(areal_dir+f'{area_analysis}_areal.gpkg')
+                    
+                poly_areal = poly_areal.rename(columns={'oficinas_sum':'oficinas_count',
+                                                        'pct_social_viv':'social_viv_count',
+                                                        'viv_sum':'houses_count',
+                                                        'pct_hotel':'hotel_count',
+                                                        'ndvi_mean':'ndvi_count'})
                 
-            poly_areal = poly_areal.rename(columns={'oficinas_sum':'oficinas_count',
-                                                    'pct_social_viv':'social_viv_count',
-                                                    'viv_sum':'houses_count',
-                                                    'pct_hotel':'hotel_count',
-                                                    'ndvi_mean':'ndvi_count'})
-            
-            # Clip poly_aereal gdf to area of interest 
-            # (Data available within area of interest only, not clipping causes problems when computing neighbors data.)
-            poly_areal_cut = gpd.sjoin(poly_areal, aoi[['geometry']])
-            poly_areal_cut.drop(columns=['index_right'],inplace=True)
-            poly_areal = poly_areal_cut.copy()
-            
-            # 3.2 --------------- DATA TREATMENT
-            # ------------------- This step prepares proximity data and merges it with areal data
-            aup.log(f"--- Area of analysis {i}/{k} (3.2) - Joining _priv and _pub pois in {area_analysis}.")
-            
-            join_pois_list = ['hospital','clinica','consult_ado', 'museos','vacunatorio','eq_deportivo',]
-            
-            for source in join_pois_list:
-                # join count columns for private and public in one encompassing column
-                prox_gdf[f"{source}_count_15min"] = prox_gdf[f"{source}_priv_count_15min"] + prox_gdf[f"{source}_pub_count_15min"]
-                # remove 0 values from time
-                prox_gdf.loc[prox_gdf[f"{source}_pub_time"]==0,f"{source}_pub_time"] = np.nan
-                prox_gdf.loc[prox_gdf[f"{source}_priv_time"]==0,f"{source}_priv_time"] = np.nan
-                # assign general minimum time
-                prox_gdf[f"{source}_time"] = prox_gdf[[f"{source}_pub_time", f"{source}_priv_time"]].min(axis=1)
-                # remove duplicate info columns
-                prox_gdf = prox_gdf.drop(columns=[f"{source}_pub_count_15min", f"{source}_priv_count_15min",
-                                                f"{source}_pub_time", f"{source}_priv_time"])
-                # fill na with 0 for future processing
-                prox_gdf[f'{source}_time'].fillna(0, inplace=True)
+                # Clip poly_aereal gdf to area of interest 
+                # (Data available within area of interest only, not clipping causes problems when computing neighbors data.)
+                poly_areal_cut = gpd.sjoin(poly_areal, aoi[['geometry']])
+                poly_areal_cut.drop(columns=['index_right'],inplace=True)
+                poly_areal = poly_areal_cut.copy()
+                
+                # 3.2 --------------- DATA TREATMENT
+                # ------------------- This step prepares proximity data and merges it with areal data
+                aup.log(f"--- Area of analysis {i}/{k} (3.2) - Joining _priv and _pub pois in {area_analysis}.")
+                
+                join_pois_list = ['hospital','clinica','consult_ado', 'museos','vacunatorio','eq_deportivo',]
+                
+                for source in join_pois_list:
+                    # join count columns for private and public in one encompassing column
+                    prox_gdf[f"{source}_count_15min"] = prox_gdf[f"{source}_priv_count_15min"] + prox_gdf[f"{source}_pub_count_15min"]
+                    # remove 0 values from time
+                    prox_gdf.loc[prox_gdf[f"{source}_pub_time"]==0,f"{source}_pub_time"] = np.nan
+                    prox_gdf.loc[prox_gdf[f"{source}_priv_time"]==0,f"{source}_priv_time"] = np.nan
+                    # assign general minimum time
+                    prox_gdf[f"{source}_time"] = prox_gdf[[f"{source}_pub_time", f"{source}_priv_time"]].min(axis=1)
+                    # remove duplicate info columns
+                    prox_gdf = prox_gdf.drop(columns=[f"{source}_pub_count_15min", f"{source}_priv_count_15min",
+                                                    f"{source}_pub_time", f"{source}_priv_time"])
+                    # fill na with 0 for future processing
+                    prox_gdf[f'{source}_time'].fillna(0, inplace=True)
 
-            # Merge areal and proximity data
-            poly_analysis = poly_areal.merge(prox_gdf.drop(columns='geometry'), on=code_column, how='left')
-            poly_analysis = poly_analysis.explode(ignore_index=True)
-            poly_analysis = poly_analysis.dissolve(by=code_column)
-            poly_analysis = poly_analysis.reset_index()
+                # Merge areal and proximity data
+                poly_analysis = poly_areal.merge(prox_gdf.drop(columns='geometry'), on=code_column, how='left')
+                poly_analysis = poly_analysis.explode(ignore_index=True)
+                poly_analysis = poly_analysis.dissolve(by=code_column)
+                poly_analysis = poly_analysis.reset_index()
 
-            if (local_save) and (area_analysis=='hex'):
-                aup.log(f"--- Area of analysis {i}/{k} (3.2) - Saving pre-variables analysis locally.")
-                poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}pre_variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
+                if (local_save) and (area_analysis=='hex'):
+                    aup.log(f"--- Area of analysis {i}/{k} (3.2) - Saving pre-variables analysis locally.")
+                    poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}pre_variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
 
-            # 3.3 --------------- HQSL Function - Variables analysis
-            # ------------------- This step scales data
-            aup.log(f"--- Area of analysis {i}/{k} (3.3) - Processing variables analysis.")
-            # ------------------------------
-            # use scale functions for each column
-            for j in tqdm(range(len(weight_dict.keys())),position=0,leave=True):
-                # gather specific source
-                source = list(weight_dict.keys())[j]
-                # iterate over columns
-                for col_name in poly_analysis.columns:
-                    # select column with count information -- refers to the amount of opportunities available at 15 min
-                    if source in col_name and 'count' in col_name:
-                        if f'{source}_time' in poly_analysis.columns:
-                            poly_analysis[f'{source}_time'].fillna(0, inplace=True)
-                        poly_analysis[col_name].fillna(0, inplace=True)
+                # 3.3 --------------- HQSL Function - Variables analysis
+                # ------------------- This step scales data
+                aup.log(f"--- Area of analysis {i}/{k} (3.3) - Processing variables analysis.")
+                # ------------------------------
+                # use scale functions for each column
+                for j in tqdm(range(len(weight_dict.keys())),position=0,leave=True):
+                    # gather specific source
+                    source = list(weight_dict.keys())[j]
+                    # iterate over columns
+                    for col_name in poly_analysis.columns:
+                        # select column with count information -- refers to the amount of opportunities available at 15 min
+                        if source in col_name and 'count' in col_name:
+                            if f'{source}_time' in poly_analysis.columns:
+                                poly_analysis[f'{source}_time'].fillna(0, inplace=True)
+                            poly_analysis[col_name].fillna(0, inplace=True)
 
-                        # source scaling
-                        poly_analysis[f'{source}_scaled'] = poly_analysis[col_name].apply(lambda x:scale_source_fn(x,
-                                                                                                                source,
-                                                                                                                weight_dict,
-                                                                                                                area_analysis,
-                                                                                                                poly_analysis[col_name].mean(),
-                                                                                                                poly_analysis[col_name].std()))
-                        
-                        # Had to cancel neighbours in order to be able to compare between projects.
-                        
-                        # EXPLANATION: Whenever an area that was previously unconnected to a certain amenity (e.g. Hospitales) gets connected to that amenity
-                        # because of the implementation of a given project, HQSL dropped in some hexs.
-                        # That's due to the fact that before the project's implementation, mean time for the amenity was cero (It was NULL in nodes_analysis,
-                        # but after grouping by hex the mean value for the hex was cero.)
-                        
-                        # Previously, the neighbours implementation allowed us to fill data in hexs where time was cero using the hexs around them, which made sense
-                        # for hexs without nodes/connectivity to the rest of the network.
-                        # Once we started using uncontinous networks, that does not make sense.
+                            # source scaling
+                            poly_analysis[f'{source}_scaled'] = poly_analysis[col_name].apply(lambda x:scale_source_fn(x,
+                                                                                                                    source,
+                                                                                                                    weight_dict,
+                                                                                                                    area_analysis,
+                                                                                                                    poly_analysis[col_name].mean(),
+                                                                                                                    poly_analysis[col_name].std()))
+                            
+                            # Had to cancel neighbours in order to be able to compare between projects.
+                            
+                            # EXPLANATION: Whenever an area that was previously unconnected to a certain amenity (e.g. Hospitales) gets connected to that amenity
+                            # because of the implementation of a given project, HQSL dropped in some hexs.
+                            # That's due to the fact that before the project's implementation, mean time for the amenity was cero (It was NULL in nodes_analysis,
+                            # but after grouping by hex the mean value for the hex was cero.)
+                            
+                            # Previously, the neighbours implementation allowed us to fill data in hexs where time was cero using the hexs around them, which made sense
+                            # for hexs without nodes/connectivity to the rest of the network.
+                            # Once we started using uncontinous networks, that does not make sense.
 
-                        # If uncanceled, without the project some boundary hexs will adjust its 0 count to whatever the neighbours had. 
-                        # With the project, the boundary hexs would suddently be connected and adjustment was not implemented, real count was used.
-                        # If real count was less than previously neighbours-adjusted data, there was a drop in _scaled count 
-                        # and therefore a drop in Social functions, Indicators and HQSL.
+                            # If uncanceled, without the project some boundary hexs will adjust its 0 count to whatever the neighbours had. 
+                            # With the project, the boundary hexs would suddently be connected and adjustment was not implemented, real count was used.
+                            # If real count was less than previously neighbours-adjusted data, there was a drop in _scaled count 
+                            # and therefore a drop in Social functions, Indicators and HQSL.
 
-                        cancel_neighbours = """
-                        # treat 0 time values -- hexagons without nodes
-                        if area_analysis == 'hex':
-                            if weight_dict[source] != 'specific':
-                                # assign nan values to hexagons without nodes to avoid affecting the mean calculation process
-                                #if source in join_pois_list:
-                                #    hex_analysis.loc[hex_analysis.supermercado_time==0,f'{source}_scaled'] = np.nan
-                                if source == 'hotel' or source == 'oficinas':
-                                    continue
-                                else:
-                                    poly_analysis.loc[poly_analysis[f'{source}_time']==0,f'{source}_scaled'] = np.nan
-                                    
-                                # calculate mean count value
-                                poly_analysis.loc[poly_analysis[f'{source}_time']==0,
-                                                f'{source}_scaled'] = poly_analysis.loc[poly_analysis[f'{source}_time']==0].apply(
-                                                    lambda x: neighbour_mean(x['hex_id'],
-                                                                                'hex_id',
-                                                                                poly_analysis,
-                                                                                f'{source}_scaled'),
-                                                                                axis=1)
-            """
+                            cancel_neighbours = """
+                            # treat 0 time values -- hexagons without nodes
+                            if area_analysis == 'hex':
+                                if weight_dict[source] != 'specific':
+                                    # assign nan values to hexagons without nodes to avoid affecting the mean calculation process
+                                    #if source in join_pois_list:
+                                    #    hex_analysis.loc[hex_analysis.supermercado_time==0,f'{source}_scaled'] = np.nan
+                                    if source == 'hotel' or source == 'oficinas':
+                                        continue
+                                    else:
+                                        poly_analysis.loc[poly_analysis[f'{source}_time']==0,f'{source}_scaled'] = np.nan
+                                        
+                                    # calculate mean count value
+                                    poly_analysis.loc[poly_analysis[f'{source}_time']==0,
+                                                    f'{source}_scaled'] = poly_analysis.loc[poly_analysis[f'{source}_time']==0].apply(
+                                                        lambda x: neighbour_mean(x['hex_id'],
+                                                                                    'hex_id',
+                                                                                    poly_analysis,
+                                                                                    f'{source}_scaled'),
+                                                                                    axis=1)
+                """
 
-            if (local_save) and (area_analysis=='hex'):
-                aup.log(f"--- Area of analysis {i}/{k} (3.3) - Saving variables analysis locally.")
-                poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
+                if (local_save) and (area_analysis=='hex'):
+                    aup.log(f"--- Area of analysis {i}/{k} (3.3) - Saving variables analysis locally.")
+                    poly_analysis.to_file(local_save_dir + f'santiago_{area_analysis}variablesanalysis_project_{p_code}.gpkg', driver='GPKG')
 
-            # 3.4 --------------- HQSL Function - HQSL Index calculation
-            # ------------------- This step calculates HQSL
-            aup.log(f"--- Area of analysis {i}/{k} (3.4) - Calculating HQSL.")
+                # 3.4 --------------- HQSL Function - HQSL Index calculation
+                # ------------------- This step calculates HQSL
+                aup.log(f"--- Area of analysis {i}/{k} (3.4) - Calculating HQSL.")
 
-            # ------------------------------
-            hex_ind = indicator_fn(poly_analysis, parameters_dict, code_column)
-            hex_social_fn = social_fn(poly_analysis, parameters_dict, code_column)
-            hex_hqsl = hqsl_fn(hex_social_fn, parameters_dict, code_column)
-            
-            hex_idx = hex_ind.merge(hex_social_fn.drop(columns='geometry'), on=code_column)
-            hex_idx = hex_idx.merge(hex_hqsl.drop(columns='geometry'), on=code_column)
+                # ------------------------------
+                hex_ind = indicator_fn(poly_analysis, parameters_dict, code_column)
+                hex_social_fn = social_fn(poly_analysis, parameters_dict, code_column)
+                hex_hqsl = hqsl_fn(hex_social_fn, parameters_dict, code_column)
+                
+                hex_idx = hex_ind.merge(hex_social_fn.drop(columns='geometry'), on=code_column)
+                hex_idx = hex_idx.merge(hex_hqsl.drop(columns='geometry'), on=code_column)
 
-            # 3.5 --------------- SAVING
-            # ------------------- This step saves HQSL result.
-            if area_analysis == 'hex':
-                hex_idx['res'] = res
-            
-            #hex_idx = hex_idx.dropna()
-                                    
-            if local_save:
-                aup.log(f"--- Area of analysis {i}/{k} (3.5) - Saving HQSL index locally.")
-                hex_idx.to_file(local_save_dir + f'santiago_{area_analysis}analysis_project_{p_code}.gpkg', driver='GPKG')
-            
-            i+=1
+                # 3.5 --------------- SAVING
+                # ------------------- This step saves HQSL result.
+                if area_analysis == 'hex':
+                    hex_idx['res'] = res
+                
+                #hex_idx = hex_idx.dropna()
+                                        
+                if local_save:
+                    aup.log(f"--- Area of analysis {i}/{k} (3.5) - Saving HQSL index locally.")
+                    hex_idx.to_file(local_save_dir + f'santiago_{area_analysis}analysis_project_{p_code}.gpkg', driver='GPKG')
+                
+                i+=1
 
     aup.log("--- FINISHED SCRIPT 27.")
 
@@ -1139,7 +1139,7 @@ if __name__ == "__main__":
         ########################################################## SCRIPT START ##############################################################
         ######################################################################################################################################
         aup.log('--'*50)
-        aup.log(F'--- STARTING SCRIPT 27 FOR PROJECT {p_code}.')
+        aup.log(F'--- STARTING SCRIPT 27 FOR PROJECT {p_code}. Local save = {local_save}.')
 
         # Area of interest (aoi)
         aup.log("--- Downloading area of interest.")
