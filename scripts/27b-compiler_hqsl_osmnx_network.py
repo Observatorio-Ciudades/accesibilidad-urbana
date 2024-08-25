@@ -498,9 +498,9 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
             source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source,'length',walking_speed, 
                                               count_pois, projected_crs,
                                               preprocessed_nearest=preprocessed_nearest)
-            if local_save:
-                source_nodes_time.to_file(local_save_dir + f"santiago_source_nodes_time_project_{p_code}.gpkg", driver='GPKG')
-                aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved nodes analysis data locally.")
+            #if local_save:
+            #    source_nodes_time.to_file(local_save_dir + f"santiago_source_nodes_time_project_{p_code}.gpkg", driver='GPKG')
+            #    aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved nodes analysis data locally.")
 
         # ----------
 
@@ -543,7 +543,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
     
     if local_save:
         nodes_analysis.to_file(local_save_dir + f"santiago_nodesanalysis_project_{p_code}.gpkg", driver='GPKG')
-        aup.log(f"--- Area of analysis {i}/{k} (2.3) - Saved nodes analysis data locally.")
+        aup.log(f"--- Saved nodes analysis data locally.")
 
     
     ############################################################### PART 2 ###############################################################
@@ -737,6 +737,24 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
                                                                                                                 area_analysis,
                                                                                                                 poly_analysis[col_name].mean(),
                                                                                                                 poly_analysis[col_name].std()))
+                        
+                        # Had to cancel neighbours in order to be able to compare between projects.
+                        
+                        # EXPLANATION: Whenever an area that was previously unconnected to a certain amenity (e.g. Hospitales) gets connected to that amenity
+                        # because of the implementation of a given project, HQSL dropped in some hexs.
+                        # That's due to the fact that before the project's implementation, mean time for the amenity was cero (It was NULL in nodes_analysis,
+                        # but after grouping by hex the mean value for the hex was cero.)
+                        
+                        # Previously, the neighbours implementation allowed us to fill data in hexs where time was cero using the hexs around them, which made sense
+                        # for hexs without nodes/connectivity to the rest of the network.
+                        # Once we started using uncontinous networks, that does not make sense.
+
+                        # If uncanceled, without the project some boundary hexs will adjust its 0 count to whatever the neighbours had. 
+                        # With the project, the boundary hexs would suddently be connected and adjustment was not implemented, real count was used.
+                        # If real count was less than previously neighbours-adjusted data, there was a drop in _scaled count 
+                        # and therefore a drop in Social functions, Indicators and HQSL.
+
+                        cancel_neighbours = """
                         # treat 0 time values -- hexagons without nodes
                         if area_analysis == 'hex':
                             if weight_dict[source] != 'specific':
@@ -756,11 +774,7 @@ def main(source_list, aoi, G, nodes, edges, walking_speed, local_save, preproces
                                                                                 poly_analysis,
                                                                                 f'{source}_scaled'),
                                                                                 axis=1)
-           
-            # Fill nans with 0 to be able to compare between projects.
-            # If not considered, baseline (red_buena_calidad) data has more nans than projects data 
-            # and the indicators, social functions and HQSL are lower because nans are not taken into account.
-            poly_analysis.fillna(0,inplace=True)
+            """
 
             if (local_save) and (area_analysis=='hex'):
                 aup.log(f"--- Area of analysis {i}/{k} (3.3) - Saving variables analysis locally.")
@@ -878,7 +892,7 @@ if __name__ == "__main__":
     #    project_ids will have it's pje_ep changed to filtering value + 0.01 to include them.
     # (When db_osmnx_network = True, project_name doesn't matter, p_code is automatically set to 'db_osmnx' and delete_ids and project_ids are not used.)
     #project_name = 'red_buena_calidad_pza_italia'
-    projects_name_list = ['red_buena_calidad','red_buena_calidad_pza_italia']
+    projects_name_list = ['red_completa','red_buena_calidad_norte_sur','red_buena_calidad_parque_bueras']
     
     for project_name in projects_name_list:
         # delete_ids: line_ids belonging to a unexistent footpath in Parque Bueras project, is deleted from all projects.
