@@ -154,12 +154,14 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
     
-    # Starts raster interpolation by predicting points from existing values and updates missing months percentage
-    log('Starting raster interpolation')
-    df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
-    log('Finished raster interpolation')
-    missing_months = len(df_len.loc[df_len.data_id==0])
-    log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
+    if compute_unavailable_dates:
+        # Starts raster interpolation by predicting points from existing values and updates missing months percentage
+        log('Starting raster interpolation')
+        df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
+        log('Finished raster interpolation')
+        missing_months = len(df_len.loc[df_len.data_id==0])
+        log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
+    
     # returns final raster
     return df_len
 
@@ -975,12 +977,17 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
     for row in range(len(df_len)):
     
         if df_len.iloc[row].data_id == 0:
+            # Set starting row to previus row (Unless it is the first row)
             start = row - 1
             if start == -1:
                 start = 0
             
+            # Try setting finish row to the first ocurrance (.idmax()) of all following rows ([row:,:])
+            # where data is not equal (ne) to cero (rows with downloaded images).
+            # Meaning, the next row with a downloaded image.
             try:
                 finish = df_len.iloc[row:,:].data_id.ne(0).idxmax()
+            # Except (Zero next rows with a downloaded image), finish row is last row.
             except:
                 finish = len(df_len)
                 
@@ -989,7 +996,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
             df_subset = df_len.iloc[start:finish+1]
             if df_subset.loc[df_subset.index==start].data_id.values[0] == 0:
                 
-                log('Enterning missing data case 1 - first value missing')
+                log('Entering missing data case 1 - first value missing')
                 
                 month_ = df_subset.loc[df_subset.index==finish].month.values[0]
                 year_ = df_subset.loc[df_subset.index==finish].year.values[0]
@@ -1016,7 +1023,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                 
             elif df_subset.loc[df_subset.index==finish].data_id.values[0] == 0:
                 
-                log('Enterning missing data case 2 - last value missing')
+                log('Entering missing data case 2 - last value missing')
                 
                 month_ = df_subset.loc[df_subset.index==start].month.values[0]
                 year_ = df_subset.loc[df_subset.index==start].year.values[0]
@@ -1043,7 +1050,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                 
             else:
                 
-                log('Enterning missing data case 3  - mid point missing')
+                log('Entering missing data case 3  - mid point missing')
                 
                 month_ = df_subset.loc[df_subset.index==start].month.values[0]
                 year_ = df_subset.loc[df_subset.index==start].year.values[0]
