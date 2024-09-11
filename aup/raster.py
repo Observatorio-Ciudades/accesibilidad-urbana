@@ -58,6 +58,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
                             tmp_dir, band_name_dict, query={}, satellite="sentinel-2-l2a",
                             projection_crs="EPSG:6372", compute_unavailable_dates=True):
     """
+    
     Function that returns a raster with the data provided.
     Arguments:
         gdf (geopandas.GeoDataFrame): Area of interest
