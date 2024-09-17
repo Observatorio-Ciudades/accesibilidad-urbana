@@ -19,7 +19,7 @@ if module_path not in sys.path:
     distributes the resulting nodes pop data to hexs, saving both nodes and hexs pop data to db.
 """
 
-def main(city,save=False):
+def main(city,save=False,local_save=True):
 
 	##########################################################################################
 	# STEP 1: LOAD DATA
@@ -59,6 +59,13 @@ def main(city,save=False):
     # Set CRS
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
     pop_mza_gdf = pop_mza_gdf.set_crs("EPSG:4326")
+
+    if year == '2010':
+        aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['pobtot'].sum()} for area of interest.")
+        aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
+    elif year == '2020':
+        aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['POBTOT'].sum()} for area of interest.")
+        aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
     
     ##########################################################################################
 	# STEP 2: CALCULATE NaN VALUES for pop fields (most of them, check function) of gdf containing blocks.
@@ -101,7 +108,7 @@ def main(city,save=False):
     # 3.2 --------------- SPATIAL INTERSECTION OF POLYGONS WITH BLOCKS
     aup.log("--- Creating spatial join between voronoi polygons and blocks.")
     
-    # Calculate block area
+    # Calculate total block area
     mza_gdf = pop_mza_gdf_calc.to_crs("EPSG:6372")
     mza_gdf['area_mza'] = mza_gdf.geometry.area
     mza_gdf = mza_gdf.to_crs("EPSG:4326")
@@ -112,7 +119,7 @@ def main(city,save=False):
 
     aup.log("--- Calculating area_pct that corresponds to each osmid within each block.")
 
-    # Calculate pct of area that corresponds to each osmid within each block
+    # Calculate pct of area of each block that falls in any given osmid voronoi polygon
     mza_voronoi = mza_voronoi.to_crs("EPSG:6372")
     mza_voronoi['area_voronoi'] = mza_voronoi.geometry.area
     mza_voronoi = mza_voronoi.to_crs("EPSG:4326")
@@ -148,11 +155,11 @@ def main(city,save=False):
     elif year == '2020':
         pop_nodes_gdf.drop(columns=['x','y','street_count','city'],inplace=True)
     
-    # For each column, sum pop data by osmid and assign to node
+    # For each column, sum pop data by osmid (Distributing pop data by considering pct of area of original block) and assign to node
     for col in columns_of_interest:
         # Turn column to numeric
         mza_voronoi[col] = pd.to_numeric(mza_voronoi[col])
-        # Calculate pop data proportionaly to pct that voronoi area is of block
+        # Calculate pop data proportionaly to pct of overlayed voronoi area relative to block area
         mza_voronoi[f'voronoi_{col}'] = mza_voronoi[col] * mza_voronoi['area_pct']
         # Group data by osmid
         osmid_grouped_data = mza_voronoi.groupby('osmid').agg({f'voronoi_{col}':np.sum})
@@ -160,6 +167,8 @@ def main(city,save=False):
         osmid_grouped_data.reset_index(inplace=True)
         pop_nodes_gdf = pd.merge(pop_nodes_gdf, osmid_grouped_data, on='osmid')
         pop_nodes_gdf.rename(columns={f'voronoi_{col}':col},inplace=True)
+
+    aup.log(f"--- Distributed block data to nodes, total population of {pop_nodes_gdf['pobtot'].sum()} for area of interest.")
 
     ##########################################################################################
     # STEP 4: TURN NODES POP DATA TO HEXS POP DATASET
@@ -173,7 +182,7 @@ def main(city,save=False):
         # 4.1 --------------- LOAD HEXGRID
         # Load hexgrid from db
         aup.log(f"--- Loading hexgrid res {res} for area of interest.")
-        query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'"
+        query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'" # ¿##?__¿##?__¿##?__¿##?__¿##? SHOULD WE SPECIFY 'URBAN' HEXS ONLY?
         hex_res_gdf = aup.gdf_from_query(query, geometry_col='geometry')
         hex_res_gdf = hex_res_gdf.set_crs("EPSG:4326")
         # Format - Remove res from index name and add column with res
@@ -184,7 +193,7 @@ def main(city,save=False):
         # 4.2 --------------- GROUP POPDATA IN HEXGRID
         # Group pop data
         string_columns = ['osmid'] # Nodes string columns are not used in aup.group_sociodemographic_data. The rest are turned into numeric and processed.
-        hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns,include_nearest=(True,'osmid')) 
+        hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns, include_nearest=(True,'osmid')) 
         aup.log(f"--- Agregated socio data to hex with a total of {hex_socio_df['pobtot'].sum()} population for resolution {res}.")
         # Hexagons data to hex_gdf GeoDataFrame
         hex_socio_gdf_tmp = hex_res_gdf.merge(hex_socio_df, on='hex_id')
@@ -206,7 +215,7 @@ def main(city,save=False):
     aup.log("--"*30)
     aup.log(f"--- SAVING POP DATA FOR {city}.")
 
-    # Save
+    # Save to database
     if save:
         aup.log("--"*30)
         aup.log(f"--- SAVING {city.upper()} POP DATA.")
@@ -217,17 +226,19 @@ def main(city,save=False):
         aup.gdf_to_db_slow(hex_socio_gdf, save_table, save_schema, if_exists='append')
         aup.log(f"--- Uploaded pop hexs for {city}")
 
-    if test:
-        pop_nodes_gdf.to_file(nodes_local_save_dir, driver='GPKG')
-        hex_socio_gdf.to_file(final_local_save_dir, driver='GPKG')
+    # Save to local
+    if local_save:
+        pop_nodes_gdf.to_file(local_save_dir + f"{city}_script22_nodes.gpkg", driver='GPKG')
+        nodes_voronoi_gdf.to_file(local_save_dir + f"{city}_script22_voronoipolys.gpkg", driver='GPKG')
+        hex_socio_gdf.to_file(local_save_dir + f"{city}_script22_hex.gpkg", driver='GPKG')
 
 
 if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 22.')
 
-    # ------------------------------ BASE DATA REQUIRED ------------------------------ 
-    # Cities (If running for 2010, should we use metro_gdf_2015? Note that AGEBs and Blocks would change.)
+    # ------------------------------ BASE DATA REQUIRED ------------------------------
+    # Cities ¿##?__¿##?__¿##?__¿##?__¿##? (If running for 2010, should we use metro_gdf_2015? Note that AGEBs and Blocks would change.)
     metro_schema = 'metropolis'
     metro_table = 'metro_gdf_2020'
     # Year of analysis
@@ -235,30 +246,33 @@ if __name__ == "__main__":
     # List of skip cities (If failed / want to skip city)
     skip_city_list = ['CDMX', 'ZMVM']
     # Hexgrid res of output
-    res_list = [8,9] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
-    # Save info
+    res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
+    
+    # Save output to database?
     save = True
     save_schema = 'censo'
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
     save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
+
+    # Save outputs to local? (Make sure directory exists)
+    local_save = True
+    local_save_dir = f"../data/processed/pop_data/"
     
-    # Test - (If testing, Script runs res 8 for Aguascalientes ONLY and saves it ONLY locally. (Make sure directory exists)
+    # Test - (If testing, Script runs res 8 for one city ONLY and saves it ONLY locally.)
     test = True
-    nodes_local_save_dir = f"../data/processed/pop_data/test_ags_script22_nodes.gpkg"
-    final_local_save_dir = f"../data/processed/pop_data/test_ags_script22_hex.gpkg"
+    test_city = 'Guadalajara'
 
     # ------------------------------ SCRIPT ------------------------------
     # If test, simplifies script parameters:
     if test:
-        missing_cities_list = ['Aguascalientes']
+        missing_cities_list = [test_city]
         skip_city_list = []
-        res_list = [8,9]
         save = False
         local_save = True
         i = 0
         k = len(missing_cities_list)
 
-        city = 'Aguascalientes'
+        city = test_city
         query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
         metro_gdf = aup.gdf_from_query(query, geometry_col='geometry')
         metro_gdf = metro_gdf.set_crs("EPSG:4326")
@@ -300,6 +314,6 @@ if __name__ == "__main__":
             aup.log("--"*40)
             i = i + 1
             aup.log(f"--- Starting city {i}/{k}: {city}")
-            main(city,save)
+            main(city, save, local_save)
             
             
