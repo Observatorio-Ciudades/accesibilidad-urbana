@@ -182,7 +182,7 @@ def main(city,save=False,local_save=True):
         # 4.1 --------------- LOAD HEXGRID
         # Load hexgrid from db
         aup.log(f"--- Loading hexgrid res {res} for area of interest.")
-        query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'" # ¿##?__¿##?__¿##?__¿##?__¿##? SHOULD WE SPECIFY 'URBAN' HEXS ONLY?
+        query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'"
         hex_res_gdf = aup.gdf_from_query(query, geometry_col='geometry')
         hex_res_gdf = hex_res_gdf.set_crs("EPSG:4326")
         # Format - Remove res from index name and add column with res
@@ -228,9 +228,9 @@ def main(city,save=False,local_save=True):
 
     # Save to local
     if local_save:
-        pop_nodes_gdf.to_file(local_save_dir + f"{city}_script22_nodes.gpkg", driver='GPKG')
-        nodes_voronoi_gdf.to_file(local_save_dir + f"{city}_script22_voronoipolys.gpkg", driver='GPKG')
-        hex_socio_gdf.to_file(local_save_dir + f"{city}_script22_hex.gpkg", driver='GPKG')
+        pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}_{year}_nodes.gpkg", driver='GPKG')
+        nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
+        hex_socio_gdf.to_file(local_save_dir + f"script22_{city}_{year}_hex.gpkg", driver='GPKG')
 
 
 if __name__ == "__main__":
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     aup.log('--- STARTING SCRIPT 22.')
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
-    # Cities ¿##?__¿##?__¿##?__¿##?__¿##? (If running for 2010, should we use metro_gdf_2015? Note that AGEBs and Blocks would change.)
+    # Cities
     metro_schema = 'metropolis'
     metro_table = 'metro_gdf_2020'
     # Year of analysis
