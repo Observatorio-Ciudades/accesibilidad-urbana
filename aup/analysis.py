@@ -848,6 +848,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 							   or if prox_measure="time_min" but needing to fill time_min NaNs.
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
+		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
+												Used when calculating proximity in a non-continous network while keeping actual nearest nodes to each poi
+												from an original continous network. Defaults to (False, 'dir).
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
@@ -1750,7 +1753,10 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
         goi_id (str): Text containing name of column with unique ID for the geometry of interest from which pois where created.
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
-    
+		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
+										Used when calculating proximity in a non-continous network while keeping actual nearest nodes to each poi
+										from an original continous network. Defaults to (False, 'dir).
+										
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
 	"""
