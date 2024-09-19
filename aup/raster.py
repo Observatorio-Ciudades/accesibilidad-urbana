@@ -55,7 +55,8 @@ def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
     del df_rol
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date, 
-                               tmp_dir, band_name_dict, query={}, satellite="sentinel-2-l2a"):
+                            tmp_dir, band_name_dict, query={}, satellite="sentinel-2-l2a",
+                            projection_crs="EPSG:6372", compute_unavailable_dates=True):
     """
     Function that returns a raster with the data provided.
     Arguments:
@@ -69,6 +70,8 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         raster for a specific city will be saved. 
         band_name_list (list): List with multispectral band names for raster analysis
         satellite (str): satellite used to download imagery
+        projection_crs (str): projection to be used when needed. Defaults to "EPSG:6372".
+        compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). Defaults to True.
 
     Raises:
         AvailableData: Object with a message
@@ -77,21 +80,21 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         df_len (pandas.DataFrame): Dataframe containing a summary of available and 
         processed data for city and the specified time range.
     """
-    # create area of interest coordinates from hexagons to download raster data    
+    # Create area of interest coordinates from hexagons to download raster data    
     log('Extracting bounding coordinates from hexagons')
     # Create buffer around hexagons
-    poly = gdf.to_crs("EPSG:6372").buffer(500)
+    poly = gdf.to_crs(projection_crs).buffer(500)
     poly = poly.to_crs("EPSG:4326")
     poly = gpd.GeoDataFrame(geometry=poly).dissolve().geometry
-    # Extracts coordinates from polygon as DataFrame
+    # Extract coordinates from polygon as DataFrame
     coord_val = poly.bounds
-    # Gets coordinates for bounding box
+    # Get coordinates for bounding box
     n = coord_val.maxy.max()
     s = coord_val.miny.min()
     e = coord_val.maxx.max()
     w = coord_val.minx.min()
 
-    # Sets the coordinates for the area of interest
+    # Set the coordinates for the area of interest
     area_of_interest = {
         "type": "Polygon",
         "coordinates": [
@@ -105,10 +108,10 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         ],
     }
 
-    # create time of interest
+    # Create time of interest (Creates a list for all to-be-analysed-months with structure [start_day/end_day,(...)])
     log('Defining time of interest')
     time_of_interest = create_time_of_interest(start_date, end_date, freq=freq)
-    # gathers items for time and area of interest
+    # Gather items for time and area of interest (Creates of list of available image items)
     log('Gathering items for time and area of interest')
     items = gather_items(time_of_interest, area_of_interest, query=query, satellite=satellite)
     log(f'Fetched {len(items)} items')
@@ -118,60 +121,50 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     date_list = available_datasets(items, satellite, query)
     # log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
-    # create dictionary from links
+    # Create dictionary from links (assets_hrefs is a dict. of dates and links with structure {available_date:{band_n:[link]}})
     band_name_list = list(band_name_dict.keys())[:-1]
     assets_hrefs = link_dict(band_name_list, items, date_list)
     log('Created dictionary from items')
 
-    # analyze available data according to raster properties
+    # Analyze available data according to raster properties (Creates df_len for the first time)
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
                                            band_name_list, freq)
     
-    # save original df_len (to review found and missing months in case of not passing available_data_check)
-    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
-    if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
-        df_len.to_csv(df_file_dir, index=False)
+    # Test for missing months, raises errors
+    if compute_unavailable_dates:
+        available_data_check(df_len, missing_months)
 
-    available_data_check(df_len, missing_months) # test for missing months
-
-    # creates raster and analyzes percentage of missing data points
-    df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
-                                           band_name_list, freq)
-    pct_missing = round(missing_months/len(df_len),2)*100
-    # if more than 50% of data is missing, raise error and print message
-    if pct_missing >= 50:
-        
-        raise AvailableData('Missing more than 50 percent of data points')
-
-    # raster cropping with bounding box from earlier 
+    # Raster cropping with bounding box from earlier
     bounding_box = gpd.GeoDataFrame(geometry=poly).envelope
     gdf_bb = gpd.GeoDataFrame(gpd.GeoSeries(bounding_box), columns=['geometry'])
     log('Created bounding box for raster cropping')
 
-    # create GeoDataFrame to test nan values in raster
-    gdf_raster_test = gdf.to_crs("EPSG:6372").buffer(1)
+    # Create GeoDataFrame to test nan values in raster
+    gdf_raster_test = gdf.to_crs(projection_crs).buffer(1)
     gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
     gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test).dissolve()
 
-    # raster creation
+    # Raster creation - Download raster data by month
     log('Starting raster creation for specified time')
-
-    # download raster data by month
     df_len = create_raster_by_month(
         df_len, index_analysis, city, tmp_dir,
         band_name_dict,date_list, gdf_raster_test,
-        gdf_bb, area_of_interest, satellite, query=query)
+        gdf_bb, area_of_interest, satellite, query=query,
+        compute_unavailable_dates=compute_unavailable_dates)
     log('Finished raster creation')
-    # calculates percentage of missing months
+
+    # Calculate percentage of missing months
     missing_months = len(df_len.loc[df_len.data_id==0])
     log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
     
-    # starts raster interpolation by predicting points from existing values and updates missing months percentage
-    log('Starting raster interpolation')
-    df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
-    log('Finished raster interpolation')
-    missing_months = len(df_len.loc[df_len.data_id==0])
-    log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
+    if compute_unavailable_dates:
+        # Starts raster interpolation by predicting points from existing values and updates missing months percentage
+        log('Starting raster interpolation')
+        df_len = raster_interpolation(df_len, city, tmp_dir, index_analysis)
+        log('Finished raster interpolation')
+        missing_months = len(df_len.loc[df_len.data_id==0])
+        log(f'Updated missing months to {missing_months} ({round(missing_months/len(df_len),2)*100}%)')
+    
     # returns final raster
     return df_len
 
@@ -817,7 +810,8 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir, 
                            band_name_dict, date_list, gdf_raster_test, gdf_bb, 
-                           aoi, sat, query={}, time_exc_limit=1500):
+                           aoi, sat, query={}, time_exc_limit=1500,
+                           compute_unavailable_dates=True):
     """
     The function is used to create a raster for each month of the year within the time range
     The function takes in a dataframe with the length of years and months, an index analysis, city name, 
@@ -838,6 +832,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         aoi (str): Define the area of interest
         sat (str): Define the satellite used to gather data
         time_exc_limit (int): Set the time limit for downloading a raster
+        compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). Defaults to True.
 
     Returns:
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month.  
@@ -998,7 +993,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             df_raster.loc[df_raster.index==i,'data_id']=0
             df_raster.loc[df_raster.index==i,'able_to_download']=0
             df_raster.to_csv(df_file_dir, index=False)
-            available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0])) # test for missing months
+            if compute_unavailable_dates:
+                available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0])) # test for missing months
             continue
 
     df_len = pd.read_csv(df_file_dir, index_col=False)
@@ -1060,12 +1056,17 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
     for row in range(len(df_len)):
     
         if df_len.iloc[row].data_id == 0:
+            # Set starting row to previus row (Unless it is the first row)
             start = row - 1
             if start == -1:
                 start = 0
             
+            # Try setting finish row to the first ocurrance (.idmax()) of all following rows ([row:,:])
+            # where data is not equal (ne) to cero (rows with downloaded images).
+            # Meaning, the next row with a downloaded image.
             try:
                 finish = df_len.iloc[row:,:].data_id.ne(0).idxmax()
+            # Except (Zero next rows with a downloaded image), finish row is last row.
             except:
                 finish = len(df_len)
                 
@@ -1074,7 +1075,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
             df_subset = df_len.iloc[start:finish+1]
             if df_subset.loc[df_subset.index==start].data_id.values[0] == 0:
                 
-                log('Enterning missing data case 1 - first value missing')
+                log('Entering missing data case 1 - first value missing')
                 
                 month_ = df_subset.loc[df_subset.index==finish].month.values[0]
                 year_ = df_subset.loc[df_subset.index==finish].year.values[0]
@@ -1101,7 +1102,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                 
             elif df_subset.loc[df_subset.index==finish].data_id.values[0] == 0:
                 
-                log('Enterning missing data case 2 - last value missing')
+                log('Entering missing data case 2 - last value missing')
                 
                 month_ = df_subset.loc[df_subset.index==start].month.values[0]
                 year_ = df_subset.loc[df_subset.index==start].year.values[0]
@@ -1128,7 +1129,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
                 
             else:
                 
-                log('Enterning missing data case 3  - mid point missing')
+                log('Entering missing data case 3  - mid point missing')
                 
                 month_ = df_subset.loc[df_subset.index==start].month.values[0]
                 year_ = df_subset.loc[df_subset.index==start].year.values[0]
