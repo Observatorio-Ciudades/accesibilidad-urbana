@@ -1,9 +1,7 @@
 ################################################################################
-# Module: utils.py
-# Set of utility functions 
-# developed by: Luis Natera @natera
-# 			  nateraluis@gmail.com
-# updated: 02/01/20
+# Module: Utilities
+# Set of utility functions for the project
+# updated: 08/08/2023
 ################################################################################
 
 import pandas as pd
