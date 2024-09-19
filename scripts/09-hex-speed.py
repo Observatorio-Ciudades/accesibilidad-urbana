@@ -18,8 +18,8 @@ if module_path not in sys.path:
 # Added this function on 2024/03/13 - Keeps only parts of Network which are have a path (are connected) to a central point of city.
 def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table):
 
+    # a) --------------- Create urban city shape (in order to find city center)
     aup.log(f"-- Filter osmnx network - Downloading city shape through ageb gdf.")
-    # --------------- City shape
     ageb_gdf = gpd.GeoDataFrame()
     # Load city states (CVE_ENT)
     cve_ent_list = list(mun_gdf.CVE_ENT.unique())
@@ -37,8 +37,8 @@ def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table)
         query = f"SELECT * FROM {ageb_schema}.{ageb_table} WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
         ageb_gdf = pd.concat([ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
     
+    # b) --------------- Closest OSMnx node to city centroid
     aup.log(f"-- Filter osmnx network - Calculating nearest node to city shape centroid.")
-    # --------------- Closest OSMnx node to city centroid
     # City centroid
     aoi = ageb_gdf.dissolve()
     aoi = aoi.to_crs("EPSG:6372")
@@ -47,7 +47,7 @@ def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table)
     # Nearest osmnx node
     nearest = aup.find_nearest(G, nodes, aoi_centroid, return_distance=False)
     
-    
+    # c) --------------- Find paths to city center
     aup.log(f"-- Filter osmnx network - Converting G to indirected to ignore street directions when finding paths.")
     # Get the unique osmid of the target node
     target_osmid = nearest.osmid.unique()[0]
@@ -57,7 +57,7 @@ def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table)
     osmids_with_path = []
 
     # ---
-    # PROGRESS LOG DATA - Will create progress logs when progress reaches these percentages:
+    # LOG CODE - Will create progress logs when progress reaches these percentages:
     progress_logs = [5,10,15,20,25,30,35,40,45,50,
                     55,60,65,70,75,80,85,90,95,100]
     i = 1
@@ -71,7 +71,7 @@ def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table)
             osmids_with_path.append(node)
 
         # ---
-        # PROGRESS LOG DATA - Measures current progress, prints if passed a checkpoint of progress_logs list.
+        # LOG CODE - Measures current progress, prints if passed a checkpoint of progress_logs list.
         current_progress = (i / len(G_undirected.nodes()))*100
         for checkpoint in progress_logs:
             if current_progress >= checkpoint:
@@ -81,8 +81,8 @@ def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table)
         i = i+1
         # ---
 
-    aup.log(f"-- Filter osmnx network - Filtering edges using osmids with path.")
     # d) --------------- Filter edges using osmids_with_path
+    aup.log(f"-- Filter osmnx network - Filtering edges using osmids with path.")
     edges_gdf = edges.reset_index()
     filtered_edges = edges_gdf.loc[(edges_gdf['u'].isin(osmids_with_path)) | (edges_gdf['v'].isin(osmids_with_path))].copy()
     filtered_edges = filtered_edges.set_index(["u", "v", "key"])
@@ -94,7 +94,7 @@ def filter_city_osmnx_network(G, nodes, edges, mun_gdf, ageb_schema, ageb_table)
 def main(mun_gdf, save=False, local_save=False):
 
     # Creates query to download OSMNX nodes and edges from the DB
-    # by metropolitan area or capital using the municipality geometry
+    # by metropolitan area using the municipality geometry
     G,nodes,edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
     aup.log(f"--- Downloaded {len(edges)} edges from database for {city}.")
 
@@ -103,9 +103,11 @@ def main(mun_gdf, save=False, local_save=False):
 
     # Calculate walking speed for edges
     filtered_edges = aup.walk_speed(filtered_edges)
+    aup.log(f"--- Average speed for {city} is {filtered_edges.walkspeed.mean()}")
+
     # Calculate time for edges
     filtered_edges['time_min'] = filtered_edges['length']/(1000*filtered_edges['walkspeed']/60)
-    aup.log(f"--- Average speed for {city} is {filtered_edges.walkspeed.mean()}")
+    aup.log(f"--- Calculated time_min.")
 
     '''
     # Downloads hexgrid for city
@@ -156,26 +158,26 @@ def main(mun_gdf, save=False, local_save=False):
     # Save
     if save:
         filtered_edges.reset_index(inplace=True)
-        aup.gdf_to_db_slow(filtered_edges, "edges_"+edges_table_sufix, schema=schema, if_exists="append")
-        aup.log(f"--- Loaded edges_{edges_table_sufix} for {city} to db.")
+        aup.gdf_to_db_slow(filtered_edges, edges_save_table, schema=schema, if_exists="append")
+        aup.log(f"--- Uploaded {len(filtered_edges)} edges.")
 
 
 if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('\n Starting script 09.')
 
-    # --------------- PARAMETERS
+    # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
     # City data
-    metro_schema = 'metropolis'
-    metro_table = 'metro_gdf_2020' # metro_gdf_2015 or metro_gdf_2020
+    metro_schema = 'projects_research' # proxanalysis mexico: 'metropolis'
+    metro_table = 'femsainfancias_missingcities_metrogdf2020' # proxanalysis mexico: 'metro_gdf_2015' or 'metro_gdf_2020'
     # Network data
-    schema = 'osmnx'
-    nodes_table = 'nodes_elevation_23_point' # nodes_elevation or nodes_elevation_23_point
-    edges_table = 'edges_elevation_23_line' # edges_elevation or edges_elevation_23_line
-    # Output table sufix
-    edges_table_sufix = 'speed_23_line_filtered' # speed or speed_23_line
+    schema = 'projects_research' # proxanalysis mexico: 'osmnx'
+    nodes_table = 'femsainfancias_missingcities_nodeselevation' # proxanalysis mexico: 'nodes_elevation' or 'nodes_elevation_23_point'
+    edges_table = 'femsainfancias_missingcities_edgeselevation' #  proxanalysis mexico: 'edges_elevation' or 'edges_elevation_23_line'
+    # Output to db
+    edges_save_table = 'femsainfancias_missingcities_edgesspeed' #  proxanalysis mexico: 'edges_speed' or 'edges_speed_23_line'
 
-    # --------------- SCRIPT
+    # ------------------------------ SCRIPT START ------------------------------
     # Load all available cities
     aup.log("--- Reading available cities.")
     query = f"SELECT city FROM {metro_schema}.{metro_table}"
@@ -186,6 +188,7 @@ if __name__ == "__main__":
 
     # In metro_gdf_2020 CDMX was separated from the rest of ZMVM. 
     # For current edges speed analysis, it's better if they are joined together.
+    # Remove CDMX, when ZMVM runs include CDMX.
     if metro_table == 'metro_gdf_2020':
         city_list.remove('CDMX') 
 
@@ -210,9 +213,9 @@ if __name__ == "__main__":
 
     # Create mun_gdf for each city and run main function
     for city in missing_cities_list:
-        aup.log("--"*50)
         i = i + 1
-        aup.log(f"--- Loading municipalities for city {i}/{k}:{city}.")
+        aup.log("--"*40)
+        aup.log(f"--- Running script for city {i}/{k}:{city}.")
 
         # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
@@ -235,9 +238,9 @@ if __name__ == "__main__":
 
         #Define projections for municipalities and hexgrids
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
+        aup.log(f"--- Loaded municipalities (mun_gdf).")
 
         # Run main function
-        aup.log(f"--- Starting Script 09 main function for {city}.")
         main(mun_gdf, save=True, local_save=False)
 
 
