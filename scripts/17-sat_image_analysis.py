@@ -16,7 +16,7 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, save=False, del_data=False):
+def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False):
 
     # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
     # Create city area of interest with biggest hexs
@@ -26,7 +26,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
 
     # Download hexagons with type=urban
     type = 'urban'
-    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = '{city}\' AND \"type\" = '{type}\'"
+    query = f"SELECT hex_id_{big_res},geometry FROM {schema_hex}.{table_hex} WHERE \"city\" = \'{city}\' AND \"type\" = \'{type}\'"
     hex_urban = aup.gdf_from_query(query, geometry_col='geometry')
     
     # Download hexagons with type=rural within 500m buffer
@@ -44,7 +44,8 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     
     # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite)
+                                        start_date, end_date, tmp_dir, band_name_dict, 
+                                        query=query_sat, satellite = satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
@@ -71,7 +72,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
         
         # Load hexgrid
         table_hex = f'hexgrid_{r}_city_2020'
-        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE \"city\"=\'{city}\' AND  (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
         hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
         # Format hexgrid
         hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
@@ -178,20 +179,21 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
-                      'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-red)/(nir+red)']} 
-    index_analysis = 'ndvi'
+    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
+                      'swir16':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-swir16)/(nir+swir16)']} 
+    index_analysis = 'ndmi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
-    end_date = '2022-12-31'
+    end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = False
+    sat_query = {"eo:cloud_cover": {"lt": 10}}
 
-    local_save = False #------ Set True if test
-    save = True #------ Set True if full analysis
+    local_save = True #------ Set True if test
+    save = False #------ Set True if full analysis
 
     ###############################
     # Create folder to store city skip_list csv
@@ -229,25 +231,26 @@ if __name__ == "__main__":
         pass
 
     #---------------------------------------
-    #------ Set following if test
-    #city_list = ['Aguascalientes']
+    #------ Set following if test, else comment
+    # city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon','Colima','Culiacan','Delicias','Durango','Guadalajara','Guanajuato','Hermosillo','Oaxaca','Pachuca','Piedad','Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula','Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla','Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
+    # city_list = ['CDMX']
+    # city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
 
-    #------ Set following if full analysis
+    #------ Set following if all-cities analysis, else comment
     for city in gdf_mun.city.unique():
-    #---------------------------------------
-
         # Process each available city
-        if city not in processed_city_list and city not in skip_list:
-
+        if (city not in processed_city_list) and (city not in skip_list):
+    #---------------------------------------
             aup.log(f'\n Starting city {city}')
 
-            # Process and save (Successful city)
+            # Try process and save (Successful city)
             try:
                 main(index_analysis, city, band_name_dict, start_date,
-                    end_date, freq, satellite, save, del_data)
+                    end_date, freq, satellite,
+                    query_sat=sat_query, save=save, del_data=del_data)
             
-            # Register failure (Unsuccessful city)
+            # Except, register failure (Unsuccessful city)
             except Exception as e:
                 aup.log(e)
                 aup.log(f'Error with city {city}')
@@ -262,7 +265,8 @@ if __name__ == "__main__":
                 else:
                     df_raster = pd.read_csv(df_file_dir)
                     missing_months = len(df_raster.loc[df_raster.data_id==0])
-                    not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
+                    # not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
+                    not_downloadable = -1
                     df_skip.loc[len(df_skip),'missing_months'] = missing_months
                     df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
                 # Save city to skip_list csv
