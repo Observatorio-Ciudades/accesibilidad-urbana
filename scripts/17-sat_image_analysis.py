@@ -189,9 +189,10 @@ if __name__ == "__main__":
     end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = False
+    sat_query = {"eo:cloud_cover": {"lt": 10}}
 
-    local_save = False #------ Set True if test
-    save = True #------ Set True if full analysis
+    local_save = True #------ Set True if test
+    save = False #------ Set True if full analysis
 
     ###############################
     # Create folder to store city skip_list
@@ -232,7 +233,7 @@ if __name__ == "__main__":
     city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
 
-    #------ Set following if full analysis
+    #------ Set following if all-cities analysis, else comment
     for city in gdf_mun.city.unique():
     #---------------------------------------
 
