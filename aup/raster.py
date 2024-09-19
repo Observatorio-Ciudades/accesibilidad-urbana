@@ -113,7 +113,10 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     items = gather_items(time_of_interest, area_of_interest, query=query, satellite=satellite)
     log(f'Fetched {len(items)} items')
 
-    date_list = available_datasets(items, satellite)
+    log('Checking available tiles for area of interest')
+    # df_clouds, date_list = arrange_items(items, satellite=satellite)
+    date_list = available_datasets(items, satellite, query)
+    # log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # create dictionary from links
     band_name_list = list(band_name_dict.keys())[:-1]
@@ -125,12 +128,11 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
                                            band_name_list, freq)
     
     # save original df_len (to review found and missing months in case of not passing available_data_check)
-    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe_{query}.csv'
+    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
     if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
         df_len.to_csv(df_file_dir, index=False)
-    
-    # test for missing months
-    available_data_check(df_len, missing_months) 
+
+    available_data_check(df_len, missing_months) # test for missing months
 
     # creates raster and analyzes percentage of missing data points
     df_len, missing_months = df_date_links(assets_hrefs, start_date, end_date, 
@@ -231,6 +233,9 @@ def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentin
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
     items = []
+
+    log(f'Gathering items for {satellite} with query: {query}')
+
     for t in time_of_interest:
         try:
             search = catalog.search(
@@ -241,7 +246,7 @@ def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentin
             )
 
             # Check how many items were returned
-            items.extend(list(search.get_items()))
+            items.extend(list(search.items()))
         except:
             log('No items found')
             continue
@@ -267,6 +272,7 @@ def find_asset_by_band_common_name(item, common_name):
         if asset_bands and asset_bands[0].common_name == common_name:
             return asset
     raise KeyError(f"{common_name} band not found")
+
 
 def link_dict(band_name_list, items, date_list):
     """
@@ -361,9 +367,69 @@ def df_date_links(assets_hrefs, start_date, end_date, band_name_list, freq='MS')
     # calculate missing months
     missing_months = len(df_complete_dates.loc[df_complete_dates.data_id==0])
     
+    # create empty able_to_download to avoid crash
+    df_complete_dates['able_to_download'] = np.nan
+    
     return df_complete_dates, missing_months
 
-def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
+
+def arrange_items(items, satellite="sentinel-2-l2a"):
+    """
+    Previously function available_datasets. 
+    Filters for dates where all tiles (rasters) that compose the area of interest are available.
+
+    Arguments:
+        items (np.array): items intersecting time and area of interest
+        satellite (str): satellite used to download imagery
+
+    Returns:
+        date_list (list): List of dates with full image available
+    """
+    # test raster outliers by date    
+    date_dict = {}
+
+    # iterate over raster tiles by date
+    for i in items:
+        # check and add raster properties (ID to identify tiles and cloud coverage to order dates by cloud coverage) to dictionary by tile and date 
+        # (items have different depending on satellite)
+        
+        # General explanation: date_dict[current date].update({current tile ID : current tile cloud coverage})
+        
+        if satellite == "sentinel-2-l2a":
+            if i.datetime.date() in list(date_dict.keys()):
+                # if date already exists in date_dict, update
+                date_dict[i.datetime.date()].update({i.properties['s2:mgrs_tile']:i.properties['s2:high_proba_clouds_percentage']})
+            else:
+                # else, create and update
+                date_dict[i.datetime.date()] = {}
+                date_dict[i.datetime.date()].update({i.properties['s2:mgrs_tile']:i.properties['s2:high_proba_clouds_percentage']})
+
+        elif satellite == "landsat-c2-l2":
+            if i.datetime.date() in list(date_dict.keys()):
+                # if date already exists in date_dict, update
+                date_dict[i.datetime.date()].update({i.properties['landsat:wrs_row']:i.properties['landsat:cloud_cover_land']})
+            else:
+                 # else, create and update
+                date_dict[i.datetime.date()] = {}
+                date_dict[i.datetime.date()].update({i.properties['landsat:wrs_row']:i.properties['landsat:cloud_cover_land']})
+                
+    # Turn into DataFrame
+    df_tile = pd.DataFrame.from_dict(date_dict, orient='index')
+
+    # Drop rows where there are NaNs (Unavailable raster tiles)
+    df_tile = df_tile.dropna()
+
+    # Arrange by cloud coverage average
+    df_tile['avg_cloud'] = df_tile.mean(axis=1)
+    df_tile = df_tile.sort_values(by='avg_cloud')
+    
+    # Create list of dates
+    date_list = df_tile.index.to_list()
+    
+    return df_tile, date_list
+
+   
+def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_value=10):
     """
     Filters dates per quantile and finds available ones.
 
@@ -375,6 +441,10 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     Returns:
         date_list (list): List with available dates with filter
     """
+    if query:
+        if 'eo:cloud_cover' in list(query.keys()):
+            min_cloud_value = query['eo:cloud_cover']['lt']
+
     # test raster outliers by date    
     date_dict = {}
 
@@ -439,7 +509,8 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
     q3 = [v[0] for v in q3]
 
     # check if q3 analysis is necessary
-    q3_test = [True if test>min_cloud_value else False for test in q3]
+    ### UPDATE NECESSARY TO REMOVE THIS CONDITIONAL
+    '''q3_test = [True if test>min_cloud_value else False for test in q3]
     if sum(q3_test)>0:
         log(f'Quantile filter dictionary by column: {dict(zip(df_tile.columns, q3))}')
 
@@ -447,18 +518,21 @@ def available_datasets(items, satellite="sentinel-2-l2a", min_cloud_value=10):
 
         # filter dates by missing values or outliers according to cloud and no_data values
         for c in range(len(column_list)):
-            df_tile.loc[df_tile[column_list[c]]>q3[c],column_list[c]] = np.nan
+            df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
     else:
         log('Fixed filter applied')
         column_list = df_tile.columns.to_list()
 
         # filter dates by missing values or outliers according to cloud and no_data values
-        for c in range(len(column_list)):
-            df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
+        for c in range(len(column_list)):'''
+    column_list = df_tile.columns.to_list()
+    for c in range(len(column_list)):
+        df_tile.loc[df_tile[column_list[c]]>min_cloud_value,column_list[c]] = np.nan
 
     # arrange by cloud coverage average
     df_tile['avg_cloud'] = df_tile.mean(axis=1)
     df_tile = df_tile.sort_values(by='avg_cloud')
+    log(f'Updated average cloud coverage: {df_tile.avg_cloud.mean()}')
 
     # create list of dates within normal distribution and without missing values
     date_list = df_tile.dropna().index.to_list()
@@ -789,16 +863,20 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # binary id - checks if month could be processed
         checker = 0
 
-        if df_raster.iloc[i].data_id==0:
-            continue
-            
-        # gather month and year from df to save raster
+	# gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
         
+        # check if raster already exists
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
+            df_raster.loc[i,'data_id'] = 11
+            df_raster.to_csv(df_file_dir, index=False)
             continue
         
+        # check if month is available
+        if df_raster.iloc[i].data_id==0:
+            continue
+
         log(f'\n Starting new analysis for {month_}/{year_}')
         
         # gather links for raster images
@@ -959,7 +1037,7 @@ def calculate_raster_index(band_name_dict, raster_arrays):
 
 
 def raster_interpolation(df_len, city, tmp_dir, index_analysis):
-    """"
+    """
     This function interpolates missing raster data by time windows, filling the gaps in unavailable months. 
       
      Arguments:
