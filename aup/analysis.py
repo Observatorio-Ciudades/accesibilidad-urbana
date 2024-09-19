@@ -1118,9 +1118,9 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 	# LOG CODE - Progress logs
 	# Will create progress logs when progress reaches these percentages:
-	progress_logs = [10,20,30,40,50,60,70,80,90,100]
+	progress_logs = [10,20,30,40,50,60,70,80,90,100] # for log statistics
 	# This df stores accumulative (All AGEBs) statistics for logs.
-	acc_statistics = pd.DataFrame()
+	acc_statistics = pd.DataFrame() # for log statistics
 
 	# --------------- 2.0 NaNs CALCULATION Start
 	i = 1
@@ -1142,7 +1142,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		# --------------- 2.1 FIND CURRENT AGEB BLOCK DATA
 		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVE_AGEB'] == ageb].copy()
 
-		# --------------- 2.2 KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (ALL values are NaNs)
+		# --------------- 2.2 KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (Blocks where ALL values are NaNs)
 		# 2.2a) Set columns to be analysed
 		columns_of_interest = ['POBFEM','POBMAS',
 							'P_0A2','P_0A2_F','P_0A2_M',
@@ -1160,34 +1160,54 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 							'PCON_DISC'] #Added later
 		blocks = mza_ageb_gdf[['CVEGEO','POBTOT'] + columns_of_interest].copy()
 		
-		# 2.2b) Set found values to 0
+		# 2.2b) Find rows with nan values and sum of nan values
 		blocks['found_values'] = 0
-		
-		# 2.2c) Find rows with nan values and sum of nan values
+		checker_cols = []
+
 		for col in columns_of_interest:
-			# Turn to numeric
+			# Define checker column
+			checker_col = f'check_{col}'
+			# Turn column to numeric
 			blocks[col] = pd.to_numeric(blocks[col])
 			# Set checker column to 'exist' (1)
-			blocks[f'check_{col}'] = 1
+			blocks[checker_col] = 1
 			# If it doesn't exist, set that row's check to (0)
 			idx = blocks[col].isna()
-			blocks.loc[idx, f'check_{col}'] = 0
-			# Sum total row nan values
-			blocks['found_values'] = blocks['found_values'] + blocks[f'check_{col}']
-			# Drop checker column
-			blocks.drop(columns=[f'check_{col}'],inplace=True)
+			blocks.loc[idx, checker_col] = 0
+			# Add checker column to checker_cols list
+			checker_cols.append(checker_col)
 		
-		# 2.2d) Loc rows with values in columns_of_interest (Can calculate NaNs)
+		# Sum total number of identified nan values by row
+		blocks['found_values'] = blocks[checker_cols].sum(axis=1)
+		# Drop checker columns
+		blocks.drop(columns=checker_cols, inplace=True)
+		
+		# 2.2c) Loc rows with values in columns_of_interest (In these rows, NaNs calculation is possible)
 		blocks_values = blocks.loc[blocks['found_values'] > 0].copy()
 		blocks_values.drop(columns=['found_values'],inplace=True)
 		
-		# 2.2e) Save rows with 0 values for later. (Can't calculate NaNs, must distribute values).
+		# 2.2d) Save rows with 0 values for later. (In these rows, can't calculate NaNs, must distribute values)
 		blocks_nans = blocks.loc[blocks['found_values'] == 0].copy()
 		blocks_nans.drop(columns=['found_values'],inplace=True)
 
 		del blocks
 
 		# --------------- 2.3 CALCULATE NaN values in blocks
+		"""
+		This is the first important sub-step towards filling missing values. It works by filling NaNs using known relations.
+		e.g. It is known that within a block the Total population (POBTOT) = total fem. population (POBFEM) + total masc. population (POBMAS). 
+		Therefore it is possible to stablish the following relations:
+
+			POBTOT = POBFEM + POBMAS
+			POBFEM = POBTOT - POBMAS
+			POBMAS = POBTOT - POBFEM
+
+		Using this approach and a collection of known relations, NaNs that can be filled are filled.
+
+		This process is repeated (while loop) while the number of NaN values in the dataset is less than the previous number of NaN values.
+		(While the loop is still filling NaNs using the known relations)
+		"""
+
 		if extended_logs:
 			print(f'Calculating NaNs using block data for AGEB {ageb}.')
 
@@ -1196,48 +1216,57 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		
 		# 2.3b) Set a start and finish nan value for while loop and run
 		start_nan_values = original_nan_values
-		finish_nan_values = start_nan_values - 1 #To kick start while loop, will be calculated within loop
+		finish_nan_values = start_nan_values - 1 #To kick start while loop, actual value will be calculated within loop
 		loop_count = 1
+
 		while start_nan_values > finish_nan_values:
 			# Amount of nans starting while loop round
 			start_nan_values = blocks_values.isna().sum().sum()
 
-			# 2.3c) Set of equation with structure [PARENT] = [SUB] + [SUB]
+			# 2.3c) Set of equation with structure [TOTAL] = [FEM.] + [MASC.]
 			# POBTOT = POBFEM + POBMAS
 			blocks_values.POBTOT.fillna(blocks_values.POBFEM + blocks_values.POBMAS, inplace=True)
 			blocks_values.POBFEM.fillna(blocks_values.POBTOT - blocks_values.POBMAS, inplace=True)
 			blocks_values.POBMAS.fillna(blocks_values.POBTOT - blocks_values.POBFEM, inplace=True)
+			# <><><><><><><><><><>
 			# P_0A2 = P_0A2_F + P_0A2_M
 			blocks_values.P_0A2.fillna(blocks_values.P_0A2_F + blocks_values.P_0A2_M, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.P_0A2 - blocks_values.P_0A2_M, inplace=True)
 			blocks_values.P_0A2_M.fillna(blocks_values.P_0A2 - blocks_values.P_0A2_F, inplace=True)
+			# <><><><><><><><><><>
 			# P_3A5 = P_3A5_F + P_3A5_M
 			blocks_values.P_3A5.fillna(blocks_values.P_3A5_F + blocks_values.P_3A5_M, inplace=True)
 			blocks_values.P_3A5_F.fillna(blocks_values.P_3A5 - blocks_values.P_3A5_M, inplace=True)
 			blocks_values.P_3A5_M.fillna(blocks_values.P_3A5 - blocks_values.P_3A5_F, inplace=True)
+			# <><><><><><><><><><>
 			# P_6A11 = P_6A11_F + P_6A11_M
 			blocks_values.P_6A11.fillna(blocks_values.P_6A11_F + blocks_values.P_6A11_M, inplace=True)
 			blocks_values.P_6A11_F.fillna(blocks_values.P_6A11 - blocks_values.P_6A11_M, inplace=True)
 			blocks_values.P_6A11_M.fillna(blocks_values.P_6A11 - blocks_values.P_6A11_F, inplace=True)
+			# <><><><><><><><><><>
 			# P_12A14 = P_12A14_F + P_12A14_M
 			blocks_values.P_12A14.fillna(blocks_values.P_12A14_F + blocks_values.P_12A14_M, inplace=True)
 			blocks_values.P_12A14_F.fillna(blocks_values.P_12A14 - blocks_values.P_12A14_M, inplace=True)
 			blocks_values.P_12A14_M.fillna(blocks_values.P_12A14 - blocks_values.P_12A14_F, inplace=True)
+			# <><><><><><><><><><>
 			# P_15A17 = P_15A17_F + P_15A17_M
 			blocks_values.P_15A17.fillna(blocks_values.P_15A17_F + blocks_values.P_15A17_M, inplace=True)
 			blocks_values.P_15A17_F.fillna(blocks_values.P_15A17 - blocks_values.P_15A17_M, inplace=True)
 			blocks_values.P_15A17_M.fillna(blocks_values.P_15A17 - blocks_values.P_15A17_F, inplace=True)
+			# <><><><><><><><><><>
 			# P_18A24 = P_18A24_F + P_18A24_M
 			blocks_values.P_18A24.fillna(blocks_values.P_18A24_F + blocks_values.P_18A24_M, inplace=True)
 			blocks_values.P_18A24_F.fillna(blocks_values.P_18A24 - blocks_values.P_18A24_M, inplace=True)
 			blocks_values.P_18A24_M.fillna(blocks_values.P_18A24 - blocks_values.P_18A24_F, inplace=True)
+			# <><><><><><><><><><>
 			# P_60YMAS = P_60YMAS_F + P_60YMAS_M
 			blocks_values.P_60YMAS.fillna(blocks_values.P_60YMAS_F + blocks_values.P_60YMAS_M, inplace=True)
 			blocks_values.P_60YMAS_F.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_M, inplace=True)
 			blocks_values.P_60YMAS_M.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_F, inplace=True)
+			# <><><><><><><><><><>
 			
-			# 2.3d) Set of equation with structure [POBTOT] - [{n}_YMAS] = [group] + [group] + ... + [group]
-			# POBTOT - P_3YMAS = P_0A2
+			# 2.3d) Set of equation with structure [TOTAL] = (Age_group + Age_group + ... + Age_group) + [Specific age and beyond]
+			# POBTOT = (P_0A2) + P_3YMAS
 			# --> P_0A2 = POBTOT - P_3YMAS
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_3YMAS, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_3YMAS_F, inplace=True)
@@ -1246,7 +1275,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_3YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2, inplace=True)
 			blocks_values.P_3YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F, inplace=True)
 			blocks_values.P_3YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M, inplace=True)
-			# POBTOT - P_12YMAS = (P_0A2 + P_3A5 + P_6A11)
+			# <><><><><><><><><><>
+			# POBTOT = (P_0A2 + P_3A5 + P_6A11) + P_12YMAS
 			# --> P_0A2 = POBTOT - P_12YMAS - P_3A5 - P_6A11
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
@@ -1263,7 +1293,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_12YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
 			blocks_values.P_12YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
 			blocks_values.P_12YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
-			# POBTOT - P_15YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14)
+			# <><><><><><><><><><>
+			# POBTOT = (P_0A2 + P_3A5 + P_6A11 + P_12A14) + P_15YMAS
 			# --> P_0A2 = POBTOT - P_15YMAS - P_3A5 - P_6A11 - P_12A14
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
@@ -1284,7 +1315,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
 			blocks_values.P_15YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
 			blocks_values.P_15YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
-			# POBTOT - P_18YMAS = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17)
+			# <><><><><><><><><><>
+			# POBTOT = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17) + P_18YMAS
 			# --> P_0A2 = POBTOT - P_18YMAS - P_3A5 - P_6A11 - P_12A14 - P_15A17
 			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
 			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
@@ -1309,6 +1341,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.P_18YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
 			blocks_values.P_18YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
 			blocks_values.P_18YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# <><><><><><><><><><>
 
 			# 2.3e) Set of complementary equations
 			# REL_H_M = (POBMAS/POBFEM)*100
@@ -1316,6 +1349,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.POBMAS.fillna(round((blocks_values.REL_H_M / 100) * blocks_values.POBFEM,0), inplace=True)
 			# --> POBFEM = (POBMAS * 100) / REL_H_M
 			blocks_values.POBFEM.fillna(round((blocks_values.POBMAS * 100) / blocks_values.REL_H_M,0), inplace=True)
+			# <><><><><><><><><><>
 			# POBTOT = POB0_14 + POB15_64 + POB65_MAS
 			# --> POB0_14 = POBTOT - POB15_64 - POB65_MAS
 			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.POB15_64 - blocks_values.POB65_MAS, inplace=True)
@@ -1323,6 +1357,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks_values.POB15_64.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB65_MAS, inplace=True)
 			# --> POB65_MAS = POBTOT - POB0_14 - POB15_64
 			blocks_values.POB65_MAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB15_64, inplace=True)
+			# <><><><><><><><><><>
 			# POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
 			# --> POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
 			blocks_values.POB0_14.fillna(blocks_values.P_0A2 + blocks_values.P_3A5 + blocks_values.P_6A11 + blocks_values.P_12A14, inplace=True)
@@ -1333,12 +1368,14 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			# --> P_6A11 = POB0_14 - P_0A2 - P_3A5 - P_12A14
 			blocks_values.P_6A11.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)				
 			# --> P_12A14 = POB0_14 - P_0A2 - P_3A5 - P_6A11
-			blocks_values.P_12A14.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True) 
-			# P_15YMAS = POBTOT - POB0_14
+			blocks_values.P_12A14.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			# <><><><><><><><><><>
+			# POBTOT = POB0_14 + P_15YMAS
 			# --> P_15YMAS = POBTOT - POB0_14
 			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14, inplace=True)
 			# --> POB0_14 = POBTOT - P_15YMAS
 			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS, inplace=True)
+			# <><><><><><><><><><>
 			
 			# Amount of nans finishing while loop round
 			finish_nan_values = blocks_values.isna().sum().sum()
@@ -1349,15 +1386,21 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			loop_count += 1
 		
 		# LOG CODE - Statistics
-		nan_reduction = round(((1-(finish_nan_values/original_nan_values))*100),2)
+		nan_reduction = round(((1-(finish_nan_values/original_nan_values))*100),2) # for log statistics
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
 		
-		# 2.3f) Join back blocks with all nan values
+		# 2.3f) Join back blocks with values with blocks without values
 		blocks_calc = pd.concat([blocks_values,blocks_nans])
 		
 		# --------------- 2.4 CALCULATE NaN values using AGEBs.
   		# For the nan values that couldn't be solved, distributes AGEB data.
+		"""
+		This is the second important sub-step towards filling missing values. It's meant to be a temporary solution while a more accurate solution is built.
+		
+		It fills the remaining NaNs by distributing the known AGEB data into each of the blocks inside each AGEB, using POBTOT as an indicator 
+		to the amount of each age group to be distributed. Blocks which originaly had no data (NaN values only), remain empty.
+		"""
 		
 		# 2.4a) Prepare for second loop
 		# Remove masc/fem relation from analysis as it complicates this and further processes
@@ -1372,11 +1415,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			if extended_logs:
 				print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
 
-			# Locate AGEB data in pop_ageb_gdf
+			# Locate AGEB data in pop_ageb_gdf (Total known data that should be found if adding all blocks data)
 			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVE_AGEB'] == ageb]
 
 			# LOG CODE - Statistics
-			# Solving method used to solve column
+			# This log registers the solving method that was used to solve columns
 			solved_using_blocks = 0 # for log statistics
 			solved_using_ageb = 0 # for log statistics
 			
@@ -1385,7 +1428,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				# Find number of nan values in current col
 				col_nan_values = blocks_calc.isna().sum()[col]
 
-				# If there are no nan values left in col, pass.
+				# If there are no nan values left in col, does nothing.
 				if col_nan_values == 0:
 					solved_using_blocks += 1 # for log statistics
 				
@@ -1395,13 +1438,14 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 					ageb_col_value = ageb_gdf[col].unique()[0]
 					current_block_sum = blocks_calc[col].sum()
 					missing_value = ageb_col_value - current_block_sum
-					# Add missing value to na spot in column
+					# Add missing value to na cell in column
 					blocks_calc[col].fillna(missing_value,inplace=True)
 					solved_using_ageb += 1 # for log statistics
 				
-				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distr. method.
+				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distributing indicator.
 				elif col_nan_values > 1:        
-					# Locate rows with NaNs in current col
+					# Locate rows with NaNs in current col 
+					# This ensures POBTOT as a distributing indicator works for the missing data rows only
 					idx = blocks_calc[col].isna()
 					# Set distributing factor to 0
 					blocks_calc['dist_factor'] = 0
@@ -1418,29 +1462,30 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 			# LOG CODE - Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
-				pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100
+				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100 # for log statistics
+				pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100 # for log statistics
 				print(f'{pct_col_byblocks}% of columns solved using block data only.')
 				print(f'{pct_col_byagebs}% of columns required AGEB filling.')
 		
 			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = ageb
+			acc_statistics.loc[i,'ageb'] = ageb # for log statistics
 			# Percentage of NaNs found using blocks gdf
-			acc_statistics.loc[i,'nans_calculated'] = nan_reduction
+			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # for log statistics
 			# Columns which could be solved entirely using equations in block_gdf
-			acc_statistics.loc[i,'block_calculated'] = solved_using_blocks
+			acc_statistics.loc[i,'block_calculated'] = solved_using_blocks # for log statistics
 			# Columns which required AGEB filling
-			acc_statistics.loc[i,'ageb_filling'] = solved_using_ageb
+			acc_statistics.loc[i,'ageb_filling'] = solved_using_ageb # for log statistics
 			# All could be solved, so
-			acc_statistics.loc[i,'unable_to_solve'] = 0
+			acc_statistics.loc[i,'unable_to_solve'] = 0 # for log statistics
 
-		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf)
+		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf) 
+			# EVERYTHING here is for log statistics
 			if extended_logs:
 				print(f"NANs on AGEB {ageb} cannot be calculated using AGEB data because it doesn't exist.")
 
 			# Solving method used to solve column
-			solved_using_blocks = 0 # for log statistics
-			unable_tosolve = 0 # for log statistics
+			solved_using_blocks = 0
+			unable_tosolve = 0
 			
 			# LOG CODE - Statistics - Register how columns where solved.
 			for col in ageb_filling_cols:
@@ -1448,9 +1493,9 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				col_nan_values = blocks_calc.isna().sum()[col]
 				# If there are no nan values left in col, pass.
 				if col_nan_values == 0:
-					solved_using_blocks += 1 # for log statistics
+					solved_using_blocks += 1
 				else:
-					unable_tosolve += 1 # for log statistics
+					unable_tosolve += 1
 
 			# Logs Statistics - How was this AGEB solved?
 			if extended_logs:
@@ -1470,13 +1515,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			# Columns which couldn't be solved because there was no AGEB filling
 			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve
 
-		# --------------- 2.5 Return calculated data from this AGEB to original block gdf (mza_ageb_gdf)
+		# --------------- 2.5 Return calculated data to original block gdf for the current AGEB (mza_ageb_gdf)
 		# 2.5a) Change original cols for calculated cols
 		calculated_cols = ['POBTOT'] + ageb_filling_cols
 		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols) #Drops current block pop cols
-		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO') #Replaces with blocks_calc cols
+		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO') #Replaces with calculated (blocks_calc) cols
 
-		# 2.5b) Restore original column order
+		# 2.5b) Restore column order from original (input) block gdf
 		column_order = list(pop_mza_gdf.columns.values)
 		mza_ageb_gdf = mza_ageb_gdf[column_order]
 
@@ -1488,18 +1533,31 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 		i += 1
 
-	# Format final output and 
+	# --------------- 2.6 Final format and release of log statistics
+
+	# Format final output
 	mza_calc.reset_index(inplace=True)
 	mza_calc.drop(columns=['index'],inplace=True)
-	# Delivers output cols as .lower()
+	# Deliver output cols as .lower()
 	mza_calc.columns = mza_calc.columns.str.lower()
 
 	# Release final log statistics.
+	nans_calculated = round(acc_statistics['nans_calculated'].mean(),2) # for log statistics
+	# Columns solving method
+	block_calculated = acc_statistics['block_calculated'].sum() # for log statistics
+	ageb_filling = acc_statistics['ageb_filling'].sum() # for log statistics
+	unable_to_solve = acc_statistics['unable_to_solve'].sum() # for log statistics
+	# % columns solving method
+	total_cols = block_calculated + ageb_filling + unable_to_solve # for log statistics
+	pct_block_calculated = round((block_calculated/total_cols)*100,2) # for log statistics
+	pct_ageb_filling = round((ageb_filling/total_cols)*100,2) # for log statistics
+	pct_unable_to_solve = round((unable_to_solve/total_cols)*100,2) # for log statistics
+
 	print("Finished calculating NaNs.")
-	print(f"Percentage of NaNs found using blocks gdf: {round(acc_statistics['nans_calculated'].mean(),2)}%.")
-	print(f"Columns which could be solved entirely using equations in block_gdf: {acc_statistics['block_calculated'].sum()}.")
-	print(f"Columns which required AGEB filling: {acc_statistics['ageb_filling'].sum()}.")
-	print(f"Columns which couldn't be solved: {acc_statistics['unable_to_solve'].sum()}.")
+	print(f"Percentage of NaNs found using blocks gdf: {nans_calculated}%.")
+	print(f"Columns which could be solved entirely using relations between age groups in block_gdf: {block_calculated} ({pct_block_calculated}%).")
+	print(f"Columns which required AGEB filling: {ageb_filling} ({pct_ageb_filling}%).")
+	print(f"Columns which couldn't be solved: {unable_to_solve} ({pct_unable_to_solve}%).")
 	
 	return mza_calc
 
