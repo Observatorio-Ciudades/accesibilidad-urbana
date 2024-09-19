@@ -1,1 +1,48 @@
-.env
+docs/site/
+data/
+# OSX Junk
+.DS_Store
+:
+
+# test cache
+.cache/*
+tests/__pycache__/*
+*.pytest_cache/
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints
+
+#data
+data/*
+
+#outputs
+output/*
+
+#pyc
+*/aup/__pycache__/*
+*.pyc
+
+#logs
+*.log
+aup.egg-info/
+*/temp.html
+
+#docker
+*.js
+*.gitattributes
+*.devcontainer
+
+#docker
+*.js
+*.gitattributes
+*.devcontainer
+
+#docker
+*.js
+*.gitattributes
+*.devcontainer
+
+#tif files
+*.tif
+
+# env
+*.env
