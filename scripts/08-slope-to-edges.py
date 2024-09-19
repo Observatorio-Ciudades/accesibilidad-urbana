@@ -14,8 +14,9 @@ if module_path not in sys.path:
 
 def main(mun_gdf, save=False):
 
-    # Creates query to download OSMNX nodes and edges from the DB
-    # by metropolitan area or capital using the municipality geometry
+    # 1.1 --------------- Load city OSMnx network and elevation files.
+    # Creates query to download OSMnx nodes and edges from the DB
+    # by metropolitan area using the municipality geometry
     G, nodes, edges = aup.graph_from_hippo(mun_gdf, schema, edges_table, nodes_table)
     aup.log(f"--- Downloaded {len(nodes)} nodes and {len(edges)} edges from database for {city}.")
 
@@ -29,15 +30,19 @@ def main(mun_gdf, save=False):
             if f.endswith('.tif'):
                 mde_path.append(tmp_path+f)
 
+    # 1.2 --------------- Load elevation/slope into nodes and edges.
     #elevations to nodes
     G_elev_mde = ox.elevation.add_node_elevations_raster(G, mde_path)
     #slope to edges
     G_elev_mde = ox.elevation.add_edge_grades(G_elev_mde, add_absolute=True, precision=3)
     nodes_elev_mde, edges_elev_mde = ox.graph_to_gdfs(G_elev_mde, nodes=True, edges=True)
+    
+    # LOG CODE - Print progress of script so far
     mean_elev = round(nodes_elev_mde.elevation.mean(),2)
     mean_slope = round(edges_elev_mde.grade_abs.mean(),2)
     aup.log(f"--- Assigned a mean elevation of {mean_elev} to nodes")
     aup.log(f"    and mean slope of {mean_slope} to edges.")
+
     # reset index for upload
     nodes_elev_mde.reset_index(inplace=True)
     edges_elev_mde.reset_index(inplace=True)
@@ -45,46 +50,79 @@ def main(mun_gdf, save=False):
     #set street_count as float
     nodes_elev_mde["street_count"] = nodes_elev_mde["street_count"].astype(float)
 
+    # 1.3 --------------- Column check
     # Temp - nodes_23_point and edges_23_point has column 'city', yet to be deleted from DB.
     # If used, delete column 'city'.
-    if nodes_table == 'nodes_23_point':
+    if 'city' in nodes_elev_mde.columns:
         nodes_elev_mde = nodes_elev_mde.drop(columns=['city'])
-    if edges_table == 'edges_23_line':
+    if 'city' in edges_elev_mde.columns:
         edges_elev_mde = edges_elev_mde.drop(columns=['city'])
 
-    #upload
+    ##########
+    # BE AWARE:
+    # For some unknown reason, some columns are deleted from edges after ox.graph_to_gdfs.
+    # For example, column 'width' was present in edges but not in edges_elev_mde.
+    # Quick fix used: Checks for columns of interest and adds missing columns as np.nan.
+    # Be aware of log that explains which column was added until the reason and solution is found.
+    ##########
+
+    # Defines columns of interest for nodes and edges
+    nodes_columns = ["osmid", "x", "y", "street_count","elevation", "geometry"]
+    edges_columns = ["osmid","v","u","key",
+                     "oneway","lanes","name","highway","maxspeed","length","bridge","ref","junction","tunnel","access","width","service",
+                     "grade","grade_abs","geometry"
+                     ]
+    # if column doesn't exist it creates it as nan
+    for c in nodes_columns:
+        if c not in nodes_elev_mde.columns:
+            nodes_elev_mde[c] = np.nan
+            aup.log(f"Warning: Added column {c} for nodes as np.nan.")
+    for c in edges_columns:
+        if c not in edges_elev_mde.columns:
+            edges_elev_mde[c] = np.nan
+            aup.log(f"Warning: Added column {c} for edges as np.nan.")
+
+    # Filters GeoDataFrames for relevant columns
+    nodes_elev_mde = nodes_elev_mde[nodes_columns]
+    edges_elev_mde = edges_elev_mde[edges_columns]
+    aup.log("--- Checked columns.")
+
+    # 1.4 --------------- Upload output to database.
     if save:
-        aup.gdf_to_db_slow(edges_elev_mde, "edges_"+edges_table_sufix, 
-        schema=schema, if_exists="append")
+        aup.gdf_to_db_slow(edges_elev_mde, name=edges_save_table, schema=schema, if_exists="append")
+        aup.log(f"--- Uploaded {len(edges_elev_mde)} edges into DB out of {len(edges_elev_mde)}.")
         aup.log(f"--- Uploaded edges into DB.")
         #Due to memory constraints the nodes are uploaded in groups of 10,000
         c_nodes = len(nodes_elev_mde)/10000
+        uploaded_nodes = 0
         for p in range(int(c_nodes)+1):
             nodes_upload = nodes_elev_mde.iloc[int(10000*p):int(10000*(p+1))].copy()
-            aup.gdf_to_db_slow(nodes_upload, "nodes_"+nodes_table_sufix, 
-            schema=schema, if_exists="append")
-            aup.log(f"--- Uploaded {10000*(p+1)} nodes into DB out of {len(nodes_elev_mde)}.")
+            aup.gdf_to_db_slow(nodes_upload, name=nodes_save_table, schema=schema, if_exists="append")
+            uploaded_nodes = uploaded_nodes + len(nodes_upload)
+            aup.log(f"--- Uploaded {uploaded_nodes} nodes into DB out of {len(nodes_elev_mde)}.")
+
         aup.log("--- Finished uploading nodes.")
 
 if __name__ == "__main__":
     aup.log('--'*50)
-    aup.log('\n Starting script.')
+    aup.log('\n Starting script 08.')
 
-    # --------------- PARAMETERS
+    # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
     # City data
-    metro_schema = 'metropolis'
-    metro_table = 'metro_gdf_2020' # metro_gdf_2015 or metro_gdf_2020
+    metro_schema = 'projects_research' # proxanalysis mexico: 'metropolis'
+    metro_table = 'femsainfancias_missingcities_metrogdf2020' # proxanalysis mexico: 'metro_gdf_2015' or 'metro_gdf_2020'
     # Network data
-    schema = 'osmnx'
-    nodes_table = 'nodes_osmnx_23_point' # nodes or nodes_osmnx_23_point
-    edges_table = 'edges_osmnx_23_line' # edges or edges_osmnx_23_line
-    # Location of unzipped MDE data
+    schema = 'projects_research' # proxanalysis mexico: 'osmnx'
+    nodes_table = 'femsainfancias_missingcities_nodes' # proxanalysis mexico: 'nodes' or 'nodes_osmnx_23_point'
+    edges_table = 'femsainfancias_missingcities_edges' #  proxanalysis mexico: 'edges' or 'edges_osmnx_23_line'
+    # Location of unzipped MDE data by state obtained from https://www.inegi.org.mx/app/geo2/elevacionesmex/
     grl_path = '../data/external/MDE/'
-    # Output table sufix
-    nodes_table_sufix = 'elevation_23_point' # elevation or elevation_23_point
-    edges_table_sufix = 'elevation_23_line' # elevation or elevation_23_line
+    # Output to db
+    nodes_save_table = 'femsainfancias_missingcities_nodeselevation' # proxanalysis mexico: 'nodes_elevation' or 'nodes_elevation_23_point'
+    edges_save_table = 'femsainfancias_missingcities_edgeselevation' #  proxanalysis mexico: 'edges_elevation' or 'edges_elevation_23_line'
 
-    # --------------- SCRIPT
+    # ------------------------------ SCRIPT START ------------------------------
+    
     # Load all available cities
     aup.log("--- Reading available cities.")
     query = f"SELECT city FROM {metro_schema}.{metro_table}"
@@ -95,6 +133,7 @@ if __name__ == "__main__":
 
     # In metro_gdf_2020 CDMX was separated from the rest of ZMVM. 
     # For current edges elevation analysis, it's better if they are joined together.
+    # Remove CDMX, when ZMVM runs include CDMX.
     if metro_table == 'metro_gdf_2020':
         city_list.remove('CDMX') 
 
@@ -120,9 +159,9 @@ if __name__ == "__main__":
 
     # Create mun_gdf for each city and run main function
     for city in missing_cities_list:
-        aup.log("--"*40)
         i = i + 1
-        aup.log(f"--- Loading municipalities for city {i}/{k}:{city}.")
+        aup.log("--"*40)
+        aup.log(f"--- Running script for city {i}/{k}:{city}.")
 
         # Creates empty GeoDataFrame to store specified municipality polygons and hex grid
         mun_gdf = gpd.GeoDataFrame()
@@ -145,7 +184,7 @@ if __name__ == "__main__":
 
         #Define projections for municipalities and hexgrids
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
+        aup.log(f"--- Loaded municipalities (mun_gdf).")
 
         # Run main function
-        aup.log(f"--- Starting Script 08 main function for {city}.")
         main(mun_gdf, save=True)
