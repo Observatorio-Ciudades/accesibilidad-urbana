@@ -18,8 +18,8 @@ class NanValues(Exception):
 
 def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False):
 
-    ###############################
-    ### Create city area of interest with biggest hexs
+    # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
+    # Create city area of interest with biggest hexs
     big_res = min(res)
     schema_hex = 'hexgrid'
     table_hex = f'hexgrid_{big_res}_city_2020'
@@ -42,14 +42,14 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
 
     aup.log(f'Downloaded {len(hex_city)} hexagon features')
     
-    ### Download and process rasters
+    # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
                                         start_date, end_date, tmp_dir, band_name_dict, 
                                         query=query_sat, satellite = satellite)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
-    ### raster to hex
+    # ------------------------------ RASTERS TO HEX ------------------------------
     ### hex preprocessing
     aup.log('Started loading hexagons at different resolutions')
     
@@ -86,6 +86,7 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
 
     aup.log('Finished creating hexagons at different resolutions')
 
+    # Raster to hex function for each resolution (saves output)
     for r in list(hex_gdf.res.unique()):
 
         aup.log(f'---------------------------------------')
@@ -114,8 +115,8 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
     aup.log(f'Finished processing city -- {city}')
     del hex_gdf
 
+    # Delete city's raster files
     if del_data:
-        # delete raster files
         aup.delete_files_from_folder(tmp_dir)
 
 def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
@@ -195,28 +196,31 @@ if __name__ == "__main__":
     save = False #------ Set True if full analysis
 
     ###############################
-    # Create folder to store city skip_list
+    # Create folder to store city skip_list csv
     folder_dir = f'../data/processed/{index_analysis}_skip_city/'
     if os.path.exists(folder_dir) == False:
         os.mkdir(folder_dir)
 
+    # Create city skip_list csv
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
-    if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
+    if os.path.exists(df_skip_dir) == False:
         df_skip = pd.DataFrame(columns=['city','missing_months','unable_to_download'])
-        df_skip.to_csv(df_skip_dir)
+        df_skip.to_csv(df_skip_dir, index=False)
     else:
         df_skip = pd.read_csv(df_skip_dir)
 
+    # Read current cities to skip
     skip_list = list(df_skip.city.unique())
 
     # Create folder to store raster analysis
     if os.path.exists(tmp_dir) == False:
         os.mkdir(tmp_dir)
 
+    # Read all cities
     gdf_mun = aup.gdf_from_db('metro_gdf_2020', 'metropolis')
     gdf_mun = gdf_mun.sort_values(by='city')
 
-    # prevent cities being analyzed several times in case of a crash
+    # Prevent cities being analyzed several times in case of a crash
     aup.log('Downloading preprocessed data')
     processed_city_list = []
     try:
@@ -227,43 +231,47 @@ if __name__ == "__main__":
         pass
 
     #---------------------------------------
-    #------ Set following if test
+    #------ Set following if test, else comment
     # city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon','Colima','Culiacan','Delicias','Durango','Guadalajara','Guanajuato','Hermosillo','Oaxaca','Pachuca','Piedad','Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula','Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla','Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
     # city_list = ['CDMX']
-    city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
+    # city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
 
     #------ Set following if all-cities analysis, else comment
     for city in gdf_mun.city.unique():
+        # Process each available city
+        if (city not in processed_city_list) and (city not in skip_list):
     #---------------------------------------
-
-        # if city not in processed_city_list and city not in skip_list:
-        if city not in processed_city_list and city in city_list:
-        # if city in city_list:
-
             aup.log(f'\n Starting city {city}')
 
+            # Try process and save (Successful city)
             try:
                 main(index_analysis, city, band_name_dict, start_date,
                     end_date, freq, satellite,
-                    query_sat=query_sat, save=save, del_data=del_data)
+                    query_sat=sat_query, save=save, del_data=del_data)
+            
+            # Except, register failure (Unsuccessful city)
             except Exception as e:
                 aup.log(e)
                 aup.log(f'Error with city {city}')
+
                 df_skip.loc[len(df_skip)+1,'city'] = city
                 df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
-                if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
+                # If didn't create df_file_dir, register missing months unable to download as -1
+                if os.path.exists(df_file_dir) == False:
                     df_skip.loc[len(df_skip),'missing_months'] = -1
                     df_skip.loc[len(df_skip),'unable_to_download'] = -1
+                # Else, register values
                 else:
                     df_raster = pd.read_csv(df_file_dir)
                     missing_months = len(df_raster.loc[df_raster.data_id==0])
                     # not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
                     not_downloadable = -1
                     df_skip.loc[len(df_skip),'missing_months'] = missing_months
-                    df_skip.loc[len(df_skip),'unable_to_download'] = not_downloadable
+                    df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
+                # Save city to skip_list csv
                 df_skip.to_csv(df_skip_dir, index=False)
+                # Delete city's raster files
                 if del_data:
-                    # delete raster files
                     aup.delete_files_from_folder(tmp_dir)
                 pass
