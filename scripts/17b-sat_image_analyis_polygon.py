@@ -38,73 +38,74 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
     aup.log(f'Finished downloading and processing rasters for {city}')
 
     # ------------------------------ RASTERS TO HEX ------------------------------
-    ### hex preprocessing
-    aup.log('Started loading hexagons at different resolutions')
-    
-    # Create res_list
-    res_list=[]
-    for r in range(res[0],res[-1]+1):
-        res_list.append(r)
-    
-    # Load hexgrids
-    hex_gdf = hex_city.copy()
-    hex_gdf.rename(columns={f'hex_id_{big_res}':'hex_id'}, inplace=True)
-    hex_gdf['res'] = big_res
-
-    aup.log(f'Loaded hexgrid res {big_res}')
-    hex_diss = hex_city.dissolve()
-    
-    for r in res_list:
-        # biggest resolution already loaded
-        if r == big_res:
-            continue
+    if raster_to_hex:
+        ### hex preprocessing
+        aup.log('Started loading hexagons at different resolutions')
         
-        # Load hexgrid
-        hex_tmp = aup.create_hexgrid(hex_diss, r)
-        # Format hexgrid
-        hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
-        hex_tmp['res'] = r
-        # Concatenate to hex_gdf
-        hex_gdf = pd.concat([hex_gdf, hex_tmp])
+        # Create res_list
+        res_list=[]
+        for r in range(res[0],res[-1]+1):
+            res_list.append(r)
+        
+        # Load hexgrids
+        hex_gdf = hex_city.copy()
+        hex_gdf.rename(columns={f'hex_id_{big_res}':'hex_id'}, inplace=True)
+        hex_gdf['res'] = big_res
 
-        aup.log(f'Loaded hexgrid res {r}')
+        aup.log(f'Loaded hexgrid res {big_res}')
+        hex_diss = hex_city.dissolve()
+        
+        for r in res_list:
+            # biggest resolution already loaded
+            if r == big_res:
+                continue
+            
+            # Load hexgrid
+            hex_tmp = aup.create_hexgrid(hex_diss, r)
+            # Format hexgrid
+            hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
+            hex_tmp['res'] = r
+            # Concatenate to hex_gdf
+            hex_gdf = pd.concat([hex_gdf, hex_tmp])
 
-        del hex_tmp
+            aup.log(f'Loaded hexgrid res {r}')
 
-    aup.log('Finished creating hexagons at different resolutions')
+            del hex_tmp
 
-    # Raster to hex function for each resolution (saves output)
-    for r in list(hex_gdf.res.unique()):
+        aup.log('Finished creating hexagons at different resolutions')
 
-        aup.log(f'---------------------------------------')
-        aup.log(f'STARTING processing for resolution {r}.')
+        # Raster to hex function for each resolution (saves output)
+        for r in list(hex_gdf.res.unique()):
 
-        processing_chunk = 100000
+            aup.log(f'---------------------------------------')
+            aup.log(f'STARTING processing for resolution {r}.')
 
-        # filters hexagons at specified resolution
-        hex_gdf_res = hex_gdf.loc[hex_gdf.res==r].copy()
-        hex_gdf_res = hex_gdf_res.reset_index(drop=True)
+            processing_chunk = 100000
 
-        if len(hex_gdf_res)>processing_chunk:
-            aup.log(f'hex_gdf_res len: {len(hex_gdf_res)} is bigger than processing chunk: {processing_chunk}')
-            c_processing = len(hex_gdf_res)/processing_chunk
-            aup.log(f'There are {round(c_processing)} processes')
-            for i in range(int(c_processing)+1):
-                aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
-                hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
-                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
+            # filters hexagons at specified resolution
+            hex_gdf_res = hex_gdf.loc[hex_gdf.res==r].copy()
+            hex_gdf_res = hex_gdf_res.reset_index(drop=True)
 
-        else:
-            aup.log('hex_gdf len smaller than processing chunk')
-            hex_gdf_i = hex_gdf_res.copy()
-            raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
+            if len(hex_gdf_res)>processing_chunk:
+                aup.log(f'hex_gdf_res len: {len(hex_gdf_res)} is bigger than processing chunk: {processing_chunk}')
+                c_processing = len(hex_gdf_res)/processing_chunk
+                aup.log(f'There are {round(c_processing)} processes')
+                for i in range(int(c_processing)+1):
+                    aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
+                    hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
+                    raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
 
-    aup.log(f'Finished processing city -- {city}')
-    del hex_gdf
+            else:
+                aup.log('hex_gdf len smaller than processing chunk')
+                hex_gdf_i = hex_gdf_res.copy()
+                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
 
-    # Delete city's raster files
-    if del_data:
-        aup.delete_files_from_folder(tmp_dir)
+        aup.log(f'Finished processing city -- {city}')
+        del hex_gdf
+
+        # Delete city's raster files
+        if del_data:
+            aup.delete_files_from_folder(tmp_dir)
 
 def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
     aup.log(f'Translating raster to hexagon for res: {r}')
@@ -172,12 +173,13 @@ if __name__ == "__main__":
                       'eq':['(green-nir)/(green+nir)']} 
     index_analysis = 'ndwi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    res = [8,11]                                                    # Commonly used: [8, 11]
+    res = [8,10]                                                    # Commonly used: [8, 11]
     freq = 'MS'
     start_date = '2024-01-01'
-    end_date = '2024-09-24'
+    end_date = '2024-09-25'
     satellite = "sentinel-2-l2a"                                    # Commonly used: "sentinel-2-l2a","landsat-c2-l2"
-    sat_query = {"eo:cloud_cover": {"lt": 10}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
+    sat_query = {"eo:cloud_cover": {"lt": 40}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
+    #sat_query={}
     del_data = False # Del rasters after processing
 
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
@@ -186,6 +188,7 @@ if __name__ == "__main__":
     projection_crs = "EPSG:6372"
 
     # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
+    raster_to_hex = True #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
     local_save = True #------ Set True if saving locally
     save = False #------ Set True if saving to database
 
