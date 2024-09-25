@@ -16,13 +16,13 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat, save=False, del_data=False):
+def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, sat_query, save=False, del_data=False):
 
-    ###############################
-    ### Create city area of interest with biggest hexs
+    # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
+    # Create city area of interest with biggest hexs
     big_res = min(res)
 
-    poly = mun_gdf.to_crs("EPSG:32618").buffer(500).reset_index()
+    poly = mun_gdf.to_crs(projection_crs).buffer(500).reset_index()
     poly = poly.rename(columns={0:'geometry'})
     poly = gpd.GeoDataFrame(poly, geometry='geometry')
     poly = poly.to_crs("EPSG:4326")
@@ -30,13 +30,14 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
 
     aup.log(f'Created {len(hex_city)} hexagon features')
     
-    ### Download and process rasters
+    # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
     df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, satellite = satellite, query=query_sat)
+                                        start_date, end_date, tmp_dir, band_name_dict, 
+                                        satellite=satellite, query=sat_query, projection_crs=projection_crs)
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
-    ### raster to hex
+    # ------------------------------ RASTERS TO HEX ------------------------------
     ### hex preprocessing
     aup.log('Started loading hexagons at different resolutions')
     
@@ -72,6 +73,7 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
 
     aup.log('Finished creating hexagons at different resolutions')
 
+    # Raster to hex function for each resolution (saves output)
     for r in list(hex_gdf.res.unique()):
 
         aup.log(f'---------------------------------------')
@@ -100,8 +102,8 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
     aup.log(f'Finished processing city -- {city}')
     del hex_gdf
 
+    # Delete city's raster files
     if del_data:
-        # delete raster files
         aup.delete_files_from_folder(tmp_dir)
 
 def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
@@ -161,52 +163,95 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
     del hex_raster_analysis
 
 if __name__ == "__main__":
-    aup.log('--'*20)
-    aup.log('Starting script')
+    aup.log('--'*50)
+    aup.log('--- STARTING SCRIPT 17b.')
 
-    band_name_dict = {'nir08':[False], #If GSD(resolution) of band is different, set True.
-                      'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir08-red)/(nir08+red)']} 
-    index_analysis = 'ndvi'
+    # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
+    band_name_dict = {'green':[False], #If GSD(resolution) of band is different, set True.
+                      'nir':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(green-nir)/(green+nir)']} 
+    index_analysis = 'ndwi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    res = [8,11] # 8, 11
+    res = [8,11]                                                    # Commonly used: [8, 11]
     freq = 'MS'
-    start_date = '2019-01-01'
-    end_date = '2023-12-31'
-    satellite = "landsat-c2-l2"
-    # satellite = 'sentinel-2-l2a'
-    query_sat = {'plataform':{'in':['landsat-8','landsat-9']}}
-    query_sat = {}
-    del_data = False
-    # city = 'Santiago'
-    city = 'Medellin'
-    local_save = True #------ Set True if test
-    save = False #------ Set True if full analysis
+    start_date = '2024-01-01'
+    end_date = '2024-09-24'
+    satellite = "sentinel-2-l2a"                                    # Commonly used: "sentinel-2-l2a","landsat-c2-l2"
+    sat_query = {"eo:cloud_cover": {"lt": 10}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
+    del_data = False # Del rasters after processing
 
-    # mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
-    mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
+    # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
+    city = 'Chapala'
+    mun_gdf = gpd.read_file('../data/external/temporal_todocker/chapala/chapala_polygon.gpkg')
+    projection_crs = "EPSG:6372"
 
+    # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
+    local_save = True #------ Set True if saving locally
+    save = False #------ Set True if saving to database
 
-    ###############################
-    # Create folder to store city skip_list
+    # ------------------------------ SCRIPT START ------------------------------
+    # Create folder to store city skip_list csv
     folder_dir = f'../data/processed/{index_analysis}_skip_city/'
     if os.path.exists(folder_dir) == False:
         os.mkdir(folder_dir)
-
+    
+    # Create city skip_list csv
     df_skip_dir = f'../data/processed/{index_analysis}_skip_city/skip_list.csv'
     if os.path.exists(df_skip_dir) == False: # Or folder, will return true or false
         df_skip = pd.DataFrame(columns=['city','missing_months','unable_to_download'])
-        df_skip.to_csv(df_skip_dir)
+        df_skip.to_csv(df_skip_dir, index=False)
     else:
         df_skip = pd.read_csv(df_skip_dir)
-
+    
+    # Read current cities to skip
     skip_list = list(df_skip.city.unique())
 
     # Create folder to store raster analysis
     if os.path.exists(tmp_dir) == False:
         os.mkdir(tmp_dir)
 
-    # run script
-    
+    # Run script
     main(mun_gdf, index_analysis, city, band_name_dict, start_date,
-                end_date, freq, satellite, query_sat,  save, del_data)
+         end_date, freq, satellite, sat_query, save, del_data)
+    
+
+    ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
+    # PREVIOUSLY USED SCRIPT CONFIGURATIONS
+
+    ##### Temperature analysis in Santiago, Chile
+    # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
+    # band_name_dict = {'lwir11':[False],
+    #              'eq':["((lwir11*0.00341802) + 149.0)-273.15"]}
+    # index_analysis = 'temperature'
+    # res = [8,11]
+    # freq = 'MS'
+    # start_date = '2019-01-01'
+    # end_date = '2023-12-31'
+    # satellite = "landsat-c2-l2"
+    # sat_query = {"eo:cloud_cover": {"lt": 20},
+    #           "platform": {"in": ["landsat-8", "landsat-9"]}}
+    # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
+    # city = 'Santiago'
+    # mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
+    # mun_gdf = aup.gdf_from_db('santiago_aoi','projects_research')
+    # projection_crs = "EPSG:32719"
+
+
+    ##### NDVI analysis in Medellín, Colombia
+    # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
+    # band_name_dict = {'nir08':[False], #If GSD(resolution) of band is different, set True.
+    #                   'red':[False], #If GSD(resolution) of band is different, set True.
+    #                   'eq':['(nir08-red)/(nir08+red)']}
+    # index_analysis = 'ndvi'
+    # res = [8,11]
+    # freq = 'MS'
+    # start_date = '2019-01-01'
+    # end_date = '2023-12-31'
+    # satellite = "landsat-c2-l2"
+    # sat_query = {'plataform':{'in':['landsat-8','landsat-9']}}
+    # sat_query = {}
+    # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
+    # city = 'Medellin'
+    # mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
+    # projection_crs = "EPSG:32618"
+
