@@ -16,7 +16,7 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False):
+def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
 
     # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
     # Create city area of interest with biggest hexs
@@ -49,75 +49,77 @@ def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satel
 
     aup.log(f'Finished downloading and processing rasters for {city}')
 
-    # ------------------------------ RASTERS TO HEX ------------------------------
-    ### hex preprocessing
-    aup.log('Started loading hexagons at different resolutions')
-    
-    # Create res_list
-    res_list=[]
-    for r in range(res[0],res[-1]+1):
-        res_list.append(r)
-    
-    # Load hexgrids
-    hex_gdf = hex_city.copy()
-    hex_gdf.rename(columns={f'hex_id_{big_res}':'hex_id'}, inplace=True)
-    hex_gdf['res'] = big_res
-
-    aup.log(f'Loaded hexgrid res {big_res}')
-    
-    for r in res_list:
-        # biggest resolution already loaded
-        if r == big_res:
-            continue
+    if data_to_hex:
         
-        # Load hexgrid
-        table_hex = f'hexgrid_{r}_city_2020'
-        query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE \"city\"=\'{city}\' AND  (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
-        hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
-        # Format hexgrid
-        hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
-        hex_tmp['res'] = r
-        # Concatenate to hex_gdf
-        hex_gdf = pd.concat([hex_gdf, hex_tmp])
+        # ------------------------------ RASTERS TO HEX ------------------------------
+        ### hex preprocessing
+        aup.log('Started loading hexagons at different resolutions')
+        
+        # Create res_list
+        res_list=[]
+        for r in range(res[0],res[-1]+1):
+            res_list.append(r)
+        
+        # Load hexgrids
+        hex_gdf = hex_city.copy()
+        hex_gdf.rename(columns={f'hex_id_{big_res}':'hex_id'}, inplace=True)
+        hex_gdf['res'] = big_res
 
-        aup.log(f'Loaded hexgrid res {r}')
+        aup.log(f'Loaded hexgrid res {big_res}')
+        
+        for r in res_list:
+            # biggest resolution already loaded
+            if r == big_res:
+                continue
+            
+            # Load hexgrid
+            table_hex = f'hexgrid_{r}_city_2020'
+            query = f"SELECT hex_id_{r},geometry FROM {schema_hex}.{table_hex} WHERE \"city\"=\'{city}\' AND  (ST_Intersects(geometry, \'SRID=4326;{poly_wkt}\'))"
+            hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
+            # Format hexgrid
+            hex_tmp.rename(columns={f'hex_id_{r}':'hex_id'}, inplace=True)
+            hex_tmp['res'] = r
+            # Concatenate to hex_gdf
+            hex_gdf = pd.concat([hex_gdf, hex_tmp])
 
-        del hex_tmp
+            aup.log(f'Loaded hexgrid res {r}')
 
-    aup.log('Finished creating hexagons at different resolutions')
+            del hex_tmp
 
-    # Raster to hex function for each resolution (saves output)
-    for r in list(hex_gdf.res.unique()):
+        aup.log('Finished creating hexagons at different resolutions')
 
-        aup.log(f'---------------------------------------')
-        aup.log(f'STARTING processing for resolution {r}.')
+        # Raster to hex function for each resolution (saves output)
+        for r in list(hex_gdf.res.unique()):
 
-        processing_chunk = 100000
+            aup.log(f'---------------------------------------')
+            aup.log(f'STARTING processing for resolution {r}.')
 
-        # filters hexagons at specified resolution
-        hex_gdf_res = hex_gdf.loc[hex_gdf.res==r].copy()
-        hex_gdf_res = hex_gdf_res.reset_index(drop=True)
+            processing_chunk = 100000
 
-        if len(hex_gdf_res)>processing_chunk:
-            aup.log(f'hex_gdf_res len: {len(hex_gdf_res)} is bigger than processing chunk: {processing_chunk}')
-            c_processing = len(hex_gdf_res)/processing_chunk
-            aup.log(f'There are {round(c_processing)} processes')
-            for i in range(int(c_processing)+1):
-                aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
-                hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
-                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
+            # filters hexagons at specified resolution
+            hex_gdf_res = hex_gdf.loc[hex_gdf.res==r].copy()
+            hex_gdf_res = hex_gdf_res.reset_index(drop=True)
 
-        else:
-            aup.log('hex_gdf len smaller than processing chunk')
-            hex_gdf_i = hex_gdf_res.copy()
-            raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
+            if len(hex_gdf_res)>processing_chunk:
+                aup.log(f'hex_gdf_res len: {len(hex_gdf_res)} is bigger than processing chunk: {processing_chunk}')
+                c_processing = len(hex_gdf_res)/processing_chunk
+                aup.log(f'There are {round(c_processing)} processes')
+                for i in range(int(c_processing)+1):
+                    aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
+                    hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
+                    raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
 
-    aup.log(f'Finished processing city -- {city}')
-    del hex_gdf
+            else:
+                aup.log('hex_gdf len smaller than processing chunk')
+                hex_gdf_i = hex_gdf_res.copy()
+                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
 
-    # Delete city's raster files
-    if del_data:
-        aup.delete_files_from_folder(tmp_dir)
+        aup.log(f'Finished processing city -- {city}')
+        del hex_gdf
+
+        # Delete city's raster files
+        if del_data:
+            aup.delete_files_from_folder(tmp_dir)
 
 def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
     aup.log(f'Translating raster to hexagon for res: {r}')
@@ -191,6 +193,7 @@ if __name__ == "__main__":
     satellite = "sentinel-2-l2a"
     del_data = False
     sat_query = {"eo:cloud_cover": {"lt": 10}}
+    data_to_hex = False
 
     local_save = True #------ Set True if test
     save = False #------ Set True if full analysis
@@ -224,9 +227,10 @@ if __name__ == "__main__":
     aup.log('Downloading preprocessed data')
     processed_city_list = []
     try:
-        query = f"SELECT city FROM raster_analysis.{index_analysis}_analysis_hex"
-        processed_city_list = aup.df_from_query(query)
-        processed_city_list = list(processed_city_list.city.unique())
+        # remove query to process every city
+        # query = f"SELECT city FROM raster_analysis.{index_analysis}_analysis_hex"
+        # processed_city_list = aup.df_from_query(query)
+        # processed_city_list = list(processed_city_list.city.unique())
     except:
         pass
 
@@ -248,7 +252,8 @@ if __name__ == "__main__":
             try:
                 main(index_analysis, city, band_name_dict, start_date,
                     end_date, freq, satellite,
-                    query_sat=sat_query, save=save, del_data=del_data)
+                    query_sat=sat_query, save=save, del_data=del_data,
+                    data_to_hex)
             
             # Except, register failure (Unsuccessful city)
             except Exception as e:
