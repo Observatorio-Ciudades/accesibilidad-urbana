@@ -389,6 +389,36 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 	#Add key column for compatibility with osmnx
 	edges['key'] = 0
 
+	## Verify that there are no duplicated ids in edges
+	# Find 'u', 'v' and 'key' duplicates in edges (Should never be the case)
+	duplicated_edges = edges[edges.duplicated(subset=['u', 'v', 'key'], keep=False)]
+	# Prepare registration_dict. Will hold unique 'u','v' and 'key' assigned.
+	registration_dict = {}
+	# For each duplicated edge found:
+	for index,row in duplicated_edges.iterrows():
+		# Current 'u' and 'v'
+		current_u = row['u']
+		current_v = row['v']
+		u_v_id = str(row['u'])+str(row['v'])
+
+		# If current 'u' and 'v' are already registered
+		if u_v_id in registration_dict:
+			# Read key that has been assigned
+			registered_key = registration_dict[u_v_id]
+			# Create new unregistered unique key
+			new_key = registered_key+1
+			# Register new unique key and update dictionary
+			edges.loc[index,'key'] = new_key
+			registration_dict[u_v_id] = new_key
+			print(f"Re-registered edge with u {current_u} and v {current_v} with key {new_key}.")
+
+		# Else, it is the first time that this 'u' and 'v' is registered
+		else:
+			# Register new unique key and update dictionary
+			edges.loc[index,'key'] = 0
+			registration_dict[u_v_id] = 0
+			print(f"Re-registered edge with u {current_u} and v {current_v} with key 0.")
+
 	#Change [u,v] columns to integer
 	edges['u'] = edges.u.astype(int)
 	edges['v'] = edges.v.astype(int)
