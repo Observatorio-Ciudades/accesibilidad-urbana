@@ -421,8 +421,8 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     edges_query = f"SELECT * FROM {schema}.{edges_folder} WHERE ST_Intersects(geometry, 'SRID=4326;{poly_wkt}')"
     edges = gdf_from_query(edges_query, geometry_col="geometry")
 
-    nodes_id = list(edges.v.unique())
-    u = list(edges.u.unique())
+    nodes_id = edges.v.unique().tolist()
+    u = edges.u.unique().tolist()
     nodes_id.extend(u)
     myset = set(nodes_id)
     nodes_id = list(myset)
