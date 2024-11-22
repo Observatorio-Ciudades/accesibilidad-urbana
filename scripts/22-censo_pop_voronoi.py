@@ -124,9 +124,6 @@ def main(city,save=False,local_save=True):
     mza_voronoi['area_voronoi'] = mza_voronoi.geometry.area
     mza_voronoi = mza_voronoi.to_crs("EPSG:4326")
     mza_voronoi['area_pct'] = mza_voronoi['area_voronoi']/mza_voronoi['area_mza']
-    
-    # Drop used columns
-    mza_voronoi.drop(columns=['area_mza','area_voronoi'],inplace=True)
 
     # 3.3 --------------- SUM POP DATA THAT CORRESPONDS TO EACH NODE (Groups mza_voronoi data by osmid)
     aup.log("--- Adding pop data by node.")
@@ -169,6 +166,18 @@ def main(city,save=False,local_save=True):
         pop_nodes_gdf.rename(columns={f'voronoi_{col}':col},inplace=True)
 
     aup.log(f"--- Distributed block data to nodes, total population of {pop_nodes_gdf['pobtot'].sum()} for area of interest.")
+
+    # Add density to the nodes
+    # Calculate whole voronoi's area
+    nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:6372")
+    nodes_voronoi_gdf['area_has'] = nodes_voronoi_gdf.area/10000
+    nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:4326")
+    # Merge poptot data by node with the whole voronoi polygon using 'osmid'
+    dens_voronoi = pd.merge(pop_nodes_gdf[['osmid','pobtot']], nodes_voronoi_gdf[['osmid','area_has']], on='osmid')
+    # Calculate density
+    dens_voronoi['dens_pob_ha'] = dens_voronoi['pobtot'] / dens_voronoi['area_has']
+    # Merge that density data to nodes_gdf
+    pop_nodes_gdf = pd.merge(pop_nodes_gdf, dens_voronoi[['osmid','dens_pob_ha']], on='osmid')
 
     ##########################################################################################
     # STEP 4: TURN NODES POP DATA TO HEXS POP DATASET
@@ -228,8 +237,8 @@ def main(city,save=False,local_save=True):
 
     # Save to local
     if local_save:
-        pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}_{year}_nodes.gpkg", driver='GPKG')
         nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
+        pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}_{year}_nodes.gpkg", driver='GPKG')
         hex_socio_gdf.to_file(local_save_dir + f"script22_{city}_{year}_hex.gpkg", driver='GPKG')
 
 
