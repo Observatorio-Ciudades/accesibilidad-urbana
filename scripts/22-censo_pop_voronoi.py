@@ -36,13 +36,23 @@ def main(city,save=False,local_save=True):
     pop_ageb_gdf = gpd.GeoDataFrame()
     pop_mza_gdf = gpd.GeoDataFrame()
 
+    # Create a list with all unique cvegeo_mun ('CVE_ENT'+'CVE_MUN') of current city
+    #city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
+    #cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
+    # Load AGEBs and blocks
+    #query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_lst}"
+    #pop_ageb_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+    #query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_lst}"
+    #pop_mza_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+
     # Load states for current city (CVE_ENT)
     cve_ent_list = list(city_gdf.CVE_ENT.unique())
 
     for cve_ent in cve_ent_list:
         #Load muns in each city state
         cve_mun_list = list(city_gdf.loc[city_gdf.CVE_ENT == cve_ent].CVE_MUN.unique())
-        # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo_mza.censo_mza_2020 WHERE ("CVE_ENT" = '02') AND "CVE_MUN" IN ('001',) ]
+
+        # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) ]
         # Duplicate mun inside tupple if there's only one MUN.
         if len(cve_mun_list) >= 2:
             cve_mun_tpl = str(tuple(cve_mun_list))
@@ -50,22 +60,19 @@ def main(city,save=False,local_save=True):
             cve_mun_list.append(cve_mun_list[0])
             cve_mun_tpl = str(tuple(cve_mun_list))
         # Load AGEBs and concat
-        query = f"SELECT * FROM censoageb.censoageb_{year} WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
+        query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE (\"entidad\" = \'{cve_ent}\') AND \"mun\" IN {cve_mun_tpl} "
         pop_ageb_gdf = pd.concat([pop_ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
         # Load blocks and concat
-        query = f"SELECT * FROM censo_mza.censo_mza_{year} WHERE (\"CVE_ENT\" = \'{cve_ent}\') AND \"CVE_MUN\" IN {cve_mun_tpl} "
+        query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE (\"entidad\" = \'{cve_ent}\') AND \"mun\" IN {cve_mun_tpl} "
         pop_mza_gdf = pd.concat([pop_mza_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
-
+    
     # Set CRS
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
     pop_mza_gdf = pop_mza_gdf.set_crs("EPSG:4326")
+    aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
+    aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['pobtot'].sum()} for area of interest.")
 
-    if year == '2010':
-        aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['pobtot'].sum()} for area of interest.")
-        aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
-    elif year == '2020':
-        aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['POBTOT'].sum()} for area of interest.")
-        aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
+    a="""
     
     ##########################################################################################
 	# STEP 2: CALCULATE NaN VALUES for pop fields (most of them, check function) of gdf containing blocks.
@@ -228,9 +235,14 @@ def main(city,save=False,local_save=True):
 
     # Save to local
     if local_save:
-        pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}_{year}_nodes.gpkg", driver='GPKG')
-        nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
-        hex_socio_gdf.to_file(local_save_dir + f"script22_{city}_{year}_hex.gpkg", driver='GPKG')
+        if test:
+            pop_nodes_gdf.to_file(local_save_dir + f"test_script22_{city}_{year}_nodes.gpkg", driver='GPKG')
+            nodes_voronoi_gdf.to_file(local_save_dir + f"test_script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
+            hex_socio_gdf.to_file(local_save_dir + f"test_script22_{city}_{year}_hex.gpkg", driver='GPKG')
+        else:
+            pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}_{year}_nodes.gpkg", driver='GPKG')
+            nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
+            hex_socio_gdf.to_file(local_save_dir + f"script22_{city}_{year}_hex.gpkg", driver='GPKG')"""
 
 
 if __name__ == "__main__":
@@ -249,7 +261,7 @@ if __name__ == "__main__":
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
     
     # Save output to database?
-    save = True
+    save = False
     save_schema = 'censo'
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
     save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
@@ -258,7 +270,7 @@ if __name__ == "__main__":
     local_save = True
     local_save_dir = f"../data/processed/pop_data/"
     
-    # Test - (If testing, Script runs res 8 for one city ONLY and saves it ONLY locally.)
+    # Test - (If testing, Script runs res 8 for one city ONLY and saves it ONLY locally, adding the word 'test' at the beggining of the outputs.)
     test = True
     test_city = 'Guadalajara'
 
