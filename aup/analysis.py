@@ -347,7 +347,7 @@ def walk_speed(edges_elevation):
 	return edges_speed
 
 
-def create_network(nodes, edges, projected_crs="EPSG:6372"):
+def create_network(nodes, edges, projected_crs="EPSG:6372",expand_coords=False):
 
 	"""
 	Create a network based on nodes and edges without unique ids and to - from attributes.
@@ -356,6 +356,7 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes for network in EPSG:4326
 		edges (geopandas.GeoDataFrame): GeoDataFrame with edges for network in EPSG:4326
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
+		expand_coords (bool, optional): Boolean that, if true, multiplies coordinates by 10 to diminish the possibility of two nodes having the same osmid.
 
 	Returns:
 		geopandas.GeoDataFrame: nodes GeoDataFrame with unique ids based on coordinates named osmid in EPSG:4326
@@ -372,7 +373,10 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 	edges = edges.to_crs(projected_crs)
 
 	##Unique id for nodes based on coordinates
-	nodes['osmid'] = ((nodes.geometry.x).astype(int)).astype(str)+((nodes.geometry.y).astype(int)).astype(str)
+	if expand_coords:
+		nodes['osmid'] = (((nodes.geometry.x)*10).astype(int)).astype(str)+(((nodes.geometry.y)*10).astype(int)).astype(str)
+	else:
+		nodes['osmid'] = ((nodes.geometry.x).astype(int)).astype(str)+((nodes.geometry.y).astype(int)).astype(str)
 
 	##Set columns in edges for to [u] from[v] columns
 	edges['u'] = np.nan
@@ -382,9 +386,12 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 
 	##Extract start and end coordinates for [u,v] columns
 	for index, row in edges.iterrows():
-		
-		edges.at[index,'u'] = str(int(list(row.geometry.coords)[0][0]))+str(int(list(row.geometry.coords)[0][1]))
-		edges.at[index,'v'] = str(int(list(row.geometry.coords)[-1][0]))+str(int(list(row.geometry.coords)[-1][1]))
+		if expand_coords:
+			edges.at[index,'u'] = str(int((list(row.geometry.coords)[0][0])*10))+str(int((list(row.geometry.coords)[0][1])*10))
+			edges.at[index,'v'] = str(int((list(row.geometry.coords)[-1][0])*10))+str(int((list(row.geometry.coords)[-1][1])*10))
+		else:
+			edges.at[index,'u'] = str(int(list(row.geometry.coords)[0][0]))+str(int(list(row.geometry.coords)[0][1]))
+			edges.at[index,'v'] = str(int(list(row.geometry.coords)[-1][0]))+str(int(list(row.geometry.coords)[-1][1]))
 
 	#Add key column for compatibility with osmnx
 	edges['key'] = 0
