@@ -16,7 +16,8 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
+def main(index_analysis, city, band_name_dict, start_date, end_date, freq, 
+satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
 
     # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
     # Create city area of interest with biggest hexs
@@ -231,6 +232,7 @@ if __name__ == "__main__":
         # query = f"SELECT city FROM raster_analysis.{index_analysis}_analysis_hex"
         # processed_city_list = aup.df_from_query(query)
         # processed_city_list = list(processed_city_list.city.unique())
+        pass
     except:
         pass
 
@@ -253,7 +255,7 @@ if __name__ == "__main__":
                 main(index_analysis, city, band_name_dict, start_date,
                     end_date, freq, satellite,
                     query_sat=sat_query, save=save, del_data=del_data,
-                    data_to_hex)
+                    data_to_hex=data_to_hex)
             
             # Except, register failure (Unsuccessful city)
             except Exception as e:
@@ -265,15 +267,15 @@ if __name__ == "__main__":
                 # If didn't create df_file_dir, register missing months unable to download as -1
                 if os.path.exists(df_file_dir) == False:
                     df_skip.loc[len(df_skip),'missing_months'] = -1
-                    df_skip.loc[len(df_skip),'unable_to_download'] = -1
+                    # df_skip.loc[len(df_skip),'unable_to_download'] = -1
                 # Else, register values
                 else:
                     df_raster = pd.read_csv(df_file_dir)
                     missing_months = len(df_raster.loc[df_raster.data_id==0])
                     # not_donwloadable = len(df_raster.loc[df_raster.able_to_download==0])
                     not_downloadable = -1
-                    df_skip.loc[len(df_skip),'missing_months'] = missing_months
-                    df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
+                    # df_skip.loc[len(df_skip),'missing_months'] = missing_months
+                    # df_skip.loc[len(df_skip),'unable_to_download'] = not_donwloadable
                 # Save city to skip_list csv
                 df_skip.to_csv(df_skip_dir, index=False)
                 # Delete city's raster files
