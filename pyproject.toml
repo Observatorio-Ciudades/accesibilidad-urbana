@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.10"
 odc = "^0.1.0"
 jupyterlab = "^4.2.5"
+seaborn = "^0.13.2"
 
 [build-system]
 requires = ["poetry-core"]
