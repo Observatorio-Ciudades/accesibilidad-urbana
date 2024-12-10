@@ -167,6 +167,18 @@ def main(city,save=False,local_save=True):
 
     aup.log(f"--- Distributed block data to nodes, total population of {pop_nodes_gdf['pobtot'].sum()} for area of interest.")
 
+    # Add density to the nodes
+    # Calculate whole voronoi's area
+    nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:6372")
+    nodes_voronoi_gdf['area_has'] = nodes_voronoi_gdf.area/10000
+    nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:4326")
+    # Merge poptot data by node with the whole voronoi polygon using 'osmid'
+    dens_voronoi = pd.merge(pop_nodes_gdf[['osmid','pobtot']], nodes_voronoi_gdf[['osmid','area_has']], on='osmid')
+    # Calculate density
+    dens_voronoi['dens_pob_ha'] = dens_voronoi['pobtot'] / dens_voronoi['area_has']
+    # Merge that density data to nodes_gdf
+    pop_nodes_gdf = pd.merge(pop_nodes_gdf, dens_voronoi[['osmid','dens_pob_ha']], on='osmid')
+
     ##########################################################################################
     # STEP 4: TURN NODES POP DATA TO HEXS POP DATASET
     aup.log("--"*30)
@@ -268,22 +280,22 @@ if __name__ == "__main__":
     # Year of analysis
     year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
     # List of skip cities (If failed / want to skip city)
-    skip_city_list = ['CDMX', 'ZMVM']
+    skip_city_list = []
     # Hexgrid res of output
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
     
     # Save output to database?
-    save = False
+    save = True
     save_schema = 'censo'
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
     hexs_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
-    local_save = True
+    local_save = False
     local_save_dir = f"../data/processed/pop_data/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it ONLY locally, adding the word 'test' at the beggining of the outputs.)
-    test = True
+    test = False
     test_city = 'Guadalajara'
 
     # ------------------------------ SCRIPT ------------------------------
@@ -335,6 +347,7 @@ if __name__ == "__main__":
         aup.log(f'--- Missing procesing for cities: {missing_cities_list}')
 
     # Main function run
+    missing_cities_list = ['CDMX', 'ZMVM']
     for city in missing_cities_list:
         if city not in skip_city_list:
             aup.log("--"*40)
