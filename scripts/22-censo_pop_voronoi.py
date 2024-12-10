@@ -37,42 +37,29 @@ def main(city,save=False,local_save=True):
     pop_mza_gdf = gpd.GeoDataFrame()
 
     # Create a list with all unique cvegeo_mun ('CVE_ENT'+'CVE_MUN') of current city
-    #city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
-    #cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
+    city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
+    cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
+    cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
+    # To avoid error that happens when there's only one MUN in State: 
+    # SQL e.g.: <<< SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
+    # Duplicate mun inside tupple if there's only one MUN.
+    if len(cvegeo_mun_lst) >= 2:
+        cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
+    else:
+        cvegeo_mun_lst.append(cvegeo_mun_lst[0])
+        cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
     # Load AGEBs and blocks
-    #query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_lst}"
-    #pop_ageb_gdf = aup.gdf_from_query(query, geometry_col='geometry')
-    #query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_lst}"
-    #pop_mza_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+    query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
+    pop_ageb_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+    query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
+    pop_mza_gdf = aup.gdf_from_query(query, geometry_col='geometry')
 
-    # Load states for current city (CVE_ENT)
-    cve_ent_list = list(city_gdf.CVE_ENT.unique())
-
-    for cve_ent in cve_ent_list:
-        #Load muns in each city state
-        cve_mun_list = list(city_gdf.loc[city_gdf.CVE_ENT == cve_ent].CVE_MUN.unique())
-
-        # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) ]
-        # Duplicate mun inside tupple if there's only one MUN.
-        if len(cve_mun_list) >= 2:
-            cve_mun_tpl = str(tuple(cve_mun_list))
-        else:
-            cve_mun_list.append(cve_mun_list[0])
-            cve_mun_tpl = str(tuple(cve_mun_list))
-        # Load AGEBs and concat
-        query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE (\"entidad\" = \'{cve_ent}\') AND \"mun\" IN {cve_mun_tpl} "
-        pop_ageb_gdf = pd.concat([pop_ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
-        # Load blocks and concat
-        query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE (\"entidad\" = \'{cve_ent}\') AND \"mun\" IN {cve_mun_tpl} "
-        pop_mza_gdf = pd.concat([pop_mza_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
-    
     # Set CRS
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
     pop_mza_gdf = pop_mza_gdf.set_crs("EPSG:4326")
     aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
     aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['pobtot'].sum()} for area of interest.")
 
-    a="""
     
     ##########################################################################################
 	# STEP 2: CALCULATE NaN VALUES for pop fields (most of them, check function) of gdf containing blocks.
@@ -80,8 +67,12 @@ def main(city,save=False,local_save=True):
     aup.log(f"--- CALCULATING NAN VALUES FOR POP FIELDS IN {city.upper()}.")
     
     # 2.1 --------------- CALCULATE_CENSO_NAN_VALUES FUNCTION
-    pop_mza_gdf_calc = aup.calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False)
+    pop_mza_gdf_calc = aup.calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year=year,extended_logs=False)
 
+    if local_save:
+        if test:
+            pop_mza_gdf_calc.to_file(local_save_dir + f"testscript22_{city}_{year}_pop_mza_gdf_calc.gpkg", driver='GPKG')
+    
     ##########################################################################################
 	# STEP 3: DISTRIBUTE POP BLOCK DATA TO NODES USING VORONOI
     aup.log("--"*30)
@@ -98,13 +89,12 @@ def main(city,save=False,local_save=True):
                     'ORIGEN', 'CALI_REPR', 'CVEGEO', 'NOMVIAL', 'SENTIDO', 'LONGITUD', 'UNIDAD', 
                     'vertex_pos', 'vertex_ind', 'vertex_par', 'vertex_p_1', 
                     'distance', 'angle'], inplace = True, axis=1)
-    
     elif year == '2020':
         _, nodes, _ = aup.graph_from_hippo(aoi, schema='osmnx', edges_folder='edges_osmnx_23_line', nodes_folder='nodes_osmnx_23_point')
     
     nodes.reset_index(inplace=True)
     nodes = nodes.to_crs("EPSG:4326")
-
+    
     # 3.1 --------------- CREATE VORONOI POLYGONS USING NODES
     aup.log("--- Creating voronois with nodes osmid data.")
 
@@ -219,30 +209,52 @@ def main(city,save=False,local_save=True):
 
     ##########################################################################################
     # STEP 5: SAVING
-    aup.log("--"*30)
-    aup.log(f"--- SAVING POP DATA FOR {city}.")
 
     # Save to database
     if save:
         aup.log("--"*30)
-        aup.log(f"--- SAVING {city.upper()} POP DATA.")
+        aup.log(f"--- SAVING {city.upper()} POP DATA TO DATABASE.")
+
+        # Saving nodes
+        limit_len = 10000
+        if len(pop_nodes_gdf)>limit_len:
+            c_upload = len(pop_nodes_gdf)/limit_len
+            for k in range(int(c_upload)+1):
+                aup.log(f"City {city} - Uploading pop nodes - Starting range k = {k} of {int(c_upload)}")
+                gdf_inter_upload = pop_nodes_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                aup.gdf_to_db_slow(gdf_inter_upload, nodes_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Uploaded pop nodes for {city}.")
+        else:
+            aup.gdf_to_db_slow(pop_nodes_gdf, nodes_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Uploaded pop nodes for {city}.")
         
-        aup.gdf_to_db_slow(pop_nodes_gdf, nodes_save_table, save_schema, if_exists='append')
-        aup.log(f"--- Uploaded pop nodes for {city}")
-        
-        aup.gdf_to_db_slow(hex_socio_gdf, save_table, save_schema, if_exists='append')
-        aup.log(f"--- Uploaded pop hexs for {city}")
+        # Saving hexs
+        limit_len = 10000
+        if len(hex_socio_gdf)>limit_len:
+            c_upload = len(hex_socio_gdf)/limit_len
+            for k in range(int(c_upload)+1):
+                aup.log(f"City {city} - Uploading pop nodes - Starting range k = {k} of {int(c_upload)}")
+                gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Uploaded pop nodes for {city}.")
+        else:
+            aup.gdf_to_db_slow(hex_socio_gdf, hexs_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Uploaded pop hexs for {city}.")
 
     # Save to local
     if local_save:
+        aup.log("--"*30)
+        aup.log(f"--- SAVING {city.upper()} POP DATA LOCALLY.")
         if test:
-            pop_nodes_gdf.to_file(local_save_dir + f"test_script22_{city}_{year}_nodes.gpkg", driver='GPKG')
-            nodes_voronoi_gdf.to_file(local_save_dir + f"test_script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
-            hex_socio_gdf.to_file(local_save_dir + f"test_script22_{city}_{year}_hex.gpkg", driver='GPKG')
+            pop_nodes_gdf.to_file(local_save_dir + f"testscript22_{city}{year}_nodes.gpkg", driver='GPKG')
+            nodes_voronoi_gdf.to_file(local_save_dir + f"testscript22_{city}{year}_voronoipolys.gpkg", driver='GPKG')
+            hex_socio_gdf.to_file(local_save_dir + f"testscript22_{city}{year}_hex.gpkg", driver='GPKG')
         else:
-            pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}_{year}_nodes.gpkg", driver='GPKG')
-            nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}_{year}_voronoipolys.gpkg", driver='GPKG')
-            hex_socio_gdf.to_file(local_save_dir + f"script22_{city}_{year}_hex.gpkg", driver='GPKG')"""
+            pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}{year}_nodes.gpkg", driver='GPKG')
+            nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}{year}_voronoipolys.gpkg", driver='GPKG')
+            hex_socio_gdf.to_file(local_save_dir + f"script22_{city}{year}_hex.gpkg", driver='GPKG')
+
+    aup.log(f"--- Finished main function for {city}.")
 
 
 if __name__ == "__main__":
@@ -264,7 +276,7 @@ if __name__ == "__main__":
     save = False
     save_schema = 'censo'
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
-    save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
+    hexs_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
     local_save = True
@@ -275,15 +287,17 @@ if __name__ == "__main__":
     test_city = 'Guadalajara'
 
     # ------------------------------ SCRIPT ------------------------------
-    # If test, simplifies script parameters:
+    # If test,
     if test:
-        missing_cities_list = [test_city]
+        # Simplifies script parameters
         skip_city_list = []
+        res_list = [8]
         save = False
         local_save = True
+        # Only loads one city
+        missing_cities_list = [test_city]
         i = 0
         k = len(missing_cities_list)
-
         city = test_city
         query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
         metro_gdf = aup.gdf_from_query(query, geometry_col='geometry')
@@ -305,7 +319,7 @@ if __name__ == "__main__":
         # Prevent cities being analyzed several times in case of a crash
         processed_city_list = []
         try:
-            query = f"SELECT city FROM {save_schema}.{save_table}"
+            query = f"SELECT city FROM {save_schema}.{hexs_save_table}"
             cities_processed = aup.df_from_query(query)
             processed_city_list = list(cities_processed.city.unique())
         except:
@@ -328,4 +342,33 @@ if __name__ == "__main__":
             aup.log(f"--- Starting city {i}/{k}: {city}")
             main(city, save, local_save)
             
+
+##########################################################################################
+# PREVIOUS CODE
+##########################################################################################
+# Previous way of loading pop_ageb_gdf and pop_mza_gdf
+    a="""
+
+    # Load states for current city (CVE_ENT)
+    cve_ent_list = list(city_gdf.CVE_ENT.unique())
+
+    for cve_ent in cve_ent_list:
+        #Load muns in each city state
+        cve_mun_list = list(city_gdf.loc[city_gdf.CVE_ENT == cve_ent].CVE_MUN.unique())
+
+        # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) ]
+        # Duplicate mun inside tupple if there's only one MUN.
+        if len(cve_mun_list) >= 2:
+            cve_mun_tpl = str(tuple(cve_mun_list))
+        else:
+            cve_mun_list.append(cve_mun_list[0])
+            cve_mun_tpl = str(tuple(cve_mun_list))
+        # Load AGEBs and concat
+        query = f"SELECT * FROM censoageb.censoageb_{year} WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
+        pop_ageb_gdf = pd.concat([pop_ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
+        # Load blocks and concat
+        query = f"SELECT * FROM censo_mza.censo_mza_{year} WHERE (\"CVE_ENT\" = \'{cve_ent}\') AND \"CVE_MUN\" IN {cve_mun_tpl} "
+        pop_mza_gdf = pd.concat([pop_mza_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
+    
+    """
             

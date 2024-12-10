@@ -1067,19 +1067,21 @@ def weighted_average(df, weight_column, value_column):
 	return weighted_average
 
 
-def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
+def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False):
 	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
 		As of this version, if couldn't find all values, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
 	Args:
 		pop_ageb_gdf (geopandas.GeoDataFrame): GeoDataFrame with AGEB polygons containing pop data.
 		pop_mza_gdf (geopandas.GeoDataFrame): GeoDataFrame with block polygons containing pop data.
+		year (str): String that contains the year of the AGEBs and blocks population data. 
+					Function has additional steps for year="2020".
 		extended_logs (bool, optional): Boolean - if true prints statistical logs while processing for each AGEB.
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
-								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC.
+								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC, has no equations.
 	"""
 	
 	##########################################################################################
@@ -1087,8 +1089,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	print("INSPECTING AGEBs.")
 
 	# --------------- 1.1 SET COLUMNS TO .UPPER() EXCEPT FOR GEOMETRY
-	# (When the equations were written, we used UPPER names, easier to read and also
-	# easier to change it this way and then return output with .lower columns)
+	# (Equations were written using tables where UPPER names were used. Output is returned in .lower)
 	pop_ageb_gdf = pop_ageb_gdf.copy()
 	pop_ageb_gdf.columns = pop_ageb_gdf.columns.str.upper()
 	pop_ageb_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
@@ -1097,10 +1098,50 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	pop_mza_gdf.columns = pop_mza_gdf.columns.str.upper()
 	pop_mza_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
 
-	# --------------- 1.2 CHECK FOR DIFFERENCES IN AGEBs
-	# Look for AGEBs in both gdfs
-	agebs_in_ageb_gdf = list(pop_ageb_gdf['CVE_AGEB'].unique())
-	agebs_in_mza_gdf = list(pop_mza_gdf['CVE_AGEB'].unique())
+	# --------------- 1.2 CHECK FOR UNIQUE AGEBs DIFFERENCES
+	# Look for all unique AGEBs in both gdfs
+	agebs_in_ageb_gdf = list(pop_ageb_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
+	agebs_in_mza_gdf = list(pop_mza_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
+	if year == '2020':
+		# ADDITIONAL STEP - BLOCKS_800 EXPLANATION: 
+		# In 2020 INEGI created a category for blocks that do not have a geometry assigned to them.
+		# These are called "Caserío urbano disperso" and have population assigned to them.
+		# Here, they are loaded because their data plays part finding missing AGEBs 
+		# and in the calculation of nan values using AGEBs data (Step 2.4).
+		# BLOCKS_800 - Load and format blocks_800
+		blocks_800_df = pd.read_csv("../data/external/census/census_2020_blocks800.csv")
+		blocks_800_df.columns = blocks_800_df.columns.str.upper()
+		# BLOCKS_800 - Filter for current municipalities
+		muns_in_agebs_gdf = list(pop_ageb_gdf.CVEGEO_MUN.unique())
+		muns_in_mza_gdf = list(pop_mza_gdf.CVEGEO_MUN.unique())
+		municipalities_lst =  set(muns_in_agebs_gdf+muns_in_mza_gdf)
+		municipalities_int_lst = [int(munic) for munic in municipalities_lst]
+		blocks_800_df = blocks_800_df.loc[blocks_800_df.CVEGEO_MUN.isin(municipalities_int_lst)].copy()
+		if len(blocks_800_df)>0:
+			blocks_800_present = True #Checker
+			print(f"FOUND {len(blocks_800_df)} blocks_800 in current municipalities.")
+			# BLOCKS_800 - Identify which blocks_800 have an AGEB
+			agebs_in_blocks800df = list(blocks_800_df['CVEGEO_AGEB'].unique())
+			complementary_blocks800_agebslst = [] #Will be added
+			blocks800_only = [] #Will NOT be added
+			for ageb in agebs_in_blocks800df:
+				if ageb in agebs_in_ageb_gdf:
+					complementary_blocks800_agebslst.append(ageb) #List of AGEBs from blocks_800 available in pop_ageb_gdf.
+				else:
+					blocks800_only.append(ageb) #List of AGEBs from blocks_800 NOT available in pop_ageb_gdf.
+
+			# BLOCKS_800 - Add blocks_800 only for those that have an AGEB in pop_ageb_gdf.
+			complementary_blocks800 = blocks_800_df.loc[blocks_800_df.CVEGEO_AGEB.isin(complementary_blocks800_agebslst)].copy()
+			print(f"ADDED {len(complementary_blocks800)} blocks_800 for {len(complementary_blocks800_agebslst)} AGEBs.")
+			print("Printing AGEBs with blocks_800 list:")
+			print(complementary_blocks800_agebslst)
+			# BLOCKS_800 - Show blocks_800 that have no AGEB (Won't be added.)
+			print(f"REMOVED blocks_800 from {len(blocks800_only)} other AGEBs not available in pop_gdf_ageb.")
+			print("Printing AGEBs from blocks_800 that won't be used.")
+			print(blocks800_only)
+		else:
+			blocks_800_present = False #Checker
+			print(f"Found zero blocks_800 in current municipalities.")
 
 	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
 		print("Error: Area of interest has no pop data.")
@@ -1109,8 +1150,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	# Test for AGEBs present in mza_gdf but not in AGEB_gdf (could crash if unchecked)
 	missing_agebs = list(set(agebs_in_mza_gdf) - set(agebs_in_ageb_gdf))
 	if len(missing_agebs) > 0:
-		print(f'WARNING: AGEBs {missing_agebs} present in mza_gdf but missing from ageb_gdf.')
-		print(f'WARNING: Removing AGEBs {missing_agebs} from AGEB analysis.')
+		print(f'WARNING: {len(missing_agebs)} AGEBs present in mza_gdf but missing from ageb_gdf.')
+		print(f'WARNING: {len(missing_agebs)} AGEBs will not be part of AGEBs analysis. Printing missing AGEBs.')
+		print(missing_agebs)
+
 
 	##########################################################################################
 	# STEP 2: CALCULATE NAN VALUES
@@ -1124,11 +1167,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 	# --------------- 2.0 NaNs CALCULATION Start
 	i = 1
-	for ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB
+	for cvegeo_ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB in pop_mza_gdf
 
 		if extended_logs:
 			print('--'*20)
-			print(f'Calculating NaNs for AGEB {ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
+			print(f'Calculating NaNs for AGEB {cvegeo_ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
 		
 		# LOG CODE - Progress logs
 		# Measures current progress, prints if passed a checkpoint of progress_logs list.
@@ -1140,27 +1183,33 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				break
 
 		# --------------- 2.1 FIND CURRENT AGEB BLOCK DATA
-		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVE_AGEB'] == ageb].copy()
+		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVEGEO_AGEB'] == cvegeo_ageb].copy() #Previously 'CVE_AGEB'
 
 		# --------------- 2.2 KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (Blocks where ALL values are NaNs)
 		# 2.2a) Set columns to be analysed
-		columns_of_interest = ['POBFEM','POBMAS',
-							'P_0A2','P_0A2_F','P_0A2_M',
-							'P_3A5','P_3A5_F','P_3A5_M',
-							'P_6A11','P_6A11_F','P_6A11_M',
-							'P_12A14','P_12A14_F','P_12A14_M',
-							'P_15A17','P_15A17_F','P_15A17_M',
-							'P_18A24','P_18A24_F','P_18A24_M',
-							'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
-							'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
-							'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
-							'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
-							'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-							'REL_H_M','POB0_14','POB15_64','POB65_MAS',
-							'PCON_DISC'] #Added later
-		blocks = mza_ageb_gdf[['CVEGEO','POBTOT'] + columns_of_interest].copy()
+		columns_of_interest = ['POBTOT','POBFEM','POBMAS',
+						 'P_0A2','P_0A2_F','P_0A2_M',
+						 'P_3A5','P_3A5_F','P_3A5_M',
+						 'P_6A11','P_6A11_F','P_6A11_M',
+						 'P_12A14','P_12A14_F','P_12A14_M',
+						 'P_15A17','P_15A17_F','P_15A17_M',
+						 'P_18A24','P_18A24_F','P_18A24_M',
+						 'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
+						 'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
+						 'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
+						 'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
+						 'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
+						 'REL_H_M','POB0_14','POB15_64','POB65_MAS',
+						 'PCON_DISC'] #PCON_DISC was added later
+		blocks = mza_ageb_gdf[['CVEGEO_MZA'] + columns_of_interest].copy() #Previously 'CVEGEO'
+
+		# BLOCKS 800 - Consider posible blocks 800 on current AGEB
+		if blocks_800_present:
+			mza800_ageb_df = complementary_blocks800.loc[complementary_blocks800['CVEGEO_AGEB'] == cvegeo_ageb].copy()
+			mza800_ageb_df = mza800_ageb_df[['CVEGEO_MZA'] + columns_of_interest].copy()
+			blocks = pd.concat([blocks,mza800_ageb_df])
 		
-		# 2.2b) Find rows with nan values and sum of nan values
+		# 2.2b) Find rows with nan values and total amount of values available per row (found_values)
 		blocks['found_values'] = 0
 		checker_cols = []
 
@@ -1171,10 +1220,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks[col] = pd.to_numeric(blocks[col])
 			# Set checker column to 'exist' (1)
 			blocks[checker_col] = 1
-			# If it doesn't exist, set that row's check to (0)
+			# For each row, if value doesn't exist (NaN), set that row's checker to (0)
 			idx = blocks[col].isna()
 			blocks.loc[idx, checker_col] = 0
-			# Add checker column to checker_cols list
+			# Add checker column to checker_cols list (To remove it later)
 			checker_cols.append(checker_col)
 		
 		# Sum total number of identified nan values by row
@@ -1182,11 +1231,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		# Drop checker columns
 		blocks.drop(columns=checker_cols, inplace=True)
 		
-		# 2.2c) Loc rows with values in columns_of_interest (In these rows, NaNs calculation is possible)
+		# 2.2c) Loc rows with values in columns_of_interest 
+		# (In these rows, NaNs calculation is possible)
 		blocks_values = blocks.loc[blocks['found_values'] > 0].copy()
 		blocks_values.drop(columns=['found_values'],inplace=True)
 		
-		# 2.2d) Save rows with 0 values for later. (In these rows, can't calculate NaNs, must distribute values)
+		# 2.2d) Save rows with 0 values for later. 
+		# (In these rows, can't calculate NaNs since everything is NaN. Will be returned to output as it is)
 		blocks_nans = blocks.loc[blocks['found_values'] == 0].copy()
 		blocks_nans.drop(columns=['found_values'],inplace=True)
 
@@ -1209,7 +1260,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		"""
 
 		if extended_logs:
-			print(f'Calculating NaNs using block data for AGEB {ageb}.')
+			print(f'Calculating NaNs using block data for AGEB {cvegeo_ageb}.')
 
 		# 2.3a) Count current (original) nan values
 		original_nan_values = int(blocks_values.isna().sum().sum())
@@ -1390,33 +1441,30 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
 		
-		# 2.3f) Join back blocks with values with blocks without values
-		blocks_calc = pd.concat([blocks_values,blocks_nans])
-		
 		# --------------- 2.4 CALCULATE NaN values using AGEBs.
   		# For the nan values that couldn't be solved, distributes AGEB data.
 		"""
-		This is the second important sub-step towards filling missing values. It's meant to be a temporary solution while a more accurate solution is built.
+		This is the second important sub-step towards filling missing values. 
+		It's meant to be a temporary solution while a more accurate solution is built.
 		
 		It fills the remaining NaNs by distributing the known AGEB data into each of the blocks inside each AGEB, using POBTOT as an indicator 
-		to the amount of each age group to be distributed. Blocks which originaly had no data (NaN values only), remain empty.
+		to the amount of each age group to be distributed. Blocks which originaly had no data on POBTOT remain empty.
 		"""
 		
 		# 2.4a) Prepare for second loop
-		# Remove masc/fem relation from analysis as it complicates this and further processes
-    	# If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)
-		ageb_filling_cols = columns_of_interest.copy()
-		ageb_filling_cols.remove('REL_H_M')
-		blocks_calc.drop(columns=['REL_H_M'],inplace=True)
+		# Masc/fem relation helped find NaN values in blocks but it complicates this and further processes
+		# Remove masc/fem relation from analysis [If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)]
+		columns_of_interest.remove('REL_H_M')
+		blocks_values.drop(columns=['REL_H_M'],inplace=True)
 
 		# If not in crash check from STEP 1:
-		if ageb not in missing_agebs:
+		if cvegeo_ageb not in missing_agebs:
 
 			if extended_logs:
-				print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
+				print(f'Calculating NaNs using AGEB data for AGEB {cvegeo_ageb}.')
 
 			# Locate AGEB data in pop_ageb_gdf (Total known data that should be found if adding all blocks data)
-			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVE_AGEB'] == ageb]
+			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVEGEO_AGEB'] == cvegeo_ageb] #Previously 'CVE_AGEB'
 
 			# LOG CODE - Statistics
 			# This log registers the solving method that was used to solve columns
@@ -1424,11 +1472,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			solved_using_ageb = 0 # for log statistics
 			
 			# 2.4b) Fill with AGEB values.
-			for col in ageb_filling_cols:
+			for col in columns_of_interest:
 				# Find number of nan values in current col
-				col_nan_values = blocks_calc.isna().sum()[col]
+				col_nan_values = blocks_values.isna().sum()[col]
 
-				# If there are no nan values left in col, does nothing.
+				# If there are no nan values left in col, does nothing.f
 				if col_nan_values == 0:
 					solved_using_blocks += 1 # for log statistics
 				
@@ -1436,39 +1484,39 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				elif col_nan_values == 1: 
 					# Calculate missing value
 					ageb_col_value = ageb_gdf[col].unique()[0]
-					current_block_sum = blocks_calc[col].sum()
+					current_block_sum = blocks_values[col].sum()
 					missing_value = ageb_col_value - current_block_sum
 					# Add missing value to na cell in column
-					blocks_calc[col].fillna(missing_value,inplace=True)
+					blocks_values[col].fillna(missing_value,inplace=True)
 					solved_using_ageb += 1 # for log statistics
 				
 				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distributing indicator.
 				elif col_nan_values > 1:        
 					# Locate rows with NaNs in current col 
 					# This ensures POBTOT as a distributing indicator works for the missing data rows only
-					idx = blocks_calc[col].isna()
+					idx = blocks_values[col].isna()
 					# Set distributing factor to 0
-					blocks_calc['dist_factor'] = 0
+					blocks_values['dist_factor'] = 0
 					# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
-					blocks_calc.loc[idx,'dist_factor'] = (blocks_calc['POBTOT']) / blocks_calc.loc[idx]['POBTOT'].sum()
+					blocks_values.loc[idx,'dist_factor'] = (blocks_values['POBTOT']) / blocks_values.loc[idx]['POBTOT'].sum()
 					# Calculate missing value
 					ageb_col_value = ageb_gdf[col].unique()[0]
-					current_block_sum = blocks_calc[col].sum()
+					current_block_sum = blocks_values[col].sum()
 					missing_value = ageb_col_value - current_block_sum
 					# Distribute missing value in those rows using POBTOT factor
-					blocks_calc[col].fillna(missing_value * blocks_calc['dist_factor'], inplace=True)
-					blocks_calc.drop(columns=['dist_factor'],inplace=True)
+					blocks_values[col].fillna(missing_value * blocks_values['dist_factor'], inplace=True)
+					blocks_values.drop(columns=['dist_factor'],inplace=True)
 					solved_using_ageb += 1 # for log statistics
 
 			# LOG CODE - Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100 # for log statistics
-				pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100 # for log statistics
+				pct_col_byblocks = (solved_using_blocks / len(columns_of_interest))*100 # for log statistics
+				pct_col_byagebs = (solved_using_ageb / len(columns_of_interest))*100 # for log statistics
 				print(f'{pct_col_byblocks}% of columns solved using block data only.')
 				print(f'{pct_col_byagebs}% of columns required AGEB filling.')
 		
 			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = ageb # for log statistics
+			acc_statistics.loc[i,'ageb'] = cvegeo_ageb # for log statistics
 			# Percentage of NaNs found using blocks gdf
 			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # for log statistics
 			# Columns which could be solved entirely using equations in block_gdf
@@ -1479,18 +1527,18 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			acc_statistics.loc[i,'unable_to_solve'] = 0 # for log statistics
 
 		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf) 
-			# EVERYTHING here is for log statistics
+			# EVERYTHING here is for log statistics ONLY
 			if extended_logs:
-				print(f"NANs on AGEB {ageb} cannot be calculated using AGEB data because it doesn't exist.")
+				print(f"NANs on AGEB {cvegeo_ageb} cannot be calculated using AGEB data because it doesn't exist.")
 
 			# Solving method used to solve column
 			solved_using_blocks = 0
 			unable_tosolve = 0
 			
 			# LOG CODE - Statistics - Register how columns where solved.
-			for col in ageb_filling_cols:
+			for col in columns_of_interest:
 				# Find number of nan values in current col
-				col_nan_values = blocks_calc.isna().sum()[col]
+				col_nan_values = blocks_values.isna().sum()[col]
 				# If there are no nan values left in col, pass.
 				if col_nan_values == 0:
 					solved_using_blocks += 1
@@ -1499,13 +1547,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 			# Logs Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
-				pct_col_notsolved = (unable_tosolve / len(ageb_filling_cols))*100
+				pct_col_byblocks = (solved_using_blocks / len(columns_of_interest))*100
+				pct_col_notsolved = (unable_tosolve / len(columns_of_interest))*100
 				print(f"{pct_col_byblocks}% of columns solved using block data only.")
 				print(f"{pct_col_notsolved}% of columns couldn't be solved.")
 
 			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = ageb
+			acc_statistics.loc[i,'ageb'] = cvegeo_ageb
 			# Percentage of NaNs found using blocks gdf
 			acc_statistics.loc[i,'nans_calculated'] = nan_reduction
 			# Columns which could be solved entirely using equations in block_gdf
@@ -1516,16 +1564,20 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve
 
 		# --------------- 2.5 Return calculated data to original block gdf for the current AGEB (mza_ageb_gdf)
-		# 2.5a) Change original cols for calculated cols
-		calculated_cols = ['POBTOT'] + ageb_filling_cols
-		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols) #Drops current block pop cols
-		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO') #Replaces with calculated (blocks_calc) cols
 
-		# 2.5b) Restore column order from original (input) block gdf
+		# 2.5a) Join back blocks with values with blocks without values
+		blocks_nans.drop(columns=['REL_H_M'],inplace=True)
+		blocks_calc = pd.concat([blocks_values,blocks_nans])
+
+		# 2.5b) Change original cols for calculated cols
+		mza_ageb_gdf = mza_ageb_gdf.drop(columns=columns_of_interest) #Drops current block pop cols
+		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO_MZA') #Replaces with calculated (blocks_calc) cols #Previously on='CVEGEO'
+
+		# 2.5c) Restore column order from original (input) block gdf
 		column_order = list(pop_mza_gdf.columns.values)
 		mza_ageb_gdf = mza_ageb_gdf[column_order]
 
-		# 2.5c) Save to mza_calc gdf (Function's output)
+		# 2.5d) Save to mza_calc gdf (Function's output)
 		if i == 1:
 			mza_calc = mza_ageb_gdf.copy()
 		else:
