@@ -33,9 +33,6 @@ def main(city,save=False,local_save=True):
     
     # 1.2 --------------- LOAD POP DATA (AGEBs and Blocks)
     aup.log("--- Loading blocks and AGEBs for area of interest.")
-    pop_ageb_gdf = gpd.GeoDataFrame()
-    pop_mza_gdf = gpd.GeoDataFrame()
-
     # Create a list with all unique cvegeo_mun ('CVE_ENT'+'CVE_MUN') of current city
     city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
     cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
