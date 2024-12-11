@@ -24,7 +24,7 @@ def main(city,save=False,local_save=True):
 	##########################################################################################
 	# STEP 1: LOAD DATA
     aup.log("--"*30)
-    aup.log("--- LOADING CITY POP DATA.")
+    aup.log(f"--- {city} - LOADING CITY POP DATA.")
     
     # 1.1 --------------- CREATE AREA OF INTEREST FOR CITY 
     city_gdf = metro_gdf.loc[metro_gdf.city == city]
@@ -61,7 +61,7 @@ def main(city,save=False,local_save=True):
     ##########################################################################################
 	# STEP 2: CALCULATE NaN VALUES for pop fields (most of them, check function) of gdf containing blocks.
     aup.log("--"*30)
-    aup.log(f"--- CALCULATING NAN VALUES FOR POP FIELDS IN {city.upper()}.")
+    aup.log(f"--- {city} - CALCULATING NAN VALUES FOR POP FIELDS IN {city.upper()}.")
     
     # 2.1 --------------- CALCULATE_CENSO_NAN_VALUES FUNCTION
     pop_mza_gdf_calc = aup.calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year=year,extended_logs=False)
@@ -96,7 +96,7 @@ def main(city,save=False,local_save=True):
     ##########################################################################################
 	# STEP 3: DISTRIBUTE POP BLOCK DATA TO NODES USING VORONOI
     aup.log("--"*30)
-    aup.log("--- DISTRIBUTING POP DATA FROM BLOCKS TO NODES")
+    aup.log(f"--- {city} - DISTRIBUTING POP DATA FROM BLOCKS TO NODES")
 
     # 3.0 --------------- LOAD OSMNX NODES
     aup.log("--- Loading nodes for area of interest.")
@@ -202,7 +202,7 @@ def main(city,save=False,local_save=True):
     ##########################################################################################
     # STEP 4: TURN NODES POP DATA TO HEXS POP DATASET
     aup.log("--"*30)
-    aup.log("--- DISTRIBUTING POP DATA FROM NODES TO HEXGRID.")
+    aup.log(f"--- {city} - DISTRIBUTING POP DATA FROM NODES TO HEXGRID.")
     
     # Create hex_socio_gdf (Will store hexs pop output)
     hex_socio_gdf = gpd.GeoDataFrame()
@@ -245,7 +245,7 @@ def main(city,save=False,local_save=True):
     # Save to database
     if save:
         aup.log("--"*30)
-        aup.log(f"--- SAVING {city.upper()} POP DATA TO DATABASE.")
+        aup.log(f"--- {city} - SAVING {city.upper()} NODES AND HEXS POP DATA TO DATABASE.")
 
         # Saving nodes
         limit_len = 10000
@@ -265,7 +265,7 @@ def main(city,save=False,local_save=True):
         if len(hex_socio_gdf)>limit_len:
             c_upload = len(hex_socio_gdf)/limit_len
             for k in range(int(c_upload)+1):
-                aup.log(f"City {city} - Uploading pop nodes - Starting range k = {k} of {int(c_upload)}")
+                aup.log(f"City {city} - Uploading pop hexs - Starting range k = {k} of {int(c_upload)}")
                 gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
                 aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded pop hexs for {city}.")
@@ -368,7 +368,6 @@ if __name__ == "__main__":
         aup.log(f'--- Missing procesing for cities: {missing_cities_list}')
 
     # Main function run
-    missing_cities_list = ['CDMX', 'ZMVM']
     for city in missing_cities_list:
         if city not in skip_city_list:
             aup.log("--"*40)
