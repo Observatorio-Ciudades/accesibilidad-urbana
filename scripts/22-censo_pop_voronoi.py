@@ -13,10 +13,10 @@ if module_path not in sys.path:
     import aup
 
 """ 
-    For each city in Mexico's metropolis list, this script loads each city's pop data (AGEB, block), 
-    calculates block's nan values using calculate_censo_nan_values function,
-    distributes the resulting blocks pop data to osmnx nodes using voronoi polygons and
-    distributes the resulting nodes pop data to hexs, saving both nodes and hexs pop data to db.
+    For each city in Mexico's metropolis list, this script loads from the database each city's pop data (AGEB, block), 
+    calculates block's nan values using calculate_censo_nan_values() function,
+    distributes the resulting blocks pop data to OSMnx nodes using voronoi polygons to assign a pct of the blocks data to each node, and
+    distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks, nodes and hexs pop data to the database.
 """
 
 def main(city,save=False,local_save=True):
@@ -33,12 +33,12 @@ def main(city,save=False,local_save=True):
     
     # 1.2 --------------- LOAD POP DATA (AGEBs and Blocks)
     aup.log("--- Loading blocks and AGEBs for area of interest.")
-    # Create a list with all unique cvegeo_mun ('CVE_ENT'+'CVE_MUN') of current city
+    # Create a tupple from a list with all unique cvegeo_mun ('CVE_ENT'+'CVE_MUN') of current city
     city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
     cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
     cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
     # To avoid error that happens when there's only one MUN in State: 
-    # SQL e.g.: <<< SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
+    # e.g.: <<< SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
     # Duplicate mun inside tupple if there's only one MUN.
     if len(cvegeo_mun_lst) >= 2:
         cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
@@ -50,57 +50,69 @@ def main(city,save=False,local_save=True):
     pop_ageb_gdf = aup.gdf_from_query(ageb_query, geometry_col='geometry')
     mza_query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
     pop_mza_gdf = aup.gdf_from_query(mza_query, geometry_col='geometry')
-
     # Set CRS
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
     pop_mza_gdf = pop_mza_gdf.set_crs("EPSG:4326")
-    aup.log(f"--- Loaded AGEBs with total population {pop_ageb_gdf['pobtot'].sum()} for area of interest.")
-    aup.log(f"--- Loaded blocks with total population {pop_mza_gdf['pobtot'].sum()} for area of interest.")
-
+    # Logs
+    ageb_pobtot = pop_ageb_gdf['pobtot'].sum()
+    mza_pobtot = pop_mza_gdf['pobtot'].sum()
+    aup.log(f"--- Loaded AGEBs with total population of {ageb_pobtot} for area of interest.")
+    aup.log(f"--- Loaded blocks with total population of {mza_pobtot} for area of interest.")
+    aup.log(f"--- Blocks - AGEBs popdiff = {mza_pobtot - ageb_pobtot} for area of interest.")
+    if year == '2020':
+        mza_urbana = pop_mza_gdf.loc[pop_mza_gdf.ambito=='Urbana'].copy()
+        mza_urbana_pobtot = mza_urbana['pobtot'].sum()
+        aup.log(f"--- Loaded blocks from 2020 have a total URBAN population of {mza_urbana_pobtot} for area of interest.")
+        aup.log(f"--- URBAN blocks - AGEBs popdiff = {mza_urbana_pobtot - ageb_pobtot} for area of interest.")
+        del mza_urbana
     
     ##########################################################################################
-	# STEP 2: CALCULATE NaN VALUES for pop fields (most of them, check function) of gdf containing blocks.
+	# STEP 2: CALCULATE NaN VALUES FOR POP FIELDS (most of them, explore function for more detail) INSIDE BLOCKS GDF.
     aup.log("--"*30)
-    aup.log(f"--- {city} - CALCULATING NAN VALUES FOR POP FIELDS IN {city.upper()}.")
+    aup.log(f"--- {city} - CALCULATING NAN VALUES FOR POP FIELDS.")
     
     # 2.1 --------------- CALCULATE_CENSO_NAN_VALUES FUNCTION
     pop_mza_gdf_calc = aup.calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year=year,extended_logs=False)
 
     # 2.2 --------------- SAVE
-    # Save to database
+    # Save calculated blocks to database
     if save:
-        aup.log("--"*30)
-        aup.log(f"--- SAVING {city.upper()} BLOCKS POP DATA TO DATABASE.")
-
+        aup.log(f"--- Saving {city}'s blocks pop data to database.")
+        # Format blocks
         pop_mza_gdf_calc_save = pop_mza_gdf_calc.copy()
         pop_mza_gdf_calc_save['city'] = city
-
-        # Saving nodes
+        # Save blocks
         limit_len = 10000
         if len(pop_mza_gdf_calc_save)>limit_len:
             c_upload = len(pop_mza_gdf_calc_save)/limit_len
             for k in range(int(c_upload)+1):
-                aup.log(f"City {city} - Uploading calc pop blocks - Starting range k = {k} of {int(c_upload)}")
+                aup.log(f"--- Uploading calc pop blocks - Starting range k = {k} of {int(c_upload)}")
                 gdf_inter_upload = pop_mza_gdf_calc_save.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
                 aup.gdf_to_db_slow(gdf_inter_upload, blocks_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded calc pop blocks for {city}.")
         else:
             aup.gdf_to_db_slow(pop_mza_gdf_calc_save, blocks_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded calc pop blocks for {city}.")
-
+        # Save disk space
         del pop_mza_gdf_calc_save
+    # Save calculated blocks locally
+    if local_save:
+        aup.log(f"--- Saving {city}'s blocks pop data locally.")
+        pop_mza_gdf_calc.to_file(local_save_dir + f"script22_{year}{city}_pop_mza_gdf_calc.gpkg", driver='GPKG')
+    # Save disk space
+    del city_gdf
+    del pop_ageb_gdf
+    del pop_mza_gdf
 
-    if local_save and test:
-        pop_mza_gdf_calc.to_file(local_save_dir + f"testscript22_{city}_{year}_pop_mza_gdf_calc.gpkg", driver='GPKG')
     
     ##########################################################################################
 	# STEP 3: DISTRIBUTE POP BLOCK DATA TO NODES USING VORONOI
     aup.log("--"*30)
-    aup.log(f"--- {city} - DISTRIBUTING POP DATA FROM BLOCKS TO NODES")
+    aup.log(f"--- {city} - DISTRIBUTING POP DATA FROM BLOCKS TO NODES.")
 
     # 3.0 --------------- LOAD OSMNX NODES
-    aup.log("--- Loading nodes for area of interest.")
-    
+    aup.log("--- Loading nodes for area of interest (by aoi).")
+    # Load data
     if year == '2010':
         _, nodes, _ = aup.graph_from_hippo(aoi, schema='networks', edges_folder='edges_2011', nodes_folder='nodes_2011')
         # FOR NETWORK 2011 ONLY: Drop unncessary columns from nodes column (only present in 2011)
@@ -111,45 +123,38 @@ def main(city,save=False,local_save=True):
                     'distance', 'angle'], inplace = True, axis=1)
     elif year == '2020':
         _, nodes, _ = aup.graph_from_hippo(aoi, schema='osmnx', edges_folder='edges_osmnx_23_line', nodes_folder='nodes_osmnx_23_point')
-    
+    # Format data
     nodes.reset_index(inplace=True)
     nodes = nodes.to_crs("EPSG:4326")
     
     # 3.1 --------------- CREATE VORONOI POLYGONS USING NODES
     aup.log("--- Creating voronois with nodes osmid data.")
-
     # Create voronois
     voronois_gdf = aup.voronoi_points_within_aoi(aoi,nodes,'osmid')
-    nodes_voronoi_gdf = voronois_gdf[['osmid','geometry']]
+    nodes_voronoi_gdf = voronois_gdf[['osmid','geometry']]    
 
-    # 3.2 --------------- SPATIAL INTERSECTION OF POLYGONS WITH BLOCKS
+    # 3.2 --------------- SPATIAL INTERSECTION OF VORONOI POLYGONS WITH BLOCKS
+    # ------------------- (Finds area_pct, used to distribute pop data)
     aup.log("--- Creating spatial join between voronoi polygons and blocks.")
-    
     # Calculate total block area
     mza_gdf = pop_mza_gdf_calc.to_crs("EPSG:6372")
     mza_gdf['area_mza'] = mza_gdf.geometry.area
     mza_gdf = mza_gdf.to_crs("EPSG:4326")
-    
     # Overlay blocks with voronoi (Spatial intersection)
     mza_voronoi = gpd.overlay(df1=mza_gdf, df2=nodes_voronoi_gdf, how="intersection")
-    del mza_gdf
-
     aup.log("--- Calculating area_pct that corresponds to each osmid within each block.")
-
     # Calculate pct of area of each block that falls in any given osmid voronoi polygon
     mza_voronoi = mza_voronoi.to_crs("EPSG:6372")
     mza_voronoi['area_voronoi'] = mza_voronoi.geometry.area
     mza_voronoi = mza_voronoi.to_crs("EPSG:4326")
     mza_voronoi['area_pct'] = mza_voronoi['area_voronoi']/mza_voronoi['area_mza']
-    
     # Drop used columns
     mza_voronoi.drop(columns=['area_mza','area_voronoi'],inplace=True)
 
-    # 3.3 --------------- SUM POP DATA THAT CORRESPONDS TO EACH NODE (Groups mza_voronoi data by osmid)
+    # 3.3 --------------- GROUP POP DATA THAT CORRESPONDS TO EACH NODE 
+    # ------------------- (Groups mza_voronoi data by osmid)
     aup.log("--- Adding pop data by node.")
-    
-    # List to be similar to columns_of_interest inside function calculate_censo_nan_values_v1,
-    # but in .lower(), with pobtot, without rel_h_m 
+    # List is similar to columns_of_interest inside function calculate_censo_nan_values_v1
     columns_of_interest = ['pobtot','pobfem','pobmas',
                            'p_0a2','p_0a2_f','p_0a2_m',
                            'p_3a5','p_3a5_f','p_3a5_m',
@@ -163,16 +168,14 @@ def main(city,save=False,local_save=True):
                            'p_15ymas','p_15ymas_f','p_15ymas_m',
                            'p_18ymas','p_18ymas_f','p_18ymas_m',
                            'pob0_14','pob15_64','pob65_mas',
-                           'pcon_disc'] 
-
-    # Create pop_nodes_gdf (Will store nodes pop output by node)
+                           'pcon_disc']
+    # Create pop_nodes_gdf (Will store nodes pop output by node) from nodes gdf.
     pop_nodes_gdf = nodes.copy()
     if year == '2010':
         pop_nodes_gdf.drop(columns=['x','y'],inplace=True)
     elif year == '2020':
         pop_nodes_gdf.drop(columns=['x','y','street_count','city'],inplace=True)
-    
-    # For each column, sum pop data by osmid (Distributing pop data by considering pct of area of original block) and assign to node
+    # For each column, sum pop data by osmid (Distributing pop data by considering pct of area of original block) and assigning it to its node
     for col in columns_of_interest:
         # Turn column to numeric
         mza_voronoi[col] = pd.to_numeric(mza_voronoi[col])
@@ -184,9 +187,7 @@ def main(city,save=False,local_save=True):
         osmid_grouped_data.reset_index(inplace=True)
         pop_nodes_gdf = pd.merge(pop_nodes_gdf, osmid_grouped_data, on='osmid')
         pop_nodes_gdf.rename(columns={f'voronoi_{col}':col},inplace=True)
-
     aup.log(f"--- Distributed block data to nodes, total population of {pop_nodes_gdf['pobtot'].sum()} for area of interest.")
-
     # Add density to the nodes
     # Calculate whole voronoi's area
     nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:6372")
@@ -199,6 +200,37 @@ def main(city,save=False,local_save=True):
     # Merge that density data to nodes_gdf
     pop_nodes_gdf = pd.merge(pop_nodes_gdf, dens_voronoi[['osmid','dens_pob_ha']], on='osmid')
 
+    # 3.4 --------------- SAVE
+    # Save nodes to database
+    if save:
+        aup.log(f"--- Saving {city}'s nodes pop data to database.")
+        # Saving nodes to database
+        limit_len = 10000
+        if len(pop_nodes_gdf)>limit_len:
+            c_upload = len(pop_nodes_gdf)/limit_len
+            for k in range(int(c_upload)+1):
+                aup.log(f"--- Uploading pop nodes - Starting range k = {k} of {int(c_upload)}")
+                gdf_inter_upload = pop_nodes_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                aup.gdf_to_db_slow(gdf_inter_upload, nodes_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Uploaded pop nodes for {city}.")
+        else:
+            aup.gdf_to_db_slow(pop_nodes_gdf, nodes_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Uploaded pop nodes for {city}.")
+    # Save nodes locally
+    if local_save:
+        aup.log(f"--- Saving {city}'s nodes pop data locally.")
+        nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{year}{city}_voronoipolys.gpkg", driver='GPKG')
+        pop_nodes_gdf.to_file(local_save_dir + f"script22_{year}{city}_pop_nodes_gdf.gpkg", driver='GPKG')
+    # Save disk space
+    del nodes # From graph_from_hippo
+    del voronois_gdf # From function voronoi_points_within_aoi()
+    del pop_mza_gdf_calc # From function calculate_censo_nan_values_v1() [Saved to db or locally]
+    del mza_gdf # Blocks with original area
+    del mza_voronoi # Voronois with pop data
+    del osmid_grouped_data #From for loop
+    del dens_voronoi #For density calc
+    del nodes_voronoi_gdf #Voronoi polygons [Saved locally]
+
     ##########################################################################################
     # STEP 4: TURN NODES POP DATA TO HEXS POP DATASET
     aup.log("--"*30)
@@ -206,12 +238,12 @@ def main(city,save=False,local_save=True):
     
     # Create hex_socio_gdf (Will store hexs pop output)
     hex_socio_gdf = gpd.GeoDataFrame()
-    
+    # For each res, load hexs and group data
     for res in res_list:
         # 4.1 --------------- LOAD HEXGRID
         # Load hexgrid from db
-        aup.log(f"--- Loading hexgrid res {res} for area of interest.")
-        hex_query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'"
+        aup.log(f"--- Loading hexgrid res {res} for area of interest (by city name).")
+        hex_query = f"SELECT * FROM hexgrid.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'" #Always load 2020, just as metro_gdf_2020
         hex_res_gdf = aup.gdf_from_query(hex_query, geometry_col='geometry')
         hex_res_gdf = hex_res_gdf.set_crs("EPSG:4326")
         # Format - Remove res from index name and add column with res
@@ -221,71 +253,52 @@ def main(city,save=False,local_save=True):
 
         # 4.2 --------------- GROUP POPDATA IN HEXGRID
         # Group pop data
-        string_columns = ['osmid'] # Nodes string columns are not used in aup.group_sociodemographic_data. The rest are turned into numeric and processed.
+        # Notes: Nodes's string columns are not used to group data in aup.group_sociodemographic_data() inside socio_points_to_polygon().
+        # The rest of the columns are turned into numeric and grouped.
+        # dens_pob_ha (Which would need to be in arg. 'avg_column') is not added because it gets overwritten below.
+        string_columns = ['osmid'] 
         hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns, include_nearest=(True,'osmid')) 
         aup.log(f"--- Agregated socio data to hex with a total of {hex_socio_df['pobtot'].sum()} population for resolution {res}.")
         # Hexagons data to hex_gdf GeoDataFrame
         hex_socio_gdf_tmp = hex_res_gdf.merge(hex_socio_df, on='hex_id')
 
         # 4.3 --------------- Add additional common fields
-        # Calculate population density
+        # Calculate population density (Considering tot pop and tot area of hex instead of average of nodes)
         hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
         hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
         aup.log(f"--- Calculated an average density of {hex_socio_gdf_tmp['dens_pob_ha'].mean()}")
         # Concatenate in hex_socio_gdf (if more resolutions, next resolution will also be stored here)
         hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])
 
+    # 4.4 --------------- SAVE
     # Final format
     pop_nodes_gdf['city'] = city
     hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
-
-    ##########################################################################################
-    # STEP 5: SAVING
-
     # Save to database
     if save:
-        aup.log("--"*30)
-        aup.log(f"--- {city} - SAVING {city.upper()} NODES AND HEXS POP DATA TO DATABASE.")
-
-        # Saving nodes
-        limit_len = 10000
-        if len(pop_nodes_gdf)>limit_len:
-            c_upload = len(pop_nodes_gdf)/limit_len
-            for k in range(int(c_upload)+1):
-                aup.log(f"City {city} - Uploading pop nodes - Starting range k = {k} of {int(c_upload)}")
-                gdf_inter_upload = pop_nodes_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
-                aup.gdf_to_db_slow(gdf_inter_upload, nodes_save_table, save_schema, if_exists='append')
-            aup.log(f"--- Uploaded pop nodes for {city}.")
-        else:
-            aup.gdf_to_db_slow(pop_nodes_gdf, nodes_save_table, save_schema, if_exists='append')
-            aup.log(f"--- Uploaded pop nodes for {city}.")
-        
-        # Saving hexs
+        aup.log(f"--- Saving {city}'s hexs pop data to database.")
+        # Saving hexs to database
         limit_len = 10000
         if len(hex_socio_gdf)>limit_len:
             c_upload = len(hex_socio_gdf)/limit_len
             for k in range(int(c_upload)+1):
-                aup.log(f"City {city} - Uploading pop hexs - Starting range k = {k} of {int(c_upload)}")
+                aup.log(f"--- Uploading pop hexs - Starting range k = {k} of {int(c_upload)}")
                 gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
                 aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded pop hexs for {city}.")
         else:
             aup.gdf_to_db_slow(hex_socio_gdf, hexs_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded pop hexs for {city}.")
-
-    # Save to local
+    # Saving hexs locally
     if local_save:
-        aup.log("--"*30)
-        aup.log(f"--- SAVING {city.upper()} POP DATA LOCALLY.")
-        if test:
-            pop_nodes_gdf.to_file(local_save_dir + f"testscript22_{city}{year}_nodes.gpkg", driver='GPKG')
-            nodes_voronoi_gdf.to_file(local_save_dir + f"testscript22_{city}{year}_voronoipolys.gpkg", driver='GPKG')
-            hex_socio_gdf.to_file(local_save_dir + f"testscript22_{city}{year}_hex.gpkg", driver='GPKG')
-        else:
-            pop_nodes_gdf.to_file(local_save_dir + f"script22_{city}{year}_nodes.gpkg", driver='GPKG')
-            nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{city}{year}_voronoipolys.gpkg", driver='GPKG')
-            hex_socio_gdf.to_file(local_save_dir + f"script22_{city}{year}_hex.gpkg", driver='GPKG')
-
+        aup.log(f"--- Saving {city}'s hexs pop data locally.")
+        hex_socio_gdf.to_file(local_save_dir + f"script22_{year}{city}_hex.gpkg", driver='GPKG')
+    # Save disk space
+    del pop_nodes_gdf
+    del hex_res_gdf
+    del hex_socio_df
+    del hex_socio_gdf_tmp
+    del hex_socio_gdf
     aup.log(f"--- Finished main function for {city}.")
 
 
@@ -294,7 +307,7 @@ if __name__ == "__main__":
     aup.log('--- STARTING SCRIPT 22.')
 
     # ------------------------------ BASE DATA REQUIRED ------------------------------
-    # Cities
+    # Cities (database)
     metro_schema = 'metropolis'
     metro_table = 'metro_gdf_2020'
     # Year of analysis
@@ -315,9 +328,9 @@ if __name__ == "__main__":
     local_save = False
     local_save_dir = f"../data/processed/pop_data/"
     
-    # Test - (If testing, Script runs res 8 for one city ONLY and saves it ONLY locally, adding the word 'test' at the beggining of the outputs.)
+    # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
     test = False
-    test_city = 'Guadalajara'
+    test_city = 'Aguascalientes'
 
     # ------------------------------ SCRIPT ------------------------------
     # If test,
@@ -336,7 +349,7 @@ if __name__ == "__main__":
         metro_gdf = aup.gdf_from_query(metro_query, geometry_col='geometry')
         metro_gdf = metro_gdf.set_crs("EPSG:4326")
 
-        aup.log(f"Processing test for {missing_cities_list} at res {res_list}.")
+        aup.log(f"Processing test for {test_city} at res {res_list}.")
 
     # If not test, runs Mexico's cities
     else:
