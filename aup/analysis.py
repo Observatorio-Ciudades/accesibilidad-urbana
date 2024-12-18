@@ -1456,6 +1456,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		# Remove masc/fem relation from analysis [If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)]
 		columns_of_interest.remove('REL_H_M')
 		blocks_values.drop(columns=['REL_H_M'],inplace=True)
+		blocks_values.reset_index(inplace=True)
 
 		# If not in crash check from STEP 1:
 		if cvegeo_ageb not in missing_agebs:
@@ -1481,7 +1482,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 					solved_using_blocks += 1 # for log statistics
 				
 				# Elif there is only one value left, assign missing value directly to cell.
-				elif col_nan_values == 1: 
+				elif col_nan_values == 1:
 					# Calculate missing value
 					ageb_col_value = ageb_gdf[col].unique()[0]
 					current_block_sum = blocks_values[col].sum()
@@ -1491,22 +1492,26 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 					solved_using_ageb += 1 # for log statistics
 				
 				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distributing indicator.
-				elif col_nan_values > 1:        
-					# Locate rows with NaNs in current col 
-					# This ensures POBTOT as a distributing indicator works for the missing data rows only
-					idx = blocks_values[col].isna()
-					# Set distributing factor to 0
-					blocks_values['dist_factor'] = 0
-					# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
-					blocks_values.loc[idx,'dist_factor'] = (blocks_values['POBTOT']) / blocks_values.loc[idx]['POBTOT'].sum()
-					# Calculate missing value
-					ageb_col_value = ageb_gdf[col].unique()[0]
-					current_block_sum = blocks_values[col].sum()
-					missing_value = ageb_col_value - current_block_sum
-					# Distribute missing value in those rows using POBTOT factor
-					blocks_values[col].fillna(missing_value * blocks_values['dist_factor'], inplace=True)
-					blocks_values.drop(columns=['dist_factor'],inplace=True)
-					solved_using_ageb += 1 # for log statistics
+				elif col_nan_values > 1:
+					try:    
+						# Locate rows with NaNs in current col 
+						# This ensures POBTOT as a distributing indicator works for the missing data rows only
+						idx = blocks_values[col].isna()
+						# Set distributing factor to 0
+						blocks_values['dist_factor'] = 0
+						# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
+						blocks_values.loc[idx,'dist_factor'] = (blocks_values['POBTOT']) / blocks_values.loc[idx]['POBTOT'].sum()
+						# Calculate missing value
+						ageb_col_value = ageb_gdf[col].unique()[0]
+						current_block_sum = blocks_values[col].sum()
+						missing_value = ageb_col_value - current_block_sum
+						# Distribute missing value in those rows using POBTOT factor
+						blocks_values[col].fillna(missing_value * blocks_values['dist_factor'], inplace=True)
+						blocks_values.drop(columns=['dist_factor'],inplace=True)
+						solved_using_ageb += 1 # for log statistics
+					except:
+						print(f"CRASH ON COL: {col}.")
+						blocks_values.to_csv("../data/processed/pop_data/" + f"ageb_{cvegeo_ageb}_blocks_values.csv")
 
 			# LOG CODE - Statistics - How was this AGEB solved?
 			if extended_logs:
