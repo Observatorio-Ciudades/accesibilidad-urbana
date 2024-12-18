@@ -1201,6 +1201,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 						 'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
 						 'REL_H_M','POB0_14','POB15_64','POB65_MAS',
 						 'PCON_DISC'] #PCON_DISC was added later
+		
+		# Why to keep two dfs with pop_mza_gdf data from the current AGEB:
+		# --> 'mza_ageb_gdf' stores all data from pop_mza_gdf for the current AGEB.
+		# --> 'blocks' stores pop data only and gets split into blocks_values and blocks_nans ahead, which get edited during the process.
 		blocks = mza_ageb_gdf[['CVEGEO_MZA'] + columns_of_interest].copy() #Previously 'CVEGEO'
 
 		# BLOCKS 800 - Consider posible blocks 800 on current AGEB
@@ -1235,11 +1239,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		# (In these rows, NaNs calculation is possible)
 		blocks_values = blocks.loc[blocks['found_values'] > 0].copy()
 		blocks_values.drop(columns=['found_values'],inplace=True)
+		blocks_values.reset_index(inplace=True,drop=True) #Reset index before NaN calculation to make sure there are no duplicated indexes.
 		
 		# 2.2d) Save rows with 0 values for later. 
 		# (In these rows, can't calculate NaNs since everything is NaN. Will be returned to output as it is)
 		blocks_nans = blocks.loc[blocks['found_values'] == 0].copy()
 		blocks_nans.drop(columns=['found_values'],inplace=True)
+		blocks_nans.reset_index(inplace=True,drop=True)
 
 		del blocks
 
@@ -1456,7 +1462,6 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		# Remove masc/fem relation from analysis [If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)]
 		columns_of_interest.remove('REL_H_M')
 		blocks_values.drop(columns=['REL_H_M'],inplace=True)
-		blocks_values.reset_index(inplace=True)
 
 		# If not in crash check from STEP 1:
 		if cvegeo_ageb not in missing_agebs:

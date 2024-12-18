@@ -36,7 +36,6 @@ def main(city,save=False,local_save=True):
     # Create a tupple from a list with all unique cvegeo_mun ('CVE_ENT'+'CVE_MUN') of current city
     city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
     cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
-    cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
     # To avoid error that happens when there's only one MUN in State: 
     # e.g.: <<< SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
     # Duplicate mun inside tupple if there's only one MUN.
@@ -78,7 +77,7 @@ def main(city,save=False,local_save=True):
     # Save calculated blocks to database
     if save:
         aup.log(f"--- Saving {city}'s blocks pop data to database.")
-        # Format blocks
+        # Save format
         pop_mza_gdf_calc_save = pop_mza_gdf_calc.copy()
         pop_mza_gdf_calc_save['city'] = city
         # Save blocks
@@ -188,7 +187,8 @@ def main(city,save=False,local_save=True):
         pop_nodes_gdf = pd.merge(pop_nodes_gdf, osmid_grouped_data, on='osmid')
         pop_nodes_gdf.rename(columns={f'voronoi_{col}':col},inplace=True)
     aup.log(f"--- Distributed block data to nodes, total population of {pop_nodes_gdf['pobtot'].sum()} for area of interest.")
-    # Add density to the nodes
+    
+    # 3.4 --------------- CALCULATE POP DENSITY IN NODES (USING IT'S VORONOI POLYGON'S AREA)
     # Calculate whole voronoi's area
     nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:6372")
     nodes_voronoi_gdf['area_has'] = nodes_voronoi_gdf.area/10000
@@ -197,30 +197,33 @@ def main(city,save=False,local_save=True):
     dens_voronoi = pd.merge(pop_nodes_gdf[['osmid','pobtot']], nodes_voronoi_gdf[['osmid','area_has']], on='osmid')
     # Calculate density
     dens_voronoi['dens_pob_ha'] = dens_voronoi['pobtot'] / dens_voronoi['area_has']
-    # Merge that density data to nodes_gdf
+    # Merge back that density data to nodes_gdf using 'osmid'
     pop_nodes_gdf = pd.merge(pop_nodes_gdf, dens_voronoi[['osmid','dens_pob_ha']], on='osmid')
 
-    # 3.4 --------------- SAVE
+    # 3.5 --------------- SAVE
+    # Save format
+    pop_nodes_gdf_save = pop_nodes_gdf.copy()
+    pop_nodes_gdf_save['city'] = city
     # Save nodes to database
     if save:
         aup.log(f"--- Saving {city}'s nodes pop data to database.")
         # Saving nodes to database
         limit_len = 10000
-        if len(pop_nodes_gdf)>limit_len:
-            c_upload = len(pop_nodes_gdf)/limit_len
+        if len(pop_nodes_gdf_save)>limit_len:
+            c_upload = len(pop_nodes_gdf_save)/limit_len
             for k in range(int(c_upload)+1):
                 aup.log(f"--- Uploading pop nodes - Starting range k = {k} of {int(c_upload)}")
-                gdf_inter_upload = pop_nodes_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                gdf_inter_upload = pop_nodes_gdf_save.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
                 aup.gdf_to_db_slow(gdf_inter_upload, nodes_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded pop nodes for {city}.")
         else:
-            aup.gdf_to_db_slow(pop_nodes_gdf, nodes_save_table, save_schema, if_exists='append')
+            aup.gdf_to_db_slow(pop_nodes_gdf_save, nodes_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded pop nodes for {city}.")
     # Save nodes locally
     if local_save:
         aup.log(f"--- Saving {city}'s nodes pop data locally.")
         nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{year}{city}_voronoipolys.gpkg", driver='GPKG')
-        pop_nodes_gdf.to_file(local_save_dir + f"script22_{year}{city}_pop_nodes_gdf.gpkg", driver='GPKG')
+        pop_nodes_gdf_save.to_file(local_save_dir + f"script22_{year}{city}_pop_nodes_gdf.gpkg", driver='GPKG')
     # Save disk space
     del nodes # From graph_from_hippo
     del voronois_gdf # From function voronoi_points_within_aoi()
@@ -230,6 +233,7 @@ def main(city,save=False,local_save=True):
     del osmid_grouped_data #From for loop
     del dens_voronoi #For density calc
     del nodes_voronoi_gdf #Voronoi polygons [Saved locally]
+    del pop_nodes_gdf_save
 
     
     ##########################################################################################
@@ -265,7 +269,7 @@ def main(city,save=False,local_save=True):
             # Hexagons data to hex_gdf GeoDataFrame
             hex_socio_gdf_tmp = hex_res_gdf.merge(hex_socio_df, on='hex_id')
 
-            # 4.3 --------------- Add additional common fields
+            # 4.3 --------------- CALCULATE POP DENSITY IN HEXS
             # Calculate population density (Considering tot pop and tot area of hex instead of average of nodes)
             hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
             hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
@@ -275,7 +279,6 @@ def main(city,save=False,local_save=True):
 
         # 4.4 --------------- SAVE
         # Final format
-        pop_nodes_gdf['city'] = city
         hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
         # Save to database
         if save:
@@ -349,31 +352,38 @@ if __name__ == "__main__":
     hexs_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
-    local_save = True
+    local_save = False
     local_save_dir = f"../data/processed/pop_data/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
-    test = False
-    test_city = 'Aguascalientes'
+    test = True
+    city_list = ['ZMVM']
 
     # ------------------------------ SCRIPT ------------------------------
     # If test,
     if test:
         # Simplifies script parameters
         skip_city_list = []
+        processed_city_list = []
         res_list = [8]
         save = False
         local_save = True
-        # Only loads one city
-        missing_cities_list = [test_city]
+        # Only loads cities from the specified city_list
         i = 0
-        k = len(missing_cities_list)
-        city = test_city
-        metro_query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
+        k = len(city_list)
+        # To avoid error that happens when there's only city in city_list
+        # e.g.: <<< "SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" IN ('Aguascalientes',) >>>
+        # Duplicate city inside tupple if there's only one city, and register that it was already run to avoid re-running.
+        if len(city_list) >= 2:
+            city_tpl = str(tuple(city_list))
+        else:
+            city_list.append(city_list[0])
+            city_tpl = str(tuple(city_list))
+        metro_query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" IN {city_tpl}"
         metro_gdf = aup.gdf_from_query(metro_query, geometry_col='geometry')
         metro_gdf = metro_gdf.set_crs("EPSG:4326")
 
-        aup.log(f"Processing test for {test_city} at res {res_list}.")
+        aup.log(f"Processing test for {k} cities at res {res_list}.")
 
     # If not test, runs Mexico's cities
     else:
@@ -405,21 +415,30 @@ if __name__ == "__main__":
         aup.log(f'--- Missing procesing for {k-processed_len} cities but process will skip {len(skip_city_list)} cities.')
 
     # Main function run
+    script_run_lst = []
     for city in city_list:
         if city in processed_city_list:
             aup.log("--"*40)
             i+=1
             aup.log(f"--- Already fully processed city {i}/{k}: {city}")
+        elif city in skip_city_list:
+            aup.log("--"*40)
+            i+=1
+            aup.log(f"--- Skipping city {i}/{k}: {city}")
+        elif city in script_run_lst:
+            aup.log("--"*40)
+            i+=1
+            aup.log(f"--- City {i}/{k}: {city} already ran during current script run. (Applies to test format).")   
         else:
-            if city in skip_city_list:
-                aup.log("--"*40)
-                i+=1
-                aup.log(f"--- Skipping city {i}/{k}: {city}")
-            else:
-                aup.log("--"*40)
-                i+=1
-                aup.log(f"--- Starting city {i}/{k}: {city}")
-                main(city, save, local_save)
+            aup.log("--"*40)
+            i+=1
+            aup.log(f"--- Starting city {i}/{k}: {city}")
+            main(city, save, local_save)
+            # Register city that was ran
+            script_run_lst.append(city)
+    
+    aup.log(f"--- Finished script 22. Ran {len(script_run_lst)} cities:")
+    aup.log(script_run_lst)
             
 
 ##########################################################################################
