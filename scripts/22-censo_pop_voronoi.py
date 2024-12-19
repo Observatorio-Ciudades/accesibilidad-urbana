@@ -335,32 +335,20 @@ if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 22.')
 
-    # ------------------------------ BASE DATA REQUIRED ------------------------------
-    # Cities (database)
-    metro_schema = 'metropolis'
-    metro_table = 'metro_gdf_2020'
+    # ------------------------------ BASE DATA REQUIRED ------------------------------    
     # Year of analysis
     year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
-    # List of skip cities (If failed / want to skip city)
-    #already_ran_full = ['Aguascalientes','Ensenada','Mexicali','Tijuana','La Paz','Los Cabos'] #Ran including saving hexs res 8,9,10
-    #already_ran_partial = ['Campeche','Laguna','Monclova','Piedras Negras','Saltillo','Colima','Tapachula','Tuxtla',
-    #                       'Chihuahua','Delicias','Juarez','CDMX','Durango','Guanajuato','Leon','Irapuato',
-    #                       'Chilpancingo','Tulancingo','Guadalajara','Vallarta','Piedad','Toluca','Morelia','Zamora',
-    #                       'Uruapan','Cuautla','Cuernavaca','Tepic','Monterrey','Puebla','San Martin','Tehuacan',
-    #                       'Cancun','Chetumal','Playa','SLP','Culiacan','Guaymas','Ciudad Obregon','Hermosillo','Nogales',
-    #                       'Villahermosa','Victoria','Nuevo Laredo','Matamoros','Reynosa','Tampico','Tlaxcala','Coatzacoalcos',
-    #                       'Cordoba','Minatitlan','Orizaba','Poza Rica','Veracruz','Xalapa','Merida','Zacatecas'] #Ran without saving hexs
-    
-    pop_diff_skip = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan'] #To be reviewed later
-    
-    #skip_city_list = already_ran_full + already_ran_partial + pop_diff_skip
-    skip_city_list = pop_diff_skip
-
     # Hexgrid res of output
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
-
+    
+    # List of skip cities (If failed / want to skip city)
+    # NOTE: The following cities's output have population differences between input (Blocks) and output (Nodes, hexs)
+    # due to blocks/agebs being outside of the municipality boundaries (attributed to INEGI)
+    #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
+    skip_city_list = []
 
     # ------------------------------ SCRIPT STEPS ------------------------------
+    # (Used to divide process during Dev.)
     process_nodes_to_hexs = True
 
     # ------------------------------ SAVING ------------------------------
@@ -378,18 +366,20 @@ if __name__ == "__main__":
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
     test = False
-    city_list = ['Aguascalientes']
+    city_list = ['ZMVM']
 
     # ------------------------------ SCRIPT ------------------------------
-    # If test,
+    # Cities (database) [Always 2020]
+    metro_schema = 'metropolis'
+    metro_table = 'metro_gdf_2020'
+    # If test, simplifies script parameters
     if test:
-        # Simplifies script parameters
         skip_city_list = []
         processed_city_list = []
         res_list = [8]
         save = False
         local_save = True
-        # Only loads cities from the specified city_list
+        # Only loads cities from the specified city_list (Above)
         k = len(city_list)
         # To avoid error that happens when there's only city in city_list
         # e.g.: <<< "SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" IN ('Aguascalientes',) >>>
@@ -402,21 +392,21 @@ if __name__ == "__main__":
         metro_query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" IN {city_tpl}"
         metro_gdf = aup.gdf_from_query(metro_query, geometry_col='geometry')
         metro_gdf = metro_gdf.set_crs("EPSG:4326")
-
         aup.log(f"Processing test for {k} cities at res {res_list}.")
 
-    # If not test, runs Mexico's cities
+    # If not test, runs Mexico's cities taking into account
+    # processed_city_list (Cities alredy processed to hexs) and skip_city_list.
     else:
-        # Load cities (municipalities)
+        # Load all cities' municipalities
         metro_query = f"SELECT * FROM {metro_schema}.{metro_table}"
         metro_gdf = aup.gdf_from_query(metro_query, geometry_col='geometry')
         metro_gdf = metro_gdf.set_crs("EPSG:4326")
-        # Create a city list
+        # Create a city list (All cities)
         city_list = list(metro_gdf.city.unique())
         k = len(city_list)
         aup.log(f'--- Loaded city list with {k} cities.')
-
-        # Prevent cities being analyzed several times in case of a crash
+        # List to discard cities already processed.
+        # WARNING: For city to be discarded it must have been processed all until hexs.
         try:
             saved_query = f"SELECT city FROM {save_schema}.{hexs_save_table}"
             cities_processed = aup.df_from_query(saved_query)
@@ -425,7 +415,7 @@ if __name__ == "__main__":
             processed_city_list = []
             pass
 
-        # LOG CODE - Print progress of script so far
+        # LOG CODE - Prints progress of script so far (Has no effect on script)
         missing_cities_list = []
         for city in city_list:
             if city not in processed_city_list:
