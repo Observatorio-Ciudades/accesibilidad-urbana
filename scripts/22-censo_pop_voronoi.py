@@ -44,6 +44,7 @@ def main(city,save=False,local_save=True):
     else:
         cvegeo_mun_lst.append(cvegeo_mun_lst[0])
         cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
+    aup.log(f"--- Area of interest muns: {cvegeo_mun_tpl}.")
     # Load AGEBs and blocks
     ageb_query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
     pop_ageb_gdf = aup.gdf_from_query(ageb_query, geometry_col='geometry')
@@ -64,7 +65,11 @@ def main(city,save=False,local_save=True):
         aup.log(f"--- Loaded blocks from 2020 have a total URBAN population of {mza_urbana_pobtot} for area of interest.")
         aup.log(f"--- URBAN blocks - AGEBs popdiff = {mza_urbana_pobtot - ageb_pobtot} for area of interest.")
         del mza_urbana
-    
+    # Save disk space ---
+    del city_gdf
+    # -------------------
+
+
     ##########################################################################################
 	# STEP 2: CALCULATE NaN VALUES FOR POP FIELDS (most of them, explore function for more detail) INSIDE BLOCKS GDF.
     aup.log("--"*30)
@@ -72,14 +77,19 @@ def main(city,save=False,local_save=True):
     
     # 2.1 --------------- CALCULATE_CENSO_NAN_VALUES FUNCTION
     pop_mza_gdf_calc = aup.calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year=year,extended_logs=False)
-
+    # Save disk space ---
+    del pop_ageb_gdf
+    del pop_mza_gdf
+    # -------------------
+    
     # 2.2 --------------- SAVE
+    # Save format
+    pop_mza_gdf_calc_save = pop_mza_gdf_calc.copy()
+    pop_mza_gdf_calc_save['city'] = city
     # Save calculated blocks to database
     if save:
         aup.log(f"--- Saving {city}'s blocks pop data to database.")
-        # Save format
-        pop_mza_gdf_calc_save = pop_mza_gdf_calc.copy()
-        pop_mza_gdf_calc_save['city'] = city
+        
         # Save blocks
         limit_len = 10000
         if len(pop_mza_gdf_calc_save)>limit_len:
@@ -92,18 +102,15 @@ def main(city,save=False,local_save=True):
         else:
             aup.gdf_to_db_slow(pop_mza_gdf_calc_save, blocks_save_table, save_schema, if_exists='append')
             aup.log(f"--- Uploaded calc pop blocks for {city}.")
-        # Save disk space
-        del pop_mza_gdf_calc_save
     # Save calculated blocks locally
     if local_save:
         aup.log(f"--- Saving {city}'s blocks pop data locally.")
-        pop_mza_gdf_calc.to_file(local_save_dir + f"script22_{year}{city}_pop_mza_gdf_calc.gpkg", driver='GPKG')
-    # Save disk space
-    del city_gdf
-    del pop_ageb_gdf
-    del pop_mza_gdf
-
+        pop_mza_gdf_calc_save.to_file(local_save_dir + f"script22_{year}{city}_pop_mza_gdf_calc.gpkg", driver='GPKG')
+    # Save disk space ---
+    del pop_mza_gdf_calc_save #Blocks with calculated pop data [If save/local_save, saved to database/locally]
+    # -------------------
     
+
     ##########################################################################################
 	# STEP 3: DISTRIBUTE POP BLOCK DATA TO NODES USING VORONOI
     aup.log("--"*30)
@@ -130,17 +137,22 @@ def main(city,save=False,local_save=True):
     aup.log("--- Creating voronois with nodes osmid data.")
     # Create voronois
     voronois_gdf = aup.voronoi_points_within_aoi(aoi,nodes,'osmid')
-    nodes_voronoi_gdf = voronois_gdf[['osmid','geometry']]    
+    voronois_gdf = voronois_gdf[['osmid','geometry']]
+    # Save disk space ---
+    del aoi
+    # -------------------
 
     # 3.2 --------------- SPATIAL INTERSECTION OF VORONOI POLYGONS WITH BLOCKS
     # ------------------- (Finds area_pct, used to distribute pop data)
     aup.log("--- Creating spatial join between voronoi polygons and blocks.")
     # Calculate total block area
-    mza_gdf = pop_mza_gdf_calc.to_crs("EPSG:6372")
-    mza_gdf['area_mza'] = mza_gdf.geometry.area
-    mza_gdf = mza_gdf.to_crs("EPSG:4326")
-    # Overlay blocks with voronoi (Spatial intersection)
-    mza_voronoi = gpd.overlay(df1=mza_gdf, df2=nodes_voronoi_gdf, how="intersection")
+    pop_mza_gdf_calc = pop_mza_gdf_calc.to_crs("EPSG:6372")
+    pop_mza_gdf_calc['area_mza'] = pop_mza_gdf_calc.geometry.area
+    pop_mza_gdf_calc = pop_mza_gdf_calc.to_crs("EPSG:4326")
+    # Overlay blocks with voronoi
+    # (Spatial intersection, creates split blocks with data from the original block 
+    #  and the voronoi poly it falls in)
+    mza_voronoi = gpd.overlay(df1=pop_mza_gdf_calc, df2=voronois_gdf, how="intersection")
     aup.log("--- Calculating area_pct that corresponds to each osmid within each block.")
     # Calculate pct of area of each block that falls in any given osmid voronoi polygon
     mza_voronoi = mza_voronoi.to_crs("EPSG:6372")
@@ -149,6 +161,9 @@ def main(city,save=False,local_save=True):
     mza_voronoi['area_pct'] = mza_voronoi['area_voronoi']/mza_voronoi['area_mza']
     # Drop used columns
     mza_voronoi.drop(columns=['area_mza','area_voronoi'],inplace=True)
+    # Save disk space ---
+    del pop_mza_gdf_calc
+    # -------------------
 
     # 3.3 --------------- GROUP POP DATA THAT CORRESPONDS TO EACH NODE 
     # ------------------- (Groups mza_voronoi data by osmid)
@@ -187,18 +202,27 @@ def main(city,save=False,local_save=True):
         pop_nodes_gdf = pd.merge(pop_nodes_gdf, osmid_grouped_data, on='osmid')
         pop_nodes_gdf.rename(columns={f'voronoi_{col}':col},inplace=True)
     aup.log(f"--- Distributed block data to nodes, total population of {pop_nodes_gdf['pobtot'].sum()} for area of interest.")
-    
+    # Save disk space ---
+    del nodes
+    del mza_voronoi
+    del osmid_grouped_data
+    # -------------------
+
     # 3.4 --------------- CALCULATE POP DENSITY IN NODES (USING IT'S VORONOI POLYGON'S AREA)
     # Calculate whole voronoi's area
-    nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:6372")
-    nodes_voronoi_gdf['area_has'] = nodes_voronoi_gdf.area/10000
-    nodes_voronoi_gdf = nodes_voronoi_gdf.to_crs("EPSG:4326")
+    voronois_gdf = voronois_gdf.to_crs("EPSG:6372")
+    voronois_gdf['area_has'] = voronois_gdf.area/10000
+    voronois_gdf = voronois_gdf.to_crs("EPSG:4326")
     # Merge poptot data by node with the whole voronoi polygon using 'osmid'
-    dens_voronoi = pd.merge(pop_nodes_gdf[['osmid','pobtot']], nodes_voronoi_gdf[['osmid','area_has']], on='osmid')
+    dens_voronoi = pd.merge(pop_nodes_gdf[['osmid','pobtot']], voronois_gdf[['osmid','area_has']], on='osmid')
     # Calculate density
     dens_voronoi['dens_pob_ha'] = dens_voronoi['pobtot'] / dens_voronoi['area_has']
     # Merge back that density data to nodes_gdf using 'osmid'
     pop_nodes_gdf = pd.merge(pop_nodes_gdf, dens_voronoi[['osmid','dens_pob_ha']], on='osmid')
+    aup.log(f"--- Added density to nodes using each voronoi polygon's area.")
+    # Save disk space ---
+    del dens_voronoi
+    # -------------------
 
     # 3.5 --------------- SAVE
     # Save format
@@ -222,19 +246,14 @@ def main(city,save=False,local_save=True):
     # Save nodes locally
     if local_save:
         aup.log(f"--- Saving {city}'s nodes pop data locally.")
-        nodes_voronoi_gdf.to_file(local_save_dir + f"script22_{year}{city}_voronoipolys.gpkg", driver='GPKG')
+        voronois_gdf.to_file(local_save_dir + f"script22_{year}{city}_voronoipolys.gpkg", driver='GPKG')
         pop_nodes_gdf_save.to_file(local_save_dir + f"script22_{year}{city}_pop_nodes_gdf.gpkg", driver='GPKG')
-    # Save disk space
-    del nodes # From graph_from_hippo
-    del voronois_gdf # From function voronoi_points_within_aoi()
-    del pop_mza_gdf_calc # From function calculate_censo_nan_values_v1() [Saved to db or locally]
-    del mza_gdf # Blocks with original area
-    del mza_voronoi # Voronois with pop data
-    del osmid_grouped_data #From for loop
-    del dens_voronoi #For density calc
-    del nodes_voronoi_gdf #Voronoi polygons [Saved locally]
-    del pop_nodes_gdf_save
-
+    
+    aup.log(f"--- Finished Step 03: Pop block data to nodes.")
+    # Save disk space ---
+    del pop_nodes_gdf_save #Nodes with pop data [If save/local_save, saved to database/locally]
+    del voronois_gdf #Voronoi polygons [If local_save, saved locally]
+    # -------------------
     
     ##########################################################################################
     # STEP 4: TURN NODES POP DATA TO HEXS POP DATASET
@@ -323,29 +342,31 @@ if __name__ == "__main__":
     # Year of analysis
     year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
     # List of skip cities (If failed / want to skip city)
-    already_ran_full = ['Aguascalientes','Ensenada','Mexicali','Tijuana','La Paz','Los Cabos'] #Ran including saving hexs res 8,9,10
-    already_ran_partial = ['Campeche','Laguna','Monclova','Piedras Negras','Saltillo','Colima','Tapachula','Tuxtla',
-                           'Chihuahua','Delicias','Juarez','CDMX','Durango','Guanajuato','Leon','Irapuato',
-                           'Chilpancingo','Tulancingo','Guadalajara','Vallarta','Piedad','Toluca','Morelia','Zamora',
-                           'Uruapan','Cuautla','Cuernavaca','Tepic','Monterrey','Puebla','San Martin','Tehuacan',
-                           'Cancun','Chetumal','Playa','SLP','Culiacan','Guaymas','Ciudad Obregon','Hermosillo','Nogales',
-                           'Villahermosa','Victoria','Nuevo Laredo','Matamoros','Reynosa','Tampico','Tlaxcala','Coatzacoalcos',
-                           'Cordoba','Minatitlan','Orizaba','Poza Rica','Veracruz','Xalapa','Merida','Zacatecas'] #Ran without saving hexs
+    #already_ran_full = ['Aguascalientes','Ensenada','Mexicali','Tijuana','La Paz','Los Cabos'] #Ran including saving hexs res 8,9,10
+    #already_ran_partial = ['Campeche','Laguna','Monclova','Piedras Negras','Saltillo','Colima','Tapachula','Tuxtla',
+    #                       'Chihuahua','Delicias','Juarez','CDMX','Durango','Guanajuato','Leon','Irapuato',
+    #                       'Chilpancingo','Tulancingo','Guadalajara','Vallarta','Piedad','Toluca','Morelia','Zamora',
+    #                       'Uruapan','Cuautla','Cuernavaca','Tepic','Monterrey','Puebla','San Martin','Tehuacan',
+    #                       'Cancun','Chetumal','Playa','SLP','Culiacan','Guaymas','Ciudad Obregon','Hermosillo','Nogales',
+    #                       'Villahermosa','Victoria','Nuevo Laredo','Matamoros','Reynosa','Tampico','Tlaxcala','Coatzacoalcos',
+    #                       'Cordoba','Minatitlan','Orizaba','Poza Rica','Veracruz','Xalapa','Merida','Zacatecas'] #Ran without saving hexs
     
-    #pop_diff_skip = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan'] #To be reviewed later
-    pop_diff_skip = []
-    skip_city_list = already_ran_full + already_ran_partial + pop_diff_skip
+    pop_diff_skip = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan'] #To be reviewed later
+    
+    #skip_city_list = already_ran_full + already_ran_partial + pop_diff_skip
+    skip_city_list = pop_diff_skip
+
     # Hexgrid res of output
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
 
 
     # ------------------------------ SCRIPT STEPS ------------------------------
-    process_nodes_to_hexs = False
+    process_nodes_to_hexs = True
 
     # ------------------------------ SAVING ------------------------------
     
     # Save output to database?
-    save = False
+    save = True
     save_schema = 'censo'
     blocks_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_mza'
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
@@ -356,8 +377,8 @@ if __name__ == "__main__":
     local_save_dir = f"../data/processed/pop_data/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
-    test = True
-    city_list = ['ZMVM']
+    test = False
+    city_list = ['Aguascalientes']
 
     # ------------------------------ SCRIPT ------------------------------
     # If test,
@@ -369,7 +390,6 @@ if __name__ == "__main__":
         save = False
         local_save = True
         # Only loads cities from the specified city_list
-        i = 0
         k = len(city_list)
         # To avoid error that happens when there's only city in city_list
         # e.g.: <<< "SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" IN ('Aguascalientes',) >>>
@@ -416,6 +436,7 @@ if __name__ == "__main__":
 
     # Main function run
     script_run_lst = []
+    i = 0
     for city in city_list:
         if city in processed_city_list:
             aup.log("--"*40)
@@ -428,7 +449,7 @@ if __name__ == "__main__":
         elif city in script_run_lst:
             aup.log("--"*40)
             i+=1
-            aup.log(f"--- City {i}/{k}: {city} already ran during current script run. (Applies to test format).")   
+            aup.log(f"--- City {city} already ran during current script run. (Applies to test format).")   
         else:
             aup.log("--"*40)
             i+=1
