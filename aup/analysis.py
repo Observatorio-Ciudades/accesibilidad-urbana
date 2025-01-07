@@ -128,39 +128,40 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	return nodes
 
 
-def group_by_hex_mean(nodes, hex_bins, resolution, group_column_names, hex_column_id, osmid=True):
+def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexbins
-		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
-		group_column_names (str,list): column name or list of column names to group with
-		hex_column_id (str): column name with the hex_id
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes with data to group.
+		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexs where data will be grouped.
+		group_column_names (str,list): column name or list of column names to group where data will be changed to 1 if 0 to differentiate from NaNs.
+		hex_id_col (str): column name with the hex_id.
+		osmid (bool, optional): If True, osmid column will be dropped. Defaults to True.
 
 	Returns:
-		geopandas.GeoDataFrame:  GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
+		geopandas.GeoDataFrame:  GeoDataFrame with hex_id_col, geometry and average distance to each amenity for each hexbin
 	"""
-	dist_col = group_column_names
+	
+	# Copy data to avoid editing originals
+	substitute_cols = group_column_names
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	# Group data by hex_id
 	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
-	nodes_hex = nodes_in_hex.groupby([hex_column_id]).mean()
+	nodes_hex = nodes_in_hex.groupby([hex_id_col]).mean()
 	# Merge back to geometry
-	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_column_id,how = 'outer')
+	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_id_col,how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
 	else:
 		hex_new = hex_new.drop(['index_right'],axis=1)
-	
-	# Check for NaN values
-	if type(dist_col) == list:
-		for dc in dist_col:
-			hex_new[dc].apply(lambda x: x+1 if x==0 else x )
+	# Susbstitute 0 for 1 in order to differentiate from NaNs
+	if type(substitute_cols) == list:
+		for col in substitute_cols:
+			hex_new[col].apply(lambda x: x+1 if x==0 else x)
 	else:
-		hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
+		hex_new[substitute_cols].apply(lambda x: x+1 if x==0 else x)
 	# Fill NaN values
 	hex_new.fillna(0, inplace=True)
 	
@@ -832,7 +833,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, count_pois=(False,0), projected_crs="EPSG:6372",
 			  preprocessed_nearest=(False,'dir')):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
@@ -845,7 +846,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 							If "length", will use walking speed.
 							If "time_min", edges with time information must be provided.
 		walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
-							   or if prox_measure="time_min" but needing to fill time_min NaNs.
+							   or if prox_measure="time_min" but needing to fill time_min NaNs. Defaults to 4 (km/hr).
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
@@ -920,7 +921,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
 		else:
-			# NaNs in time_min? --> Use walking speed
+			# NaNs in time_min? --> Use specified walking speed (defaults to 4km/hr) to calculate time_min.
 			no_time = len(edges.loc[edges['time_min'].isna()])
 			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
 			print(f"Calculated time for {no_time} edges that had no time data.")
