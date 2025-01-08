@@ -21,13 +21,13 @@ import shutil
 from . import utils
 
  
-ox.config(
+'''ox.config(
     data_folder="../data",
     cache_folder="../data/raw/cache",
     use_cache=True,
     log_console=True,
 )
-
+'''
 
 def create_polygon(bbox, city, save=True):
     """Create a polygon from a bounding box and save it to a file
@@ -396,6 +396,55 @@ def delete_files_from_folder(delete_dir):
             utils.log('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
+def resolve_duplicates_indexes(gdf, crs):
+    """
+    Resolves duplicates in a GeoDataFrame based on the multi-level index ('u', 'v', 'key') and a 'length' column.
+    
+    Parameters:
+    gdf (geopandas.GeoDataFrame): The input GeoDataFrame with a multi-level index ('u', 'v', 'key') and a 'length' column.
+        
+    Returns:
+    geopandas.GeoDataFrame: A GeoDataFrame where duplicates based on the index are resolved according to the rules above.
+    """
+    
+    # First, sort by index to ensure consistent grouping
+    gdf = gdf.sort_index()
+    
+    # Group by the multi-level index ('u', 'v', 'key')
+    grouped = gdf.groupby(['u', 'v', 'key'])
+    
+    # Lists to track rows to drop and new rows with modified keys
+    rows_to_drop = []
+    new_rows = []
+    
+    for (u, v, key), group in grouped:
+        if len(group) > 1:
+            # Check if 'length' values are the same for all rows in this group
+            if group['length'].nunique() == 1:
+                # If the 'length' is the same for all rows, drop the duplicates, keeping the first
+                rows_to_drop.append(group.index[1:])  # Keep the first, drop the rest
+            else:
+                # If 'length' is different, increment the 'key' of the second row
+                new_row = group.iloc[1].copy()  # Copy the second row
+                new_row['key'] += 1  # Increment the key
+                new_rows.append(new_row)
+                rows_to_drop.append(group.index[1:])  # Drop the second row
+    
+    # Drop the identified duplicate rows
+    gdf = gdf.drop(pd.Index([index for sublist in rows_to_drop for index in sublist]))
+    
+    # Add the new rows with the incremented 'key'
+    # gdf = pd.DataFrame(gdf) # set as DataFrame for concat
+    gdf = pd.concat([gdf, pd.DataFrame(new_rows)], ignore_index=False)
+
+    # Set geometry
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs=crs)
+    
+    # Return the modified DataFrame sorted by the index
+    return gdf.sort_index()
+
+
+
 def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', projected_crs="EPSG:6372"):
     """
     Download OSMnx edges and nodes from DataBase according to GeoDataFrame boundary
@@ -431,6 +480,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
 
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
+
+    # remove duplicates and set key index counter
+    edges = resolve_duplicates_indexes(edges, "EPSG:4326")
 
     edges = edges.set_index(["u", "v", "key"])
 
