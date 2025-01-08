@@ -139,15 +139,15 @@ def get_denue_pois(denue_schema, denue_table, poly_wkt, code, version):
 def two_method_check(row, check_lst, a):
     """This function is used to decide which time to choose for cultural amenities.
        (As of march 2024, applies to version 2 only.) Explanation: 
-            In version 2 we added 'Bibliotecas'. Original (DENUE) source contains plenty of pois, and not all of them are
-            in good physical condition. Therefore, 'Bibliotecas' are important but might dilute other cultural sources. 
-            It was decided that:
-            > If 2 or more cultural source amenities are within 15 minutes of a given node, 
-                choose max time of the sources within 15 minutes. 
-                (Measures proximity to the second amenity, which we know is close.)
-            > Else, if just 1 or 0 source amenities are within 15 minutes of a given node,
-                choose min time of the amenities outside 15 minutes. 
-                (Ignores if only one is close (most likely 'Bibliotecas'), takes next closest.)
+            In version 2 we added 'Bibliotecas' (Libraries) as a source for cultural amenities. The original data source (from INEGI's DENUE) contains a LOT of libraries,
+            but after GIS inspection it was found that not all of them are in good physical condition (Some are just small rooms in public parks).
+            Therefore, even though measuring proximity to 'Bibliotecas' is relevant as a cultural amenity, it might dilute proximity data to other (more relevant) cultural sources.
+
+            The two method check works the following way:
+            > If 2 or more cultural source amenities are within 15 minutes of a given node, choose MAX time of the sources located WITHIN 15 minutes. 
+                (Measures proximity to the second closest, which we know is 15 minutes away or less.)
+            > Else, if just 1 or 0 source amenities are within 15 minutes of a given node, choose MIN time of the amenities OUTSIDE 15 minutes. 
+                (Ignores the closest (most likely 'Bibliotecas' since there are a LOT of them), taking next closest.)
 
     Arguments:
             row (pandas.Series): current row of DataFrame (function is used using .apply())
@@ -745,12 +745,15 @@ if __name__ == "__main__":
     version = 2
     # If version = 1, does proximity analysis as it was done at first (Script 01 + 02 + 15).
     # If version = 2:
-        # > Version 2 filters denue_dif for reviewed points of interest, version 1 doesn't (uses all of them without filtering).
-        # > Version 2 introduces new method to choose times ('two-method', used in cultural amenity instead of using 'min').
+        # > Version 2 filters denue_dif for reviewed points of interest, version 1 doesn't (uses all of them without filtering). 
+        #   [Check get_denue_pois() function for further explanation]
         # > Version 2 includes and filters pois to cultural amenity which version 1 doesn't include.
-        #   > denue_bibliotecas --> from DENUE's "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
-        #   > denue_centrocultural -->  from DENUE's "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
-        # > Version 2 returns different population groups ('p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas','pcon_disc') than version 1 ('p_0a14','p_15a24','p_25a59','p_60ymas').
+        #   * denue_bibliotecas --> from DENUE's "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
+        #   * denue_centrocultural -->  from DENUE's "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
+        # > Version 2 introduces new method to choose times ('two-method', used in cultural amenity instead of using 'min'). 
+        #   [Check two_method_check() function for further explanation]
+        # > Version 2 returns different population groups ('p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas','pcon_disc') 
+        #   than version 1 ('p_0a14','p_15a24','p_25a59','p_60ymas').
 
     # ---------------------------- SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ----------------------------
     # DATABASE - Area of interest (city)
