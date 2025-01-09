@@ -293,9 +293,39 @@ def main(city,save=False,local_save=True):
             hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
             hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
             aup.log(f"--- Calculated an average density of {hex_socio_gdf_tmp['dens_pob_ha'].mean()}")
+            
+
+            # 4.4 --------------- ADD MISSING HEXS
+            # EXPLANATION: 
+            # The spatial intersection in step 3.2 creates split blocks containing data from the original BLOCK and each voronoi polygons it falls in.
+            # After that, the data is grouped by osmid, and the data is distributed to nodes.
+            # That means that not all nodes are added, just those whose voronoi polygon intersected any block. The rest are dropped.
+            # Therefore, some urban hexs (which are designed as urban if they touch any urban geoestadistical areas, AGEBs) may be inside urban areas where 
+            # there are 0 nodes with data from blocks because there are no blocks nearby. --> These hexs are not added in the previous step (aup.socio_points_to_polygon())
+            # This step adds those missing urban hexs with pop data = 0.
+
+            # List all currently added hex_ids
+            current_res_hex_ids = list(hex_socio_gdf_tmp.hex_id.unique())
+            # Identify all current res's urban hex_ids
+            urban_res_hexs = hex_res_gdf.loc[hex_res_gdf['type']=='urban'].copy()
+            aup.log(f"--- Found {len(urban_res_hexs)} urban hexs.")
+            urban_res_hexs_lst = list(urban_res_hexs.hex_id.unique())
+            # Isolate missing urban hex_ids
+            missing_hexs = list(set(urban_res_hexs_lst) - set(current_res_hex_ids))
+            # Create a GeoDataFrame with missing hexs
+            missing_hexs_gdf = hex_res_gdf.loc[hex_res_gdf.hex_id.isin(missing_hexs)].copy()
+            # Add missing pop data to missing hexs
+            for col in columns_of_interest:
+                missing_hexs_gdf[col] = 0
+            missing_hexs_gdf['dens_pob_ha'] = 0
+            # Concatenate missing hexs to hex_socio_gdf
+            hex_socio_gdf_tmp = pd.concat([hex_socio_gdf_tmp,missing_hexs_gdf])
+            aup.log(f"--- Added {len(missing_hexs_gdf)} missing urban hexs to hex_socio_gdf.")
+
+            # 4.5 --------------- CONCATENATE ALL RESOLUTIONS
             # Concatenate in hex_socio_gdf (if more resolutions, next resolution will also be stored here)
             hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])
-
+            
         # 4.4 --------------- SAVE
         # Final format
         hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
@@ -354,19 +384,19 @@ if __name__ == "__main__":
     # ------------------------------ SAVING ------------------------------
     
     # Save output to database?
-    save = True
+    save = False
     save_schema = 'censo'
     blocks_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_mza'
     nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
     hexs_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
-    local_save = False
+    local_save = True
     local_save_dir = f"../data/processed/pop_data/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
-    test = False
-    city_list = ['ZMVM']
+    test = True
+    city_list = ['Aguascalientes']
 
     # ------------------------------ SCRIPT ------------------------------
     # Cities (database) [Always 2020]
