@@ -11,6 +11,8 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
+else:
+    import aup
 
 """ 
     For each city in Mexico's metropolis list, this script loads from the database each city's pop data (AGEB, block), 
