@@ -394,7 +394,7 @@ if __name__ == "__main__":
 
     # Save outputs to local? (Make sure directory exists)
     local_save = True
-    local_save_dir = f"../data/processed/pop_data/"
+    local_save_dir = f"../data/scripts_output/script_22/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
     test = True
