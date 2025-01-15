@@ -794,30 +794,33 @@ if __name__ == "__main__":
     # (If pop_output = False, loads empty hexgrid)
     pop_output = True
     # ANALYSIS AND OUTPUT - Hexagon resolutions of output
-    res_list = [8,9]
+    res_list = [8,9,10]
     # ANALYSIS AND OUTPUT - Do not process city-list
     # (If intentionally skipping cities, add here. Else, leave empty list)
-    skip_city_list = []
-    # ANALYSIS AND OUTPUT - Stop at any given point of script's main function? 
+    already_ran_list = []
+    big_cities_list = []
+    #big_cities_list = ['ZMVM','CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','Leon','Queretaro','Juarez','Laguna']
+    skip_city_list = already_ran_list + big_cities_list
+    # ANALYSIS AND OUTPUT - Stop at any given point of script's main function?
     # (Used in tests)
     stop = False
     # ANALYSIS AND OUTPUT - Testing Script? If activated, script runs specified cities only.
     city_list = ['Aguascalientes']
-    test = True
+    test = False
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
     save_schema = 'prox_analysis' #metropolis_analysis: 'prox_analysis'
     # SAVING - Save nodes with proximity data to db?
-    nodes_save = False
-    nodes_save_table = 'nodesproximity_23' #metropolis_analysis: 'nodesproximity_23'
+    nodes_save = True
+    nodes_save_table = f'proximity_v{version}_23_point' #metropolis_analysis: 'proximity_v{version}_23_point'
     # SAVING - Save hexs output to db?
-    hexs_save = False 
-    hexs_save_table = 'proximityanalysis_23_mzaageb_hex' #metropolis_analysis: 'proximityanalysis_23_ageb_hex'
+    hexs_save = True 
+    hexs_save_table = f'proximityanalysis_v{version}_23_mzaageb_hex' #metropolis_analysis: 'proximityanalysis_v{version}_23_mzaageb_hex'
     # SAVING - Save final output (nodes and hexs) locally?
-    local_save = True
-    local_save_dir = f"../data/processed/proximity_v2/"
+    local_save = False
+    local_save_dir = f"../data/scripts_output/script_21/"
 
-    # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE ----------------------------
-    # PARAMETERS DICTIONARY (Required) [NO NEED TO MODIFY]
+    # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE [NO NEED TO MODIFY] ----------------------------
+    # PARAMETERS DICTIONARY (Required)
     # This dictionary sets the ejes, amenidades, sources and codes for analysis
             #{Eje (e):
             #            {Amenity (a):
@@ -843,6 +846,10 @@ if __name__ == "__main__":
         aup.log("--- Must pass integers 1 or 2.")
         intended_crash
 
+    # Used in tests
+    #parameters = {'Escuelas':{'Preescolar':{'denue_preescolar':[611111, 611112]}}}
+    #parameters = {'Entretenimiento':{'Actividad física':{'denue_parque_natural':[712190]}}}
+    # Full dict
     parameters = {'Escuelas':{'Preescolar':{'denue_preescolar':[611111, 611112]},
                             'Primaria':{'denue_primaria':[611121, 611122]},
                             'Secundaria':{'denue_secundaria':[611131, 611132]}
@@ -903,12 +910,13 @@ if __name__ == "__main__":
     
     # Script mode:
     if test: # Test mode runs specified cities only
-        aup.log('--- Running script with test mode on.')
+        aup.log('--- Running script ON TEST MODE.')
         processed_city_list = []
         i = 0
         k = len(city_list)
     
     else: # Else, script's goal is to run all cities
+        aup.log('--- Running script ON ALL-CITIES MODE.')
         cities_gdf = aup.gdf_from_db(metro_table, metro_schema)
         cities_gdf = cities_gdf.sort_values(by='city')
         city_list = list(cities_gdf.city.unique())
@@ -935,8 +943,9 @@ if __name__ == "__main__":
         k = len(city_list)
 
     # Run
-    aup.log(f'--- Already processed {i} cities.')
-    aup.log(f'--- Total cities to process: {k}.')
+    aup.log(f'--- Total available cities: {k}.')
+    aup.log(f'--- Skipping / already processed {i} cities.')
+    aup.log(f'--- Total cities to be processed: {k-i}.')
     aup.log(f'--- Saving nodes to database: {nodes_save}')
     aup.log(f'--- Saving hexs to database: {hexs_save}')
     aup.log(f'--- Saving nodes and hexs locally: {local_save}')
@@ -946,6 +955,9 @@ if __name__ == "__main__":
             i = i + 1
             aup.log(f"--- Running Script city {i}/{k}: {city}")
             main(city, res_list, nodes_save, hexs_save, local_save)
+        else:
+            aup.log("--"*40)
+            aup.log(f"--- Skipping/Already proccessed city: {city}")
 
     # ---------------------------- # ---------------------------- # ----------------------------
     # PREVIOUS CONFIGURATION USES OF CURRENT SCRIPT:
