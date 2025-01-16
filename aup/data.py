@@ -533,9 +533,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     return G, nodes, edges
 
 
-def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
-    """Download OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
-       Based on Script07-download_osmnx.py located in database.
+def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',specific_date=(False, None)):
+    """Downloads OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
+       [Based on Script07-download_osmnx.py, located in repository 'database'.]
 
     Args:
         aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
@@ -544,6 +544,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
                                  for more details see OSMnx documentation.
         network_type (str, optional): String with the type of network to download (drive, walk, bike, all_private, all) for more details see OSMnx documentation. 
                                         Defaults to 'all_private'.
+        specific_date(tupple,optional): Tupple with a boolean and a string. If the boolean is True, the string will be used as the date for the overpass query.
+                                        The string's date must be in the format yyyy-mm-ddThh:mm:ssZ and start with [out:json][timeout:90].
+                                        For example, '[out:json][timeout:90][date:"2010-01-01T00:00:00Z"]' would download the network as it was in 2010.
+                                        Defaults to (False, None).
 
     Returns:
         G (networkx.MultiDiGraph): Graph with edges and nodes within boundaries
@@ -565,6 +569,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
         e = coord_val.maxx.max()
         w = coord_val.minx.min()
         print(f"Extracted min and max coordinates from the municipality. Polygon N:{round(n,5)}, S:{round(s,5)}, E{round(e,5)}, W{round(w,5)}.")
+
+        # Sets specific date for overpass query
+        if specific_date[0]:
+            ox.settings.overpass_settings = specific_date[1]
 
         # Downloads OSMnx graph from bounding box
         G = ox.graph_from_bbox(n, s, e, w,
