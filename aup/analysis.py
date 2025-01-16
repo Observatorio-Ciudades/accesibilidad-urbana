@@ -1147,6 +1147,9 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		else:
 			blocks_800_present = False #Checker
 			print(f"Found zero blocks_800 in current municipalities.")
+	else:
+		blocks_800_present = False #Checker (There are no blocks 800 in 2010)
+
 
 	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
 		print("Error: Area of interest has no pop data.")
