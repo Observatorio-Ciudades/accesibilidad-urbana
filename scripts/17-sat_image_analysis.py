@@ -7,6 +7,8 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
+else :
+    import aup
 
 
 class NanValues(Exception):
@@ -193,7 +195,7 @@ if __name__ == "__main__":
     end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = False
-    sat_query = {"eo:cloud_cover": {"lt": 10}}
+    sat_query = {"eo:cloud_cover": {"lt": 15}}
     data_to_hex = False
 
     local_save = True #------ Set True if test
@@ -238,7 +240,13 @@ if __name__ == "__main__":
 
     #---------------------------------------
     #------ Set following if test, else comment
-    # city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon','Colima','Culiacan','Delicias','Durango','Guadalajara','Guanajuato','Hermosillo','Oaxaca','Pachuca','Piedad','Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula','Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla','Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
+    city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+                 'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara','Guanajuato',
+                 'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
+                 'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Piedad',
+                 'Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula',
+                 'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
+                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
     # city_list = ['CDMX']
     # city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
@@ -246,7 +254,8 @@ if __name__ == "__main__":
     #------ Set following if all-cities analysis, else comment
     for city in gdf_mun.city.unique():
         # Process each available city
-        if (city not in processed_city_list) and (city not in skip_list):
+        # if (city not in processed_city_list) and (city not in skip_list):
+        if (city not in city_list) and (city not in skip_list):
     #---------------------------------------
             aup.log(f'\n Starting city {city}')
 
