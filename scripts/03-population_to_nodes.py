@@ -21,16 +21,16 @@ if module_path not in sys.path:
     3. Rename output tables
 """
 
-def main(year, res_list=[8], save=False):
+def main(year, res_list=[8], save=False, local_save=False):
     
-    # 1.1 --------------- LOAD POP DATA (AGEBs)
+    # 1.1 --------------- LOAD POP DATA (AGEBs) FROM THE CURRENT CITY'S (MUN_GDF) MUNICIPALITIES
     aup.log("--- Loading AGEBs for area of interest.")
     ageb_gdf = gpd.GeoDataFrame()
 
-    # Load states for current city (CVE_ENT)
+    # Load states (CVE_ENT) for current city
     cve_ent_list = list(mun_gdf.CVE_ENT.unique())
     for cve_ent in cve_ent_list:
-        #Load muns in each city state
+        # Load muns (CVE_MUN) for each state
         cve_mun_list = list(mun_gdf.loc[mun_gdf.CVE_ENT == cve_ent].CVE_MUN.unique())
         # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo_mza.censo_mza_2020 WHERE ("CVE_ENT" = '02') AND "CVE_MUN" IN ('001',) ]
         # Duplicate mun inside tupple if there's only one MUN.
@@ -39,14 +39,13 @@ def main(year, res_list=[8], save=False):
         else:
             cve_mun_list.append(cve_mun_list[0])
             cve_mun_tpl = str(tuple(cve_mun_list))
-        # Load AGEBs and concat
+        # Load AGEBs for each mun of each state and concat
         query = f"SELECT * FROM {ageb_schema}.{ageb_table} WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
         ageb_gdf = pd.concat([ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
     # Set CRS
     ageb_gdf = ageb_gdf.set_crs("EPSG:4326")
     aup.log(f"--- Loaded a total of {ageb_gdf.pobtot.sum()} people in AGEBs.")
 
-    
     # 1.2 --------------- LOAD NETWORK (nodes)
     # Load network
     if year == '2010':
@@ -88,6 +87,11 @@ def main(year, res_list=[8], save=False):
                                             cve_column='cve_geo', avg_column=avg_column)
     aup.log(f"--- Added a total of {nodes_pop.pobtot.sum()} persons to nodes.")
 
+    # Local save
+    if local_save:
+        aup.log(f"--- Saving {city}'s nodes pop data locally.")
+        nodes_pop.to_file(local_save_dir + f"script03_{year}{city}_nodes.gpkg", driver='GPKG')
+    # Database save
     if save:
         # LOG CODE - Progress
         uploaded_nodes = 0
@@ -113,8 +117,8 @@ def main(year, res_list=[8], save=False):
 
     for res in res_list:
         # Load hexgrid 
-        #query = f"SELECT * FROM {hex_schema}.hexgrid_{res}_city_2020 WHERE \"city\" LIKE \'{city}\'"
-        query = f"SELECT * FROM {hex_schema}.femsainfancias_missingcities_hexgrid_{res} WHERE \"city\" LIKE \'{city}\'"
+        hex_table = f'hexgrid_{res}_city_2020'
+        query = f"SELECT * FROM {hex_schema}.{hex_table} WHERE \"city\" LIKE \'{city}\'"
         hex_bins = aup.gdf_from_query(query, geometry_col='geometry')
         # Set CRS
         hex_bins = hex_bins.set_crs("EPSG:4326")
@@ -149,8 +153,12 @@ def main(year, res_list=[8], save=False):
 
         aup.log(f"--- Formated hexgrid res {res} for upload.")
 
+        # Local save
+        if local_save:
+            aup.log(f"--- Saving {city}'s hexs pop data locally.")
+            hex_upload.to_file(local_save_dir + f"script03_{year}{city}_hex{res}.gpkg", driver='GPKG')
+        # Database save
         if save:
-            # Upload hexs of current res
             aup.gdf_to_db_slow(hex_upload, hex_save_table, schema=save_schema, if_exists="append")
             aup.log(f"--- Uploaded pop hexgrid res {res} for city {city}.")
 
@@ -164,65 +172,72 @@ if __name__ == "__main__":
     year = '2020'
     # Resolution of output hexgrid
     res_list = [8,9]
-    # Test (if test, runs Aguascalientes only)
-    test = False
+    # Test (if test, runs a specific city list only and saves locally only, overriding 'save' and 'local_save' vars.)
+    test = True
+    test_city_list = ['Monterrey']
     
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
     # City data
-    metro_schema = 'projects_research' # Mexico's metropolis: 'metropolis'
-    metro_table = 'femsainfancias_missingcities_metrogdf2020' # Mexico's metropolis: 'metro_gdf_2020' (deprecated: 'metro_gdf_2015')
+    metro_schema = 'metropolis' # Mexico's analysis: 'metropolis'
+    metro_table = 'metro_gdf_2020' # Mexico's analysis: 'metro_gdf_2020' (deprecated: 'metro_gdf_2015')
     # AGEB data
-    ageb_schema = 'censoageb' # Mexico's data: 'censoageb'
-    ageb_table = f'censoageb_{year}' # Mexico's data: 'censoageb_2010' or 'censoageb_2020'
-    # Network data (except 2010, 2010 will use predefined)
-    network_schema = 'projects_research' # Mexico's data: 'osmnx'
-    nodes_table = 'femsainfancias_missingcities_nodes' # Mexico's data: 'nodes'
-    edges_table = 'femsainfancias_missingcities_edges' # Mexico's data: 'edges'
+    ageb_schema = 'censo' # Mexico's analysis: 'censo' (deprecated: 'censoageb')
+    ageb_table = f'censo_inegi_{year[2:]}_ageb' # Mexico's analysis: 'censo_{year[2:]}_ageb' (deprecated: 'censoageb_2010' or 'censoageb_2020')
+    # Network data (except 2010, 2010 will use predefined inside Main Function)
+    network_schema = 'osmnx' # Mexico's analysis: 'osmnx'
+    nodes_table = 'nodes' # Mexico's analysis: 'nodes'
+    edges_table = 'edges' # Mexico's analysis: 'edges'
     # Hexgrid data
-    hex_schema = 'projects_research' # Mexico's data: 'hexgrid'
-    # VERIFY ON SCRIPT hex_table. 
+    hex_schema = 'hexgrid' # Mexico's analysis: 'hexgrid'
+    # VERIFY INSIDE MAIN FUNCTION hex_table, created for each required hex resolution.
     # Mexico's data depends on res ['hexgrid_{res}_city_2020' (deprecated: 'hexgrid_{res}_city')], 
-    # table name is created inside Main function for each res output.
 
-    # Output to db
-    save_schema = 'projects_research' #'projects_research' # Mexico's data:'censo'
-    nodes_save_table = 'femsainfancias_missingcities_censoageb_node' # Mexico's data: f'censo_inegi_{year[2:]}_ageb_node' (deprecated:'nodes_pop_{year}')
-    hex_save_table = 'femsainfancias_missingcities_censoageb_hex' # Mexico's data: f'censo_inegi_{year[2:]}_ageb_hex' (deprecated:'hexbins_pop_{year}')
+    # ------------------------------ SCRIPT CONFIGURATION - SAVE OUTPUT ------------------------------
+    # Save output locally?
+    local_save = False
+    local_save_dir = f"../data/scripts_output/script_03/"
+
+    # Save output to db?
+    save = False
+    save_schema = 'censo' # Mexico's analysis:'censo'
+    nodes_save_table = f'censo_inegi_{year[2:]}_ageb_node' # Mexico's analysis: f'censo_inegi_{year[2:]}_ageb_node' (deprecated:'nodes_pop_{year}')
+    hex_save_table = f'censo_inegi_{year[2:]}_ageb_hex' # Mexico's analysis: f'censo_inegi_{year[2:]}_ageb_hex' (deprecated:'hexbins_pop_{year}')
 
     # ------------------------------ SCRIPT START ------------------------------
     
-    # Load all available cities
-    aup.log("--- Reading available cities.")
-    query = f"SELECT city FROM {metro_schema}.{metro_table}"
-    metro_df = aup.df_from_query(query)
-    city_list = list(metro_df.city.unique())
-    k = len(city_list)
-    aup.log(f"--- Loaded city list with {k} cities.")
-
-    # Prevent cities being analyzed several times in case of a crash
-    aup.log("--- Checking for previously analysed cities.")
-    processed_city_list = []
-    try:
-        query = f"SELECT city FROM {save_schema}.{hex_save_table}"
-        processed_city_list = aup.df_from_query(query)
-        processed_city_list = list(processed_city_list.city.unique())
-    except:
-        pass
-    i = len(processed_city_list)
-
-    # Missing cities (to be analysed)
-    missing_cities_list = []
-    for city in city_list:
-        if city not in processed_city_list:
-            missing_cities_list.append(city)
-
     if test:
-        missing_cities_list = ['Aguascalientes']
+        missing_cities_list = test_city_list
         i = 0
-        k = 1
+        k = len(missing_cities_list)
         aup.log(f'--- Test mode, one city. Already processed ({i}/{k}) cities.')
         aup.log(f"--- Processing test for: {missing_cities_list}.")
+        save = False
+        local_save = True
     else:
+        # Load all available cities
+        aup.log("--- Reading available cities.")
+        query = f"SELECT city FROM {metro_schema}.{metro_table}"
+        metro_df = aup.df_from_query(query)
+        city_list = list(metro_df.city.unique())
+        k = len(city_list)
+        aup.log(f"--- Loaded city list with {k} cities.")
+
+        # Prevent cities being analyzed several times in case of a crash
+        aup.log("--- Checking for previously analysed cities.")
+        processed_city_list = []
+        try:
+            query = f"SELECT city FROM {save_schema}.{hex_save_table}"
+            processed_city_list = aup.df_from_query(query)
+            processed_city_list = list(processed_city_list.city.unique())
+        except:
+            pass
+        i = len(processed_city_list)
+
+        # Missing cities (to be analysed)
+        missing_cities_list = []
+        for city in city_list:
+            if city not in processed_city_list:
+                missing_cities_list.append(city)
         
         aup.log(f'--- Already processed ({i}/{k}) cities.')
         aup.log(f'--- Missing procesing for cities: {missing_cities_list}')
@@ -241,4 +256,4 @@ if __name__ == "__main__":
         mun_gdf = mun_gdf.set_crs("EPSG:4326")
         aup.log(f"--- Loaded municipalities (mun_gdf).")
 
-        main(year, res_list=res_list, save=True)
+        main(year, res_list=res_list, save=save, local_save=local_save)
