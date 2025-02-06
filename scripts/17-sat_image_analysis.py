@@ -240,13 +240,16 @@ if __name__ == "__main__":
 
     #---------------------------------------
     #------ Set following if test, else comment
-    city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
-                 'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara','Guanajuato',
-                 'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
+    city_list = ['Acapulco','Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+                 'Colima','Culiacan','Cuautla','Cuernavaca','Delicias','Durango','Ensenada',
+                 'Guadalajara','Guanajuato',
+                 'Hermosillo','Juarez','La Paz','Laguna','Los Cabos','Los Mochis','Matamoros',
+                 'Mexicali','Mazatlan',
                  'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Piedad',
-                 'Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula',
+                 'Piedras Negras','Poza Rica','Puebla','Reynosa','Queretaro','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
-                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
+                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora',
+                 'ZMVM']
     # city_list = ['CDMX']
     # city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
