@@ -84,6 +84,10 @@ def main(year, res_list=[8], save=False, local_save=False):
                                             cve_column='cvegeo_ageb', avg_column=avg_column) #(cve_column='cve_geo' in deprecated censoageb_2010 and censoageb_2020)
     aup.log(f"--- Added a total of {nodes_pop.pobtot.sum()} persons to nodes.")
 
+    # Final format
+    nodes_pop['street_count'] = nodes_pop['street_count'].astype(int)
+    nodes_pop['city'] = city
+
     # Local save
     if local_save:
         aup.log(f"--- Saving {city}'s nodes pop data locally.")
@@ -103,6 +107,10 @@ def main(year, res_list=[8], save=False, local_save=False):
             aup.log(f"--- Uploaded {uploaded_nodes} nodes into DB out of {len(nodes_pop)}.")
 
     # 1.4 --------------- Population from nodes to hexs and save hexs (by res)
+
+    # Drop "city" column (It is on hexs data)
+    if 'city' in nodes_pop.columns:
+        nodes_pop.drop(columns=['city'],inplace=True)
     
     # Define numeric values that are weighted by population
     wgt_dict = {'prom_hnv':'pobtot', 
@@ -152,6 +160,9 @@ def main(year, res_list=[8], save=False, local_save=False):
         hex_upload.rename(columns={f'hex_id_{res}':'hex_id'},inplace=True)
         hex_upload['res'] = res
 
+        # Format - Set all columns to .lower
+        hex_upload.columns = [col.lower() for col in hex_upload.columns]
+
         # Format - Reorder columns to place hex_id and res first
         column_list = list(hex_upload.columns)
         column_list.remove('hex_id')
@@ -180,8 +191,8 @@ if __name__ == "__main__":
     # Resolution of output hexgrid
     res_list = [8,9]
     # Test (if test, runs a specific city list only and saves locally only, overriding 'save' and 'local_save' vars.)
-    test = True
-    test_city_list = ['Aguascalientes']
+    test = False
+    test_city_list = ['Matamoros']
     
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
     # City data
