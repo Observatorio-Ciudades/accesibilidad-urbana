@@ -40,7 +40,7 @@ def main(year, res_list=[8], save=False, local_save=False):
             cve_mun_list.append(cve_mun_list[0])
             cve_mun_tpl = str(tuple(cve_mun_list))
         # Load AGEBs for each mun of each state and concat
-        query = f"SELECT * FROM {ageb_schema}.{ageb_table} WHERE (\"entidad\" = \'{cve_ent}\') AND \"mun\" IN {cve_mun_tpl} "
+        query = f"SELECT * FROM {ageb_schema}.{ageb_table} WHERE (\"cve_ent\" = \'{cve_ent}\') AND \"cve_mun\" IN {cve_mun_tpl} "
         ageb_gdf = pd.concat([ageb_gdf,aup.gdf_from_query(query, geometry_col='geometry')])
     # Set CRS
     ageb_gdf = ageb_gdf.set_crs("EPSG:4326")
