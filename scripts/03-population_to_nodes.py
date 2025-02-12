@@ -50,20 +50,22 @@ def main(year, res_list=[8], save=False, local_save=False):
     # Load network
     if year == '2010':
         _, nodes, _ = aup.graph_from_hippo(mun_gdf, 'networks', edges_folder='edges_2011', nodes_folder='nodes_2011')
-        # Drop unncessary columns from nodes column (only present in 2010, vialidades 2011)
+        # Drop unncessary columns from nodes column (only present in 2010, vialidades 2011) [Keeps 'osmid','x','y', and 'geometry']
         nodes.drop(['ID', 'TIPOVIA', 'TIPO', 'NUMERO', 'DERE_TRAN', 'ADMINISTRA', 'NUME_CARR', 'CONDICION', 
         'ORIGEN', 'CALI_REPR', 'CVEGEO', 'NOMVIAL', 'SENTIDO', 'LONGITUD', 'UNIDAD', 'vertex_pos', 
         'vertex_ind', 'vertex_par', 'vertex_p_1','distance', 'angle'], inplace = True, axis=1)
-    
-    elif year == '2020':
+    elif year == '2020': #[Should have 'osmid','x','y','street_count','city', and 'geometry']
         _, nodes, _ = aup.graph_from_hippo(mun_gdf, network_schema, edges_folder=edges_table, nodes_folder=nodes_table)
     aup.log(f"--- Downloaded {len(nodes)} nodes from database for {city}")
-    # Set CRS
-    nodes = nodes.to_crs("EPSG:4326")
 
-    # If using network that has 'city' on it, drop.
+    # Network format - Set CRS
+    nodes = nodes.to_crs("EPSG:4326")
+    # Network format - If using network that has 'city' on it, drop.
     if 'city' in nodes.columns:
         nodes.drop(columns=['city'],inplace=True)
+    # Network format - If using a network that has 'street_count' as str, convert to int.
+    if 'street_count' in nodes.columns:
+        nodes_pop['street_count'] = nodes_pop['street_count'].astype(int)
 
     # 1.3 --------------- Population from AGEBs to nodes and save nodes
 
@@ -85,7 +87,6 @@ def main(year, res_list=[8], save=False, local_save=False):
     aup.log(f"--- Added a total of {nodes_pop.pobtot.sum()} persons to nodes.")
 
     # Final format
-    nodes_pop['street_count'] = nodes_pop['street_count'].astype(int)
     nodes_pop['city'] = city
 
     # Local save
@@ -130,20 +131,17 @@ def main(year, res_list=[8], save=False, local_save=False):
         aup.log(f"--- Loaded hexgrid res {res}.")
     
         # Define string columns unique to either 2020 or 2010
+        censo_columns = ['nom_ent','nom_mun','nom_loc',
+                         'cve_ent','cve_mun','cve_loc','cve_ageb','cve_mza',
+                         'cvegeo_mun','cvegeo_loc','cvegeo_ageb','cvegeo_mza']
         if year == '2020':
-            string_columns = ['nom_ent','nom_mun','nom_loc',
-                              'entidad','mun','loc','ageb','mza',
-                              'cvegeo_mun','cvegeo_loc','cvegeo_ageb','cvegeo_mza'
-                              ,f'hex_id_{res}', 'x', 'y', 'street_count']
+            string_columns = censo_columns + [f'hex_id_{res}', 'x', 'y', 'street_count']
             # Deprecated (censoageb_2020)
             #string_columns = ['cve_geo','cve_ent','cve_mun','cve_loc','cve_ageb',
             #'entidad','nom_ent','mun','nom_mun','loc','nom_loc','ageb',
             #'mza','cve_geo_ageb',f'hex_id_{res}', 'x', 'y', 'street_count']
         elif year == '2010':
-            string_columns = ['nom_ent','nom_mun','nom_loc',
-                              'entidad','mun','loc','ageb','mza',
-                              'cvegeo_mun','cvegeo_loc','cvegeo_ageb','cvegeo_mza'
-                              ,f'hex_id_{res}', 'x', 'y', 'codigo', 'cve_geo', 'geog', 'fecha_act', 'geom', 'institut', 'OID']
+            string_columns = censo_columns + [f'hex_id_{res}', 'x', 'y']
             # Deprecated (censoageb_2010)
             #string_columns = [
             #'censo', 'cve_ent', 'nom_ent', 'cve_mun', 'nom_mun',
@@ -187,12 +185,12 @@ if __name__ == "__main__":
 
     # ------------------------------ SCRIPT CONFIGURATION - BASE DATA ------------------------------
     # Year of data
-    year = '2020'
+    year = '2010'
     # Resolution of output hexgrid
     res_list = [8,9]
     # Test (if test, runs a specific city list only and saves locally only, overriding 'save' and 'local_save' vars.)
     test = False
-    test_city_list = ['Matamoros']
+    test_city_list = ['Aguascalientes']
     
     # ------------------------------ SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ------------------------------
     # City data
@@ -216,7 +214,7 @@ if __name__ == "__main__":
     local_save_dir = f"../data/scripts_output/script_03/"
 
     # Save output to db?
-    save = False
+    save = True
     save_schema = 'censo' # Mexico's analysis:'censo'
     nodes_save_table = f'censo_inegi_{year[2:]}_ageb_node' # Mexico's analysis: f'censo_inegi_{year[2:]}_ageb_node' (deprecated:'nodes_pop_{year}')
     hex_save_table = f'censo_inegi_{year[2:]}_ageb_hex' # Mexico's analysis: f'censo_inegi_{year[2:]}_ageb_hex' (deprecated:'hexbins_pop_{year}')
