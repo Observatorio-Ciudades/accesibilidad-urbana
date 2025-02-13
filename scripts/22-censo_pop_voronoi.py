@@ -18,7 +18,15 @@ else:
     For each city in Mexico's metropolis list, this script loads from the database each city's pop data (AGEB, block), 
     calculates block's nan values using calculate_censo_nan_values() function,
     distributes the resulting blocks pop data to OSMnx nodes using voronoi polygons to assign a pct of the blocks data to each node, and
-    distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks, nodes and hexs pop data to the database.
+    distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks (nans values calculated), nodes and hexs pop data to the database.
+
+    This updated script produced the following tables:
+    censo/pobcenso_inegi_10_mzaageb_mza
+    censo/pobcenso_inegi_10_mzaageb_node
+    censo/pobcenso_inegi_10_mzaageb_hex (res 8, 9 and 10)
+    censo/pobcenso_inegi_20_mzaageb_mza
+    censo/pobcenso_inegi_20_mzaageb_node
+    censo/pobcenso_inegi_20_mzaageb_hex (res 8, 9 and 10)
 """
 
 def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=True):
@@ -371,7 +379,7 @@ if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 22.')
 
-    # ------------------------------ BASE DATA REQUIRED ------------------------------    
+    # ------------------------------ SCRIPT CONFIGURATION - BASE DATA REQUIRED ------------------------------    
     # Year of analysis
     year = '2010' # '2010' or '2020'. ('2010' still WIP, not tested)
     # Hexgrid res of output
@@ -383,11 +391,11 @@ if __name__ == "__main__":
     #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
     skip_city_list = []
 
-    # ------------------------------ SCRIPT STEPS ------------------------------
+    # ------------------------------ SCRIPT CONFIGURATION - SCRIPT STEPS ------------------------------
     # (Used to divide process during Dev.)
     process_nodes_to_hexs = True
 
-    # ------------------------------ SAVING ------------------------------
+    # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
     
     # Save output to database?
     save_schema = 'censo'
@@ -406,7 +414,7 @@ if __name__ == "__main__":
     test = True
     city_list = ['Aguascalientes']
 
-    # ------------------------------ SCRIPT ------------------------------
+    # ------------------------------ SCRIPT START - NOT CONFIGURATION ------------------------------
     # Cities (database) [Always 2020]
     metro_schema = 'metropolis'
     metro_table = 'metro_gdf_2020'
