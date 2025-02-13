@@ -22,6 +22,10 @@ if module_path not in sys.path:
     Process: The script calculates the source proximity by node (and saves to db if requested), 
     creates an output for the complete proximity (ejes-amenities) analysis, loads a hexgrid (with or without pop data)
     and re-calculates the source proximity by hexs (and saves to db if requested).
+
+    This script produced the following tables:
+    proximity_v2_23_point
+    proximity_v2_23_mzaageb_hex
 """
 
 def get_denue_pois(denue_schema, denue_table, poly_wkt, code, version):
@@ -136,21 +140,23 @@ def get_denue_pois(denue_schema, denue_table, poly_wkt, code, version):
 
     return code_pois
 
-def two_method_check(row):
+def two_method_check(row, check_lst, a):
     """This function is used to decide which time to choose for cultural amenities.
        (As of march 2024, applies to version 2 only.) Explanation: 
-            In version 2 we added 'Bibliotecas'. Original (DENUE) source contains plenty of pois, and not all of them are
-            in good physical condition. Therefore, 'Bibliotecas' are important but might dilute other cultural sources. 
-            It was decided that:
-            > If 2 or more cultural source amenities are within 15 minutes of a given node, 
-                choose max time of the sources within 15 minutes. 
-                (Measures proximity to the second amenity, which we know is close.)
-            > Else, if just 1 or 0 source amenities are within 15 minutes of a given node,
-                choose min time of the amenities outside 15 minutes. 
-                (Ignores if only one is close (most likely 'Bibliotecas'), takes next closest.)
+            In version 2 we added 'Bibliotecas' (Libraries) as a source for cultural amenities. The original data source (from INEGI's DENUE) contains a LOT of libraries,
+            but after GIS inspection it was found that not all of them are in good physical condition (Some are just small rooms in public parks).
+            Therefore, even though measuring proximity to 'Bibliotecas' is relevant as a cultural amenity, it might dilute proximity data to other (more relevant) cultural sources.
+
+            The two method check works the following way:
+            > If 2 or more cultural source amenities are within 15 minutes of a given node, choose MAX time of the sources located WITHIN 15 minutes. 
+                (Measures proximity to the second closest, which we know is 15 minutes away or less.)
+            > Else, if just 1 or 0 source amenities are within 15 minutes of a given node, choose MIN time of the amenities OUTSIDE 15 minutes. 
+                (Ignores the closest (most likely 'Bibliotecas' since there are a LOT of them), taking next closest.)
 
     Arguments:
             row (pandas.Series): current row of DataFrame (function is used using .apply())
+            check_lst (list): list of columns used to check which sources are within 15 minutes (1=within, 0=outside)
+            a (str): amenity name (e.g. 'Cultural')
 
     Returns:
             row (pandas.Series): current row of DataFrame with chosen time.
@@ -184,7 +190,7 @@ def two_method_check(row):
         
     return row
 
-def main(city, res_list=[8,9], final_save=False, nodes_save=False, local_save=True):
+def main(city, res_list=[8,9], nodes_save=False, hexs_save=False, local_save=True):
     aup.log('--'*40)
     aup.log(f'--- STARTING CITY {city}.')
 
@@ -256,7 +262,7 @@ def main(city, res_list=[8,9], final_save=False, nodes_save=False, local_save=Tr
 
     # 1.3 --------------- ANALYSE POINTS OF INTEREST (downloads DENUE code by code)
     # ------------------- This step analysis times (and count of pois at given time proximity if requested) 
-    # ------------------- using function analysis > pois_time.
+    # ------------------- using function located in analysis > pois_time().
 
     aup.log(f"""
 ------------------------------------------------------------
@@ -309,7 +315,7 @@ Analysing source {source}.""")
                 
                 # 1.3c) SOURCE ANALYSIS
                 # Calculate time data from nodes to source
-                source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois)
+                source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois=count_pois)
                 # Format
                 source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
                 source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
@@ -329,6 +335,7 @@ Analysing source {source}.""")
     nodes_analysis = nodes_analysis[column_order]
 
     if local_save:
+        nodes_local_save_dir = local_save_dir + f"script21_{city}_v{version}_nodes.gpkg"
         nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
         aup.log(f"--- Saved {city} nodes gdf locally.")
 
@@ -426,15 +433,15 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
 
             elif weight == 'two-method': #'two-method' (for cultural amenity's sources).
                                          # See two_method_check function definition for explanation.
-                # Check which sources are within 15 minutes (data used in two_method_check)
+                # For each source, create a column with 1 if source is within 15 minutes, 0 if not.
                 check_lst = []
                 for s in definitions[e][a]:
                     nodes_analysis[s+'_check'] = nodes_analysis[s].apply(lambda x: 1 if x <= 15 else 0)
                     check_lst.append(s+'_check')
-                # Check how many sources are within 15 minutes
+                # For each node, count total sources within 15 minutes
                 nodes_analysis['check_count'] = nodes_analysis[check_lst].sum(axis=1)
                 # Apply two method check
-                nodes_analysis = nodes_analysis.apply(two_method_check,axis='columns')
+                nodes_analysis = nodes_analysis.apply(two_method_check,axis='columns', args=(check_lst, a))
                 # Drop columns used for checking
                 check_lst.append('check_count')
                 nodes_analysis.drop(columns=check_lst,inplace=True)
@@ -486,7 +493,7 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
                 all_count_columns.append(amenity_count_colname)
                 amenities_count_columns.append(amenity_count_colname)
         
-                # Gather amenities sources
+                # Gather current amenity's sources
                 sources_count_columns = [] # Just used for sum function, not added at final output
                 for source in definitions[eje][amenity]:
                     # Add to sources list
@@ -494,16 +501,16 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
                     sources_count_columns.append(source_count_colname)
                 # Find sum of all sources found within given time of each node (For current amenity)
                 nodes_analysis[amenity_count_colname] = nodes_analysis[sources_count_columns].sum(axis=1)
-            # Find sum of all sources found within given time of each node (For current eje)
+            # After iterating over all amenities in current eje, find sum of all sources found within given time of each node (For current eje)
             nodes_analysis[eje_count_colname] = nodes_analysis[amenities_count_columns].sum(axis=1)
         
         # Keep in nodes_analysis all_count_columns + node data for merging (osmid)
         keep_count_columns = all_count_columns.copy()
         keep_count_columns.append('osmid') # Column used for merging
         nodes_count_analysis_filter = nodes_analysis[keep_count_columns]
-        aup.log("--- Counted close amenities by node.")
 
         # Merge time analysis and count amenities analysis
+        aup.log("--- Counted close amenities by node.")
         nodes_analysis_filter = pd.merge(nodes_time_analysis_filter, nodes_count_analysis_filter, on='osmid')
 
     else:
@@ -511,16 +518,16 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
         nodes_analysis_filter = nodes_time_analysis_filter.copy()
             
     ######################################################################################################################################
-    # 2.3 --------------- GROUP DATA BY HEX [WORK IN PROGRESS, MUST TEST]
+    # 2.3 --------------- GROUP DATA BY HEX
     # ------------------- This step groups nodes data by hexagon.
     # ------------------- If pop_output = True, also adds pop data. Else, creates hexgrid.
 
     # 2.3) 0. Resolution check. Prevent crashing from trying not available resolutions.
     checked_res_list = []
     for res in res_list:
-        # Pop gdf in database is available in res 8 and 9
+        # Pop gdf in database (pobcenso_inegi_20_mzaageb_hex) is available in res 8,9 and 10
         if pop_output:
-            allowed_res = [8,9]
+            allowed_res = [8,9,10]
             if res in allowed_res:
                 checked_res_list.append(res)
                 aup.log(f"--- Checking resolutions - approved {res}.")
@@ -539,15 +546,15 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
     aup.log(f"--- Processing data to hexagons for resolutions {res_list}.")
 
     hex_idx = gpd.GeoDataFrame()
-    # For each approved resolution
+    # For each approved resolution, group data and join all in hex_idx
     for res in res_list:
 
         # (a) If not adding population data, just group proximity data by hex.
         if not pop_output:
-            # 2.3a) (1) Load res hexagons for function group_by_hex_mean
+            # 2.3a) (1) Load res hexagons for function group_by_hex_mean()
             # Query and load for each particular res (table name has res)
             hex_table = f'hexgrid_{res}_city_2020'
-            query = f"SELECT * FROM {hex_schema}.{hex_table} WHERE \"city\" LIKE \'{city}\'"
+            query = f"SELECT * FROM hexgrid.{hex_table} WHERE \"city\" LIKE \'{city}\'"
             hex_tmp = aup.gdf_from_query(query, geometry_col='geometry')
             hex_tmp = hex_tmp.set_crs("EPSG:4326")
             # Fields of interest for group_by_mean
@@ -555,7 +562,7 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
             aup.log(f"--- Loaded hexgrid of resolution {res}.")
 
             #2.3a) (2) Group data by hex
-            hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+            hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, all_time_columns, f'hex_id_{res}') #all_time_columns with data=0 will be changed to 1 to differenciate from NaNs.
             # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
             aup.log(f"--- Grouped nodes data by hexagons res {res}.")
@@ -616,7 +623,7 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
             # Therefore, create hex_tmp that has {hex_id, res} separate.
             hex_tmp = hex_tmp_pop[['hex_id','geometry']].copy()
             hex_tmp.rename(columns={'hex_id':f'hex_id_{res}'},inplace=True)
-            hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, res, index_column)
+            hex_res_idx = aup.group_by_hex_mean(nodes_analysis_filter, hex_tmp, all_time_columns, f'hex_id_{res}') #all_time_columns with data=0 will be changed to 1 to differenciate from NaNs.
             # Filter for hexagons with data
             hex_res_idx = hex_res_idx.loc[hex_res_idx[index_column]>0].copy()
             aup.log(f"--- Grouped nodes data by hexagons res {res}.")
@@ -726,11 +733,12 @@ FINISHED source pois proximity-to-nodes analysis for {city}.
     # ------------------- This step saves (locally for tests, to db for script running)
 
     if local_save:
-        hex_idx_city.to_file(final_local_save_dir, driver='GPKG')
+        hexs_local_save_dir = local_save_dir + f"script21_{city}_v{version}_hexs.gpkg"
+        hex_idx_city.to_file(hexs_local_save_dir, driver='GPKG')
         aup.log(f"--- Saved {city} hex gdf locally.")
 
-    if final_save:
-        aup.gdf_to_db_slow(hex_idx_city, final_save_table, save_schema, if_exists='append')
+    if hexs_save:
+        aup.gdf_to_db_slow(hex_idx_city, hexs_save_table, save_schema, if_exists='append')
         aup.log(f"--- Saved {city} hex gdf in database.")
 
 
@@ -738,90 +746,84 @@ if __name__ == "__main__":
  
     # ---------------------------- SCRIPT CONFIGURATION - VERSION ----------------------------
     # Prox analysis version (Must pass integers 1 or 2)
+    version = 2
     # If version = 1, does proximity analysis as it was done at first (Script 01 + 02 + 15).
     # If version = 2:
-        # > Version 2 filters denue_dif for reviewed points of interest, version 1 doesn't (uses without filtering).
-        # > Version 2 introduces new method to choose times ('two-method', used in cultural amenity instead of using 'min') .
-        # > Version 2 includes and filters pois to cultural amenity, version 1 doesn't include them.
-        #   > denue_bibliotecas --> "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
-        #   > denue_centrocultural --> "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
-        # > Version 2 returns different population groups ('p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas','pcon_disc') than version 1 ('p_0a14','p_15a24','p_25a59','p_60ymas').
-    
-    version = 1
+        # > Version 2 filters denue_dif for reviewed points of interest, version 1 doesn't (uses all of them without filtering). 
+        #   [Check get_denue_pois() function for further explanation]
+        # > Version 2 includes and filters pois to cultural amenity which version 1 doesn't include.
+        #   * denue_bibliotecas --> from DENUE's "Bibliotecas y archivos del sector privado." + "Bibliotecas y archivos del sector privado."
+        #   * denue_centrocultural -->  from DENUE's "Promotores del sector público de espectáculos artísticos, culturales, deportivos y similares que cuentan con instalaciones para presentarlos."
+        # > Version 2 introduces new method to choose times ('two-method', used in cultural amenity instead of using 'min'). 
+        #   [Check two_method_check() function for further explanation]
+        # > Version 2 returns different population groups ('p_0a5','p_6a11','p_12a17','p_18a24','p_25a59','p_60ymas','pcon_disc') 
+        #   than version 1 ('p_0a14','p_15a24','p_25a59','p_60ymas').
 
     # ---------------------------- SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ----------------------------
     # DATABASE - Area of interest (city)
-    metro_schema = 'projects_research' #metropolis_analysis: 'metropolis'
-    metro_table = 'femsainfancias_missingcities_metrogdf2020' #metropolis_analysis: 'metro_gdf_2020'
-
-    # DATABASE - Network data (nodes and edges table for distance analysis,
-    # also used to generate the network G with which the nearest OSMID is assigned to each poi)
-    network_schema = 'projects_research' #metropolis_analysis: 'osmnx'
-    nodes_table = 'femsainfancias_missingcities_nodes' #metropolis_analysis: 'nodes' or 'nodes_osmnx_23_point'
-    edges_table = 'femsainfancias_missingcities_edgesspeed' #metropolis_analysis: 'edges_speed' or 'edges_speed_23_line'
-
+    metro_schema = 'metropolis' #full_metropolis_analysis: 'metropolis'
+    metro_table = 'metro_gdf_2020' #full_metropolis_analysis: 'metro_gdf_2020'
+    # DATABASE - Network data 
+    # (nodes and edges table for distance analysis, also used to generate the network G 
+    # with which the nearest OSMID is assigned to each poi)
+    network_schema = 'osmnx' #full_metropolis_analysis: 'osmnx'
+    nodes_table = 'nodes_osmnx_23_point' #full_metropolis_analysis: 'nodes' or 'nodes_osmnx_23_point'
+    edges_table = 'edges_speed_23_line' #full_metropolis_analysis: 'edges_speed' or 'edges_speed_23_line'
     # DATABASE - Points of interest - DENUE
     denue_schema = 'denue'
-    denue_table = 'denue_2020' #metropolis_analysis: 'denue_2020' or 'denue_23_point'
-
+    denue_table = 'denue_23_point' #full_metropolis_analysis: 'denue_2020' or 'denue_23_point'
     # DATABASE - Points of interest - CLUES
     clues_schema = 'denue'
-    clues_table = 'clues' #metropolis_analysis: 'clues' or 'clues_23_point'
-
+    clues_table = 'clues_23_point' #full_metropolis_analysis: 'clues' or 'clues_23_point'
     # DATABASE - Points of interest - SIP
     sip_schema = 'denue'
-    sip_table = 'sip_2020' #metropolis_analysis: 'sip_2020' or 'sip_23_point'
-
-    # DATABASE - Hexgrid
-    hex_schema = 'hexgrid'
-    # VERIFY ON SCRIPT hex_table.
-    # metropolis analysis's data depends on res ['hexgrid_{res}_city_2020' (deprecated: 'hexgrid_{res}_city')], 
-    # Verify table name (created inside Main function for each res output).
-
-    ######### POP DATA IS WORK IN PROGRESS
-    # DATABASE - Population data 
-    pop_schema = 'projects_research' #metropolis_analysis: censo
-    pop_table = 'femsainfancias_missingcities_censoageb_hex' #metropolis_analysis: 'pobcenso_inegi_20_mzaageb_hex' or 'censo_inegi_20_ageb_hex' (deprecated:'hex_bins_pop_2020', had res8 only)
-    ######### POP DATA IS WORK IN PROGRESS
+    sip_table = 'sip_23_point' #full_metropolis_analysis: 'sip_2020' or 'sip_23_point'
+    # DATABASE - Empty hexgrid 
+    # (Shouldn't change since Script uses updated metro_gdf_2020. Inside Main function, variable 'hex_table' is created for each hex resolution: 'hexgrid.hexgrid_{res}_city_2020'.)
+    # (deprecated: 'hexgrid.hexgrid_{res}_city')
+    # DATABASE - Hexgrid with population data 
+    pop_schema = 'censo' #full_metropolis_analysis: censo
+    pop_table = 'pobcenso_inegi_20_mzaageb_hex' #full_metropolis_analysis: 'pobcenso_inegi_20_mzaageb_hex'
+    #(deprecated:'hex_bins_pop_2020', had res8 only)
+    #(deprecated:'censo_inegi_20_ageb_hex', redistributes ageb's data, less accurate)
 
     # ---------------------------- SCRIPT CONFIGURATION - ANALYSIS AND OUTPUT OPTIONS ----------------------------
-    # ANALYSIS AND OUTPUT - Network distance method used in function pois_time. (If length, assumes pedestrian speed of 4km/hr.)
+    # ANALYSIS AND OUTPUT - Network distance method used in function pois_time. 
+    # (If length, assumes pedestrian speed of 4km/hr. If time_min, uses previously calculated time data)
     prox_measure = 'time_min' # Must pass 'length' or 'time_min'
-
-    # ANALYSIS AND OUTPUT - Count available amenities at given time proximity (minutes)?
-    count_pois = (False,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
-
-    # ANALYSIS AND OUTPUT - If pop_output = True, loads pop data from pop_schema and pop_table.
-    # ANALYSIS AND OUTPUT - If pop_output = False, loads empty hexgrid.
+    # ANALYSIS AND OUTPUT - Count available amenities at given time proximity (measured in minutes)?
+    count_pois = (True,15) # Must pass a tupple containing a boolean (True or False) and time proximity of interest in minutes (Boolean,time)
+    # ANALYSIS AND OUTPUT - Population in output?
+    # (If pop_output = True, loads pop data from pop_schema and pop_table)
+    # (If pop_output = False, loads empty hexgrid)
     pop_output = True
-
     # ANALYSIS AND OUTPUT - Hexagon resolutions of output
-    res_list = [8,9]
-
+    res_list = [8,9,10]
     # ANALYSIS AND OUTPUT - Do not process city-list
-    # ANALYSIS AND OUTPUT - If intentionally skipping cities, add here. Else, leave empty list.
-    skip_city_list = []
-
-    # ANALYSIS AND OUTPUT - Stop at any given point of script's main function? (Used in tests)
+    # (If intentionally skipping cities, add here. Else, leave empty list)
+    already_ran_list = []
+    big_cities_list = []
+    #big_cities_list = ['ZMVM','CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','Leon','Queretaro','Juarez','Laguna']
+    skip_city_list = already_ran_list + big_cities_list
+    # ANALYSIS AND OUTPUT - Stop at any given point of script's main function?
+    # (Used in tests)
     stop = False
-
-    # ANALYSIS AND OUTPUT - Testing Script? If activated, script runs Aguascalientes only.
+    # ANALYSIS AND OUTPUT - Testing Script? If activated, script runs specified cities only.
+    city_list = ['Aguascalientes']
     test = False
-
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
-    save_schema = 'projects_research' #metropolis_analysis: 'prox_analysis'
+    save_schema = 'prox_analysis' #metropolis_analysis: 'prox_analysis'
     # SAVING - Save nodes with proximity data to db?
-    nodes_save = True
-    nodes_save_table = 'femsainfancias_missingcities_proxnode' #metropolis_analysis: 'nodesproximity_24'
-    # SAVING - Save final output to db?
-    final_save = True 
-    final_save_table = 'femsainfancias_missingcities_proxhex' #metropolis_analysis: 'proximityanalysis_24_ageb_hex'
-    # SAVING - Save final output (nodes and hexs) to db?
+    nodes_save = False
+    nodes_save_table = f'proximity_v{version}_23_point' #metropolis_analysis: 'proximity_v{version}_23_point'
+    # SAVING - Save hexs output to db?
+    hexs_save = False 
+    hexs_save_table = f'proximityanalysis_v{version}_23_mzaageb_hex' #metropolis_analysis: 'proximityanalysis_v{version}_23_mzaageb_hex'
+    # SAVING - Save final output (nodes and hexs) locally?
     local_save = False
-    nodes_local_save_dir = f"../data/processed/proximity_v2/proxtest_femsainfancias_nodes.gpkg" #f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_nodes.gpkg"
-    final_local_save_dir = f"../data/processed/proximity_v2/proxtest_femsainfancias_hex.gpkg" #f"../data/processed/proximity_v2/test_ags_proxanalysis_scriptv{version}_hex.gpkg"
+    local_save_dir = f"../data/scripts_output/script_21/"
 
-    # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE ----------------------------
+    # ---------------------------- SCRIPT CONFIGURATION - POIS STRUCTURE [NO NEED TO MODIFY] ----------------------------
     # PARAMETERS DICTIONARY (Required)
     # This dictionary sets the ejes, amenidades, sources and codes for analysis
             #{Eje (e):
@@ -842,12 +844,16 @@ if __name__ == "__main__":
                         'denue_museos':[712111, 712112],
                         'denue_bibliotecas':[519121,519122],
                         'denue_centrocultural':[711312]}
-        cultural_weight =  'two-method'
+        cultural_weight =  'two-method' # Check two_method_check() function.
     else:
         aup.log("--- Error in specified proximity analysis version.")
         aup.log("--- Must pass integers 1 or 2.")
         intended_crash
 
+    # Used in tests
+    #parameters = {'Escuelas':{'Preescolar':{'denue_preescolar':[611111, 611112]}}}
+    #parameters = {'Entretenimiento':{'Actividad física':{'denue_parque_natural':[712190]}}}
+    # Full dict
     parameters = {'Escuelas':{'Preescolar':{'denue_preescolar':[611111, 611112]},
                             'Primaria':{'denue_primaria':[611121, 611122]},
                             'Secundaria':{'denue_secundaria':[611131, 611132]}
@@ -879,7 +885,7 @@ if __name__ == "__main__":
                                                         'sip_unidad_deportiva':[93111],
                                                         'sip_espacio_publico':[9321],
                                                         'denue_parque_natural':[712190]},
-                                    'Cultural':cultural_dict
+                                    'Cultural':cultural_dict # ///////////////////////// Depends on version
                                     } 
                 }
 
@@ -902,18 +908,19 @@ if __name__ == "__main__":
                                         'Cultural':cultural_weight} # ////////////////// Depends on version (v1 will choose min, v2 two-method.)
                     }
 
-    # ---------------------------- SCRIPT START ----------------------------
+    # ------------------------------ MAIN FUNCTION START - NOT CONFIGURATION ------------------------------
     aup.log('--'*50)
     aup.log(f"--- STARTING SCRIPT 21 USING VERSION {version}.")
     
     # Script mode:
-    if test: # Test mode runs Aguascalientes only
-        city_list = ['Aguascalientes']
+    if test: # Test mode runs specified cities only
+        aup.log('--- Running script ON TEST MODE.')
         processed_city_list = []
         i = 0
         k = len(city_list)
     
     else: # Else, script's goal is to run all cities
+        aup.log('--- Running script ON ALL-CITIES MODE.')
         cities_gdf = aup.gdf_from_db(metro_table, metro_schema)
         cities_gdf = cities_gdf.sort_values(by='city')
         city_list = list(cities_gdf.city.unique())
@@ -921,10 +928,10 @@ if __name__ == "__main__":
 
         # Prevent cities being analyzed several times in case of a crash 
         # (by checking hexs uploaded to database)
-        aup.log('--- Looking for alredy saved data in db.')
+        aup.log('--- Looking for already saved data in db.')
         processed_city_list = []
         try:
-            query = f"SELECT city FROM {save_schema}.{final_save_table}"
+            query = f"SELECT city FROM {save_schema}.{hexs_save_table}"
             processed_city_list = aup.df_from_query(query)
             processed_city_list = list(processed_city_list.city.unique())
         except:
@@ -940,9 +947,55 @@ if __name__ == "__main__":
         k = len(city_list)
 
     # Run
+    aup.log(f'--- Total available cities: {k}.')
+    aup.log(f'--- Skipping / already processed {i} cities.')
+    aup.log(f'--- Total cities to be processed: {k-i}.')
+    aup.log(f'--- Saving nodes to database: {nodes_save}')
+    aup.log(f'--- Saving hexs to database: {hexs_save}')
+    aup.log(f'--- Saving nodes and hexs locally: {local_save}')
     for city in city_list:
         if city not in processed_city_list:
             aup.log("--"*40)
             i = i + 1
             aup.log(f"--- Running Script city {i}/{k}: {city}")
-            main(city, res_list, final_save, nodes_save, local_save)
+            main(city, res_list, nodes_save, hexs_save, local_save)
+        else:
+            aup.log("--"*40)
+            aup.log(f"--- Skipping/Already proccessed city: {city}")
+
+    # ---------------------------- # ---------------------------- # ----------------------------
+    # PREVIOUS CONFIGURATION USES OF CURRENT SCRIPT:
+    # ---------------------------- # ---------------------------- # ----------------------------
+
+    # For femsainfancias's missing cities (2024):
+        # ---------------------------- SCRIPT CONFIGURATION - VERSION ----------------------------
+        #version=1
+        # ---------------------------- SCRIPT CONFIGURATION - DATABASE SCHEMAS AND TABLES ----------------------------
+        #metro_schema = 'projects_research'
+        #metro_table = 'femsainfancias_missingcities_metrogdf2020'
+        #network_schema = 'projects_research'
+        #nodes_table = 'femsainfancias_missingcities_nodes' 
+        #edges_table = 'femsainfancias_missingcities_edgesspeed'
+        #denue_schema = 'denue'
+        #denue_table = 'denue_2020'
+        #clues_schema = 'denue'
+        #clues_table = 'clues'
+        #sip_schema = 'denue'
+        #sip_table = 'sip_2020'
+        #pop_schema = 'projects_research'
+        #pop_table = 'femsainfancias_missingcities_censoageb_hex'
+        # ---------------------------- SCRIPT CONFIGURATION - ANALYSIS AND OUTPUT OPTIONS ----------------------------
+        # ANALYSIS AND OUTPUT
+        #prox_measure = 'time_min'
+        #count_pois = (False,15) 
+        #pop_output = True
+        #res_list = [8,9]
+        # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
+        #save_schema = 'projects_research'
+        #nodes_save = True
+        #nodes_save_table = 'femsainfancias_missingcities_proxnode'
+        #hexs_save = True 
+        #hexs_save_table = 'femsainfancias_missingcities_proxhex'
+        #local_save = False
+        #nodes_local_save_dir = f"../data/processed/proximity_v2/proxtest_femsainfancias_nodes.gpkg"
+        #hexs_local_save_dir = f"../data/processed/proximity_v2/proxtest_femsainfancias_hex.gpkg"

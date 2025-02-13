@@ -128,39 +128,40 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	return nodes
 
 
-def group_by_hex_mean(nodes, hex_bins, resolution, group_column_names, hex_column_id, osmid=True):
+def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexbins
-		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
-		group_column_names (str,list): column name or list of column names to group with
-		hex_column_id (str): column name with the hex_id
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes with data to group.
+		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexs where data will be grouped.
+		group_column_names (str,list): column name or list of column names to group where data will be changed to 1 if 0 to differentiate from NaNs.
+		hex_id_col (str): column name with the hex_id.
+		osmid (bool, optional): If True, osmid column will be dropped. Defaults to True.
 
 	Returns:
-		geopandas.GeoDataFrame:  GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
+		geopandas.GeoDataFrame:  GeoDataFrame with hex_id_col, geometry and average distance to each amenity for each hexbin
 	"""
-	dist_col = group_column_names
+	
+	# Copy data to avoid editing originals
+	substitute_cols = group_column_names
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	# Group data by hex_id
 	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
-	nodes_hex = nodes_in_hex.groupby([hex_column_id]).mean()
+	nodes_hex = nodes_in_hex.groupby([hex_id_col]).mean()
 	# Merge back to geometry
-	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_column_id,how = 'outer')
+	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_id_col,how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
 	else:
 		hex_new = hex_new.drop(['index_right'],axis=1)
-	
-	# Check for NaN values
-	if type(dist_col) == list:
-		for dc in dist_col:
-			hex_new[dc].apply(lambda x: x+1 if x==0 else x )
+	# Susbstitute 0 for 1 in order to differentiate from NaNs
+	if type(substitute_cols) == list:
+		for col in substitute_cols:
+			hex_new[col].apply(lambda x: x+1 if x==0 else x)
 	else:
-		hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
+		hex_new[substitute_cols].apply(lambda x: x+1 if x==0 else x)
 	# Fill NaN values
 	hex_new.fillna(0, inplace=True)
 	
@@ -832,7 +833,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, count_pois=(False,0), projected_crs="EPSG:6372",
 			  preprocessed_nearest=(False,'dir')):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
@@ -845,7 +846,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 							If "length", will use walking speed.
 							If "time_min", edges with time information must be provided.
 		walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
-							   or if prox_measure="time_min" but needing to fill time_min NaNs.
+							   or if prox_measure="time_min" but needing to fill time_min NaNs. Defaults to 4 (km/hr).
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
@@ -858,7 +859,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 	# Helps by printing steps to find solutions (If using, make sure test_save_dir exists.)
 	test_save = False
-	test_save_dir = "../data/external/debugging/pois_time/"
+	test_save_dir = "../data/debugging/pois_time/"
 
     ##########################################################################################
     # STEP 1: NEAREST. 
@@ -877,12 +878,12 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 
-		# As no amenities were found, output columns are set to nan.
+		# As no amenities were found, time columns are set to nan, while count columns are set to 0.
 		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
 		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
 		if count_pois[0]: 
-			nodes_time[f'{poi_name}_{count_pois[1]}min'] = np.nan # If requested pois_count, value is set to np.nan.
-			print(f"0 {poi_name} found. Pois count set to nan for all nodes.")
+			nodes_time[f'{poi_name}_{count_pois[1]}min'] = 0 # If requested pois_count, value is set to 0.
+			print(f"0 {poi_name} found. Pois count set to 0 for all nodes.")
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
 			return nodes_time
 		else:
@@ -920,7 +921,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
 		else:
-			# NaNs in time_min? --> Use walking speed
+			# NaNs in time_min? --> Use specified walking speed (defaults to 4km/hr) to calculate time_min.
 			no_time = len(edges.loc[edges['time_min'].isna()])
 			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
 			print(f"Calculated time for {no_time} edges that had no time data.")
@@ -930,8 +931,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		
 		# -----
 		if test_save:
-			nodes.to_file(test_save_dir + f"nodes_{poi_name}.geojson", driver='GeoJSON')
-			edges.to_file(test_save_dir + f"edges_{poi_name}.geojson", driver='GeoJSON')
+			nodes.to_file(test_save_dir + f"01_nodes_{poi_name}.geojson", driver='GeoJSON')
+			edges.to_file(test_save_dir + f"01_edges_{poi_name}.geojson", driver='GeoJSON')
 		# -----
 
 		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
@@ -939,7 +940,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_analysis.to_file(test_save_dir + f"empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
+			nodes_analysis.to_file(test_save_dir + f"02_empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
 		# -----
 
 		# nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
@@ -947,7 +948,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_time.to_file(test_save_dir + f"empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
+			nodes_time.to_file(test_save_dir + f"03_empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
 		# -----
 
 		# --------------- 2.3 PROCESSING DISTANCE
@@ -961,7 +962,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if (len(nearest) % 250)==0:
 			batch_size = len(nearest)/200
 			for k in range(int(batch_size)+1):
-				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
+				print(f"Starting batch200 k={k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
 				source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
@@ -971,7 +972,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				
 				# -----
 				if test_save:
-					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
+					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
 				# -----
 
 				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
@@ -986,6 +987,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 					poiscount_cols.append(batch_poiscount_col)
 					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
+					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
 					
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -999,7 +1002,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		else:
 			batch_size = len(nearest)/250
 			for k in range(int(batch_size)+1):
-				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
+				print(f"Starting batch250 k={k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
 				source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
@@ -1009,7 +1012,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 				# -----
 				if test_save:
-					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
+					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
 				# -----
 
 				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
@@ -1024,6 +1027,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 					poiscount_cols.append(batch_poiscount_col)
 					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
+					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
 
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -1037,7 +1042,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_time.to_file(test_save_dir + f"nodes_time_{poi_name}.gpkg", driver='GPKG')
+			nodes_time.to_file(test_save_dir + f"05_nodes_time_{poi_name}.gpkg", driver='GPKG')
 		# -----
 
 		##########################################################################################
@@ -1142,6 +1147,9 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		else:
 			blocks_800_present = False #Checker
 			print(f"Found zero blocks_800 in current municipalities.")
+	else:
+		blocks_800_present = False #Checker (There are no blocks 800 in 2010)
+
 
 	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
 		print("Error: Area of interest has no pop data.")
