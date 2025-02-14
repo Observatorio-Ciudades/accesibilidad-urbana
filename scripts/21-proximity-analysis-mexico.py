@@ -22,6 +22,10 @@ if module_path not in sys.path:
     Process: The script calculates the source proximity by node (and saves to db if requested), 
     creates an output for the complete proximity (ejes-amenities) analysis, loads a hexgrid (with or without pop data)
     and re-calculates the source proximity by hexs (and saves to db if requested).
+
+    This script produced the following tables:
+    proximity_v2_23_point
+    proximity_v2_23_mzaageb_hex
 """
 
 def get_denue_pois(denue_schema, denue_table, poly_wkt, code, version):
@@ -810,10 +814,10 @@ if __name__ == "__main__":
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
     save_schema = 'prox_analysis' #metropolis_analysis: 'prox_analysis'
     # SAVING - Save nodes with proximity data to db?
-    nodes_save = True
+    nodes_save = False
     nodes_save_table = f'proximity_v{version}_23_point' #metropolis_analysis: 'proximity_v{version}_23_point'
     # SAVING - Save hexs output to db?
-    hexs_save = True 
+    hexs_save = False 
     hexs_save_table = f'proximityanalysis_v{version}_23_mzaageb_hex' #metropolis_analysis: 'proximityanalysis_v{version}_23_mzaageb_hex'
     # SAVING - Save final output (nodes and hexs) locally?
     local_save = False
@@ -904,7 +908,7 @@ if __name__ == "__main__":
                                         'Cultural':cultural_weight} # ////////////////// Depends on version (v1 will choose min, v2 two-method.)
                     }
 
-    # ---------------------------- SCRIPT START ----------------------------
+    # ------------------------------ MAIN FUNCTION START - NOT CONFIGURATION ------------------------------
     aup.log('--'*50)
     aup.log(f"--- STARTING SCRIPT 21 USING VERSION {version}.")
     
