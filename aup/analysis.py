@@ -1086,7 +1086,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
-								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC, has no equations.
+								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC(2020) / PCON_LIM(2010), has no equations.
 	"""
 	
 	##########################################################################################
@@ -1207,8 +1207,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 						 'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
 						 'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
 						 'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-						 'REL_H_M','POB0_14','POB15_64','POB65_MAS',
-						 'PCON_DISC'] #PCON_DISC was added later
+						 'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+		if year == "2010":
+			columns_of_interest.append('PCON_LIM')
+		elif year == "2020":
+			columns_of_interest.append('PCON_DISC')
 		
 		# Why to keep two dfs with pop_mza_gdf data from the current AGEB:
 		# --> 'mza_ageb_gdf' stores all data from pop_mza_gdf for the current AGEB.
