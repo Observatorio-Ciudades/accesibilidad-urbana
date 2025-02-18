@@ -80,7 +80,7 @@ def main(year, res_list=[8], db_save=False, local_save=False):
         nodes.drop(columns=['city'],inplace=True)
     # Network format - If using a network that has 'street_count' as str, convert to int.
     if 'street_count' in nodes.columns:
-        nodes_pop['street_count'] = nodes_pop['street_count'].astype(int)
+        nodes['street_count'] = nodes['street_count'].astype(int)
 
 
     ##########################################################################################
