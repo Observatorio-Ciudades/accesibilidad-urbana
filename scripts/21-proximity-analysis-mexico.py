@@ -12,6 +12,8 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
+else:
+    import aup
 
 """ 
     For each city in Mexico's metropolis list, this script is an updated version of 
@@ -194,159 +196,165 @@ def main(city, res_list=[8,9], nodes_save=False, hexs_save=False, local_save=Tru
     aup.log('--'*40)
     aup.log(f'--- STARTING CITY {city}.')
 
-    ############################################################### PART 1 ###############################################################
-    #################################################### FIND NODES PROXIMITY TO POIS ####################################################
-    ###################################################### (PREV. SCRIPT 01 + 02) ########################################################
+    if calculate_nodes:
+        ############################################################### PART 1 ###############################################################
+        #################################################### FIND NODES PROXIMITY TO POIS ####################################################
+        ###################################################### (PREV. SCRIPT 01 + 02) ########################################################
 
-    # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
-    # ------------------- This step downloads the area of interest and network used to measure distance.
-    
-    # Download area of interest (aoi)
-    aup.log('--- Downloading area of interest.')
-    query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
-    mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
-    mun_gdf = mun_gdf.set_crs("EPSG:4326")
-    aoi = mun_gdf.dissolve()
-    
-    # Download Network (G, nodes, edges)
-    aup.log('--- Downloading network.')
-    G, nodes, edges = aup.graph_from_hippo(aoi, schema=network_schema, edges_folder=edges_table, nodes_folder=nodes_table)
+        # 1.1 --------------- BASE DATA FOR POIS-NODES ANALYSIS
+        # ------------------- This step downloads the area of interest and network used to measure distance.
+        
+        # Download area of interest (aoi)
+        aup.log('--- Downloading area of interest.')
+        query = f"SELECT * FROM {metro_schema}.{metro_table} WHERE \"city\" LIKE \'{city}\'"
+        mun_gdf = aup.gdf_from_query(query, geometry_col='geometry')
+        mun_gdf = mun_gdf.set_crs("EPSG:4326")
+        aoi = mun_gdf.dissolve()
+        
+        # Download Network (G, nodes, edges)
+        aup.log('--- Downloading network.')
+        G, nodes, edges = aup.graph_from_hippo(aoi, schema=network_schema, edges_folder=edges_table, nodes_folder=nodes_table)
 
-    # 1.2 --------------- DOWNLOAD ALL CLUES AND SIP POINTS OF INTEREST
-    # ------------------- This step downloads points of interest from SIP and CLUES.
-    # ------------------- (DENUE pois are downloaded later code by code).
-    sip_clues_gdf = gpd.GeoDataFrame()
+        # 1.2 --------------- DOWNLOAD ALL CLUES AND SIP POINTS OF INTEREST
+        # ------------------- This step downloads points of interest from SIP and CLUES.
+        # ------------------- (DENUE pois are downloaded later code by code).
+        sip_clues_gdf = gpd.GeoDataFrame()
 
-    # CLUES (Health facilities)
-    aup.log(f"--- Downloading CLUES pois for {city}.")
-    # Download and filter CLUES
-    clues_gdf = aup.gdf_from_polygon(aoi, clues_schema, clues_table, geom_col="geometry")
-    clues_pois = clues_gdf.loc[clues_gdf['nivel_atencion'] == 'PRIMER NIVEL']
-    del clues_gdf
-    # Format CLUES
-    clues_pois.loc[:,'code'] = 8610
-    clues_pois = clues_pois[['code','geometry']]
-    # Save CLUES to sip_clues_gdf
-    sip_clues_gdf = pd.concat([sip_clues_gdf,clues_pois])
-    del clues_pois
+        # CLUES (Health facilities)
+        aup.log(f"--- Downloading CLUES pois for {city}.")
+        # Download and filter CLUES
+        clues_gdf = aup.gdf_from_polygon(aoi, clues_schema, clues_table, geom_col="geometry")
+        clues_pois = clues_gdf.loc[clues_gdf['nivel_atencion'] == 'PRIMER NIVEL']
+        del clues_gdf
+        # Format CLUES
+        clues_pois.loc[:,'code'] = 8610
+        clues_pois = clues_pois[['code','geometry']]
+        # Save CLUES to sip_clues_gdf
+        sip_clues_gdf = pd.concat([sip_clues_gdf,clues_pois])
+        del clues_pois
 
-    # SIP (INEGI Marco geoestadístico's point data)
-    aup.log(f"--- Downloading SIP pois for {city}.")
-    # Download and filter SIP
-    sip_gdf = aup.gdf_from_polygon(aoi, sip_schema, sip_table, geom_col="geometry")
-    sip_amenities = {'GEOGRAFICO':['Mercado','Plaza'], 
-                     'TIPO':['Cancha','Unidad Deportiva','Áreas Verdes','Jardín','Parque']}
-    sip_amenities_codes = {'Mercado':4721, #assigned to sip_mercado
-                           'Cancha':93110, #assigned to sip_cancha
-                           'Unidad Deportiva':93111, #assigned to sip_unidad_deportiva 
-                           'Áreas Verdes':9321, #assigned to sip_espacio_publico 
-                           'Jardín':9321, #assigned to sip_espacio_publico
-                           'Parque':9321, #assigned to sip_espacio_publico
-                           'Plaza':9321 #assigned to sip_espacio_publico
-                            }
-    sip_pois = gpd.GeoDataFrame()
-    for col in sip_amenities:
-        for amenity in sip_amenities[col]:
-            # Find in sip_gdf and assigns code from dict
-            sip_tmp = sip_gdf.loc[sip_gdf[col] == amenity]
-            # If there are pois of current code in city, append
-            if len(sip_tmp) > 0:
-                sip_tmp.loc[:,'code'] = sip_amenities_codes[amenity]
-                sip_pois = pd.concat([sip_pois,sip_tmp])
-    del sip_gdf
-    # Format SIP
-    sip_pois = sip_pois[['code','geometry']]
-    # Save SIP to sip_clues_gdf
-    sip_clues_gdf = pd.concat([sip_clues_gdf,sip_pois])
-    del sip_pois
+        # SIP (INEGI Marco geoestadístico's point data)
+        aup.log(f"--- Downloading SIP pois for {city}.")
+        # Download and filter SIP
+        sip_gdf = aup.gdf_from_polygon(aoi, sip_schema, sip_table, geom_col="geometry")
+        sip_amenities = {'GEOGRAFICO':['Mercado','Plaza'], 
+                        'TIPO':['Cancha','Unidad Deportiva','Áreas Verdes','Jardín','Parque']}
+        sip_amenities_codes = {'Mercado':4721, #assigned to sip_mercado
+                            'Cancha':93110, #assigned to sip_cancha
+                            'Unidad Deportiva':93111, #assigned to sip_unidad_deportiva 
+                            'Áreas Verdes':9321, #assigned to sip_espacio_publico 
+                            'Jardín':9321, #assigned to sip_espacio_publico
+                            'Parque':9321, #assigned to sip_espacio_publico
+                            'Plaza':9321 #assigned to sip_espacio_publico
+                                }
+        sip_pois = gpd.GeoDataFrame()
+        for col in sip_amenities:
+            for amenity in sip_amenities[col]:
+                # Find in sip_gdf and assigns code from dict
+                sip_tmp = sip_gdf.loc[sip_gdf[col] == amenity]
+                # If there are pois of current code in city, append
+                if len(sip_tmp) > 0:
+                    sip_tmp.loc[:,'code'] = sip_amenities_codes[amenity]
+                    sip_pois = pd.concat([sip_pois,sip_tmp])
+        del sip_gdf
+        # Format SIP
+        sip_pois = sip_pois[['code','geometry']]
+        # Save SIP to sip_clues_gdf
+        sip_clues_gdf = pd.concat([sip_clues_gdf,sip_pois])
+        del sip_pois
 
-    # 1.3 --------------- ANALYSE POINTS OF INTEREST (downloads DENUE code by code)
-    # ------------------- This step analysis times (and count of pois at given time proximity if requested) 
-    # ------------------- using function located in analysis > pois_time().
+        # 1.3 --------------- ANALYSE POINTS OF INTEREST (downloads DENUE code by code)
+        # ------------------- This step analysis times (and count of pois at given time proximity if requested) 
+        # ------------------- using function located in analysis > pois_time().
 
-    aup.log(f"""
-------------------------------------------------------------
+        aup.log(f"""
+-----------------------------------------------------------
 STARTING source pois proximity-to-nodes analysis for {city}.""")
 
-    # PREP. FOR ANALYSIS
-    poly_wkt = aoi.dissolve().geometry.to_wkt()[0]
-    i = 0
-    # PREP. FOR ANALYSIS - List of columns used to deliver final format of Script part 1
-    all_analysis_cols = []
+        # PREP. FOR ANALYSIS
+        poly_wkt = aoi.dissolve().geometry.to_wkt()[0]
+        i = 0
+        # PREP. FOR ANALYSIS - List of columns used to deliver final format of Script part 1
+        all_analysis_cols = []
 
-    # SOURCE LOOP - Calculates source proximity looping over sources from parameters dict.
-    for eje in parameters.keys():
-        for amenity in parameters[eje]:
-            for source in parameters[eje][amenity]:
-                source_analysis_cols = []
+        # SOURCE LOOP - Calculates source proximity looping over sources from parameters dict.
+        for eje in parameters.keys():
+            for amenity in parameters[eje]:
+                for source in parameters[eje][amenity]:
+                    source_analysis_cols = []
 
-                aup.log(f"""
+                    aup.log(f"""
 Analysing source {source}.""")
-                
-                # 1.3a) SAVE COL NAMES - Register current source's analysis col names
-                # Source col to lists
-                source_analysis_cols.append(source)
-                all_analysis_cols.append(source)
-                # If counting pois, create and append column 
-                # count_col formated example: 'denue_preescolar_15min'
-                if count_pois[0]:
-                    count_col = f'{source}_{count_pois[1]}min'
-                    source_analysis_cols.append(count_col)
-                    all_analysis_cols.append(count_col)
+                    
+                    # 1.3a) SAVE COL NAMES - Register current source's analysis col names
+                    # Source col to lists
+                    source_analysis_cols.append(source)
+                    all_analysis_cols.append(source)
+                    # If counting pois, create and append column 
+                    # count_col formated example: 'denue_preescolar_15min'
+                    if count_pois[0]:
+                        count_col = f'{source}_{count_pois[1]}min'
+                        source_analysis_cols.append(count_col)
+                        all_analysis_cols.append(count_col)
 
-                # 1.3b) GET POIS - Select source points of interest 
-                # (concats all data corresponding to current source in source_pois)
-                source_pois = gpd.GeoDataFrame()
-                for code in parameters[eje][amenity][source]:
-                    #If source is DENUE, download using function:
-                    if source[0] == 'd':
-                        aup.log(f'--- Downloading DENUE source pois code {code} from db.')
-                        code_pois = get_denue_pois(denue_schema,denue_table,poly_wkt,code,version)
-                    #If source is CLUES or SIP, fetch from previously generated sip_clues_gdf:
-                    elif source[0] == 'c' or source[0] == 's':
-                        aup.log(f'--- Getting clues/sip source pois code {code} from previously downloaded.')
-                        code_pois = sip_clues_gdf.loc[sip_clues_gdf['code'] == code]
-                    else:
-                        aup.log(f'--- Error, check parameters dictionary.')
-                        aup.log(f'--- As of this version, sources must start with source (denue_, clues_ or sip_).')
-                        intended_crash
-                    source_pois = pd.concat([source_pois,code_pois])
-                aup.log(f"--- {source_pois.shape[0]} {source} pois. Analysing source pois proximity to nodes.")
-                
-                # 1.3c) SOURCE ANALYSIS
-                # Calculate time data from nodes to source
-                source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois=count_pois)
-                # Format
-                source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
-                source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
+                    # 1.3b) GET POIS - Select source points of interest 
+                    # (concats all data corresponding to current source in source_pois)
+                    source_pois = gpd.GeoDataFrame()
+                    for code in parameters[eje][amenity][source]:
+                        #If source is DENUE, download using function:
+                        if source[0] == 'd':
+                            aup.log(f'--- Downloading DENUE source pois code {code} from db.')
+                            code_pois = get_denue_pois(denue_schema,denue_table,poly_wkt,code,version)
+                        #If source is CLUES or SIP, fetch from previously generated sip_clues_gdf:
+                        elif source[0] == 'c' or source[0] == 's':
+                            aup.log(f'--- Getting clues/sip source pois code {code} from previously downloaded.')
+                            code_pois = sip_clues_gdf.loc[sip_clues_gdf['code'] == code]
+                        else:
+                            aup.log(f'--- Error, check parameters dictionary.')
+                            aup.log(f'--- As of this version, sources must start with source (denue_, clues_ or sip_).')
+                            intended_crash
+                        source_pois = pd.concat([source_pois,code_pois])
+                    aup.log(f"--- {source_pois.shape[0]} {source} pois. Analysing source pois proximity to nodes.")
+                    
+                    # 1.3c) SOURCE ANALYSIS
+                    # Calculate time data from nodes to source
+                    source_nodes_time = aup.pois_time(G, nodes, edges, source_pois, source, prox_measure, count_pois=count_pois)
+                    # Format
+                    source_nodes_time.rename(columns={'time_'+source:source},inplace=True)
+                    source_nodes_time = source_nodes_time[['osmid']+source_analysis_cols+['x','y','geometry']]
 
-                # 1.3d) OUTPUT MERGE
-                # Merge all sources time data in final output nodes gdf
-                if i == 0: # For the first analysed source
-                    nodes_analysis = source_nodes_time.copy()
-                else: # For the following
-                    nodes_analysis = pd.merge(nodes_analysis,source_nodes_time[['osmid']+source_analysis_cols],on='osmid')
-   
-                i = i+1
-                aup.log(f"--- FINISHED source {source}. Mean city time = {nodes_analysis[source].mean()}.")
-            
-    # 1.3d) Final format for nodes
-    column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
-    nodes_analysis = nodes_analysis[column_order]
-
-    if local_save:
-        nodes_local_save_dir = local_save_dir + f"script21_{city}_v{version}_nodes.gpkg"
-        nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
-        aup.log(f"--- Saved {city} nodes gdf locally.")
-
-    if nodes_save:
-        nodes_analysis['city'] = city
-        aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
-        aup.log(f"--- Saved {city} nodes gdf in database.")
+                    # 1.3d) OUTPUT MERGE
+                    # Merge all sources time data in final output nodes gdf
+                    if i == 0: # For the first analysed source
+                        nodes_analysis = source_nodes_time.copy()
+                    else: # For the following
+                        nodes_analysis = pd.merge(nodes_analysis,source_nodes_time[['osmid']+source_analysis_cols],on='osmid')
     
-    aup.log(f"""
+                    i = i+1
+                    aup.log(f"--- FINISHED source {source}. Mean city time = {nodes_analysis[source].mean()}.")
+                
+        # 1.3d) Final format for nodes
+        column_order = ['osmid'] + all_analysis_cols + ['x','y','geometry']
+        nodes_analysis = nodes_analysis[column_order]
+
+        if local_save:
+            nodes_local_save_dir = local_save_dir + f"script21_{city}_v{version}_nodes.gpkg"
+            nodes_analysis.to_file(nodes_local_save_dir, driver='GPKG')
+            aup.log(f"--- Saved {city} nodes gdf locally.")
+
+        if nodes_save:
+            nodes_analysis['city'] = city
+            aup.gdf_to_db_slow(nodes_analysis, nodes_save_table, save_schema, if_exists='append')
+            aup.log(f"--- Saved {city} nodes gdf in database.")
+        
+        aup.log(f"""
 FINISHED source pois proximity-to-nodes analysis for {city}.
 ------------------------------------------------------------""")
+        
+    else:  # IF NOT calculating nodes, load them. Assumes they are already in db.
+        query = f"SELECT * FROM {save_schema}.{nodes_save_table} WHERE \"city\" LIKE \'{city}\'"
+        nodes_analysis = aup.gdf_from_query(query, geometry_col='geometry')
+        aup.log(f"--- Loaded {city} nodes gdf from database.")
     
     if stop: # Used to run script until this point (Functionality used in tests)
         aup.log('Stopped.')
@@ -805,12 +813,21 @@ if __name__ == "__main__":
     big_cities_list = []
     #big_cities_list = ['ZMVM','CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','Leon','Queretaro','Juarez','Laguna']
     skip_city_list = already_ran_list + big_cities_list
-    # ANALYSIS AND OUTPUT - Stop at any given point of script's main function?
+
+    # ANALYSIS AND OUTPUT - Testing Script? If activated, script runs specified cities only.
+    # Testing the script also overides save parameters. Setting db save to false and local save to True.
+    city_list = ['ZMVM']
+    test = False
+    # ---------------------------- SCRIPT CONFIGURATION - SṔECIFIC RUN ----------------------------
+    # SṔECIFIC RUN - When a city crashed after it uploaded the nodes, can skip nodes calculation. [Normally set to True]
+    # Setting to True allows for the normal process to go on (Calculate proximity from pois to nodes in a network).
+    # Setting to False triggers nodes loading instead. 
+    calculate_nodes = True
+
+    # SṔECIFIC RUN - Stop at any given point of script's main function? [Normally set to False]
     # (Used in tests)
     stop = False
-    # ANALYSIS AND OUTPUT - Testing Script? If activated, script runs specified cities only.
-    city_list = ['Aguascalientes']
-    test = False
+
     # ---------------------------- SCRIPT CONFIGURATION - SAVING ----------------------------
     save_schema = 'prox_analysis' #metropolis_analysis: 'prox_analysis'
     # SAVING - Save nodes with proximity data to db?
@@ -918,6 +935,10 @@ if __name__ == "__main__":
         processed_city_list = []
         i = 0
         k = len(city_list)
+        # Overwrite save parameters
+        nodes_save = False
+        hexs_save = False
+        local_save = True
     
     else: # Else, script's goal is to run all cities
         aup.log('--- Running script ON ALL-CITIES MODE.')
