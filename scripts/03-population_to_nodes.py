@@ -89,9 +89,9 @@ def main(year, res_list=[8], db_save=False, local_save=False):
     aup.log(f"--- {city}({year}) - DISTRIBUTING AGEB DATA TO NODES.")
 
     # 2.1 --------------- Set average columns and column positions for each year
-    # Set columns that won't be divided by nodes
-    avg_column = ["prom_hnv", "graproes", "graproes_f", 
-                  "graproes_m", "prom_ocup", "pro_ocup_c"]
+    # Set columns whose data that won't be distributed by nodes
+    no_distr_cols = ["prom_hnv", "graproes", "graproes_f",
+                     "graproes_m", "prom_ocup", "pro_ocup_c"]
     # Set column positions where numeric data starts in censoageb_{year} gdf
     if year == '2010':
         column_start = 3 #(16 in deprecated censoageb_2010)
@@ -102,7 +102,7 @@ def main(year, res_list=[8], db_save=False, local_save=False):
     
     # 2.2 --------------- Run socio_polygon_to_points()
     nodes_pop = aup.socio_polygon_to_points(nodes, ageb_gdf, column_start=column_start, column_end=column_end, 
-                                            cve_column='cvegeo_ageb', avg_column=avg_column) #(cve_column='cve_geo' in deprecated censoageb_2010 and censoageb_2020)
+                                            cve_column='cvegeo_ageb', no_distr_cols=no_distr_cols) #(cve_column='cve_geo' in deprecated censoageb_2010 and censoageb_2020)
     aup.log(f"--- Added a total of {nodes_pop.pobtot.sum()} persons to nodes.")
 
     # 2.3 --------------- Format and save nodes_pop data
@@ -171,7 +171,7 @@ def main(year, res_list=[8], db_save=False, local_save=False):
             #'fecha_act', 'geom', 'institut', 'OID']
 
         # 3.2 --------------- Run socio_points_to_polygon()
-        hex_pop = aup.socio_points_to_polygon(hex_bins, nodes_pop, f'hex_id_{res}', string_columns, wgt_dict=wgt_dict, avg_column=avg_column)
+        hex_pop = aup.socio_points_to_polygon(hex_bins, nodes_pop, f'hex_id_{res}', string_columns, wgt_dict=wgt_dict, avg_column=no_distr_cols)
         hex_upload = hex_bins.merge(hex_pop, on= f'hex_id_{res}')
         aup.log(f"--- Added a total of {hex_upload.pobtot.sum()} persons to hexs res {res}.")
 
