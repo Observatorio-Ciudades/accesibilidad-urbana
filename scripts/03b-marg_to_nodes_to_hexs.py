@@ -95,8 +95,8 @@ def main(year, res_list=[8], db_save=False, local_save=False):
 
     # 2.2 --------------- Distribute marg. by ageb data to nodes
     aup.log("--- Distributing marg. by ageb data to nodes.")
-    # Set columns that won't be divided by nodes [Data is the same in the polygon and in each of the nodes within it]
-    dont_divide_cols = ['im_2020','gm_2020','imn_2020'] #Basically, it will just divide "pobtot"
+    # Set columns whose data that won't be distributed by nodes [Data is the same in the polygon and in each of the nodes within it]
+    no_distr_cols = ['im_2020','gm_2020','imn_2020'] #Basically, it will just divide "pobtot"
     # Set column positions where numeric data starts in censoageb_{year} gdf
     if year == '2020':
         column_start = len(pop_ageb_gdf.columns) #After merging, the first columns in marg_ageb_gdf are the ones from pop_ageb_gdf.
@@ -105,13 +105,13 @@ def main(year, res_list=[8], db_save=False, local_save=False):
     # 2.2 --------------- Run socio_polygon_to_points()
     #current_columns = list(marg_ageb_gdf.columns)
     #aup.log(f"--- Performing socio_polygon_to_points with data from col. {current_columns[column_start]} to {current_columns[column_end]}.")
-    #aup.log(f"--- Performing socio_polygon_to_points not dividing data from columns: {dont_divide_cols}.")
+    #aup.log(f"--- Performing socio_polygon_to_points not dividing data from columns: {no_distr_cols}.")
     nodes_marg = aup.socio_polygon_to_points(nodes, 
                                              marg_ageb_gdf, 
                                              column_start=column_start, 
                                              column_end=column_end, 
                                              cve_column='cvegeo_ageb', 
-                                             dont_divide_cols=dont_divide_cols)
+                                             no_distr_cols=no_distr_cols)
     nodes_marg.reset_index(inplace=True) # Restores 'osmid'
     
     # 2.3 --------------- Format and save nodes_pop data
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     hex_schema = 'hexgrid' # Mexico's analysis: 'hexgrid'
     # VERIFY INSIDE MAIN FUNCTION hex_table, created for each required hex resolution.
     # Mexico's data depends on res ['hexgrid_{res}_city_2020' (deprecated: 'hexgrid_{res}_city')], 
-
+    
     # ------------------------------ SCRIPT CONFIGURATION - OUTPUT ------------------------------
     # Resolution of output hexgrid
     res_list = [8,9]
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     local_save = False
     local_save_dir = f"../data/scripts_output/script_03b/"
     # Save output to db?
-    db_save = True
+    db_save = False
     save_schema = 'censo' # Mexico's analysis:'censo'
     nodes_save_table = f'margurb_inegi_{year[2:]}_ageb_node' # (deprecated:'nodes_marg_{year}')
     hex_save_table = f'margurb_inegi_{year[2:]}_ageb_hex' # (deprecated:'hex_bins_marg_{year}')
