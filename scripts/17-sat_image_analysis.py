@@ -19,7 +19,8 @@ class NanValues(Exception):
         return self.message
 
 def main(index_analysis, city, band_name_dict, start_date, end_date, freq, 
-satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
+satellite, query_sat={}, save_db=False, local_save=False, del_data=False, 
+download_raster=True, data_to_hex=False):
 
     # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
     # Create city area of interest with biggest hexs
@@ -44,13 +45,15 @@ satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
     hex_city = pd.concat([hex_urban, hex_rural])
 
     aup.log(f'Downloaded {len(hex_city)} hexagon features')
-    
-    # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
-    df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, 
-                                        query=query_sat, satellite = satellite)
 
-    aup.log(f'Finished downloading and processing rasters for {city}')
+    if download_raster:
+    
+        # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
+        df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
+                                            start_date, end_date, tmp_dir, band_name_dict, 
+                                            query=query_sat, satellite = satellite)
+
+        aup.log(f'Finished downloading and processing rasters for {city}')
 
     if data_to_hex:
         
@@ -110,12 +113,12 @@ satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
                 for i in range(int(c_processing)+1):
                     aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
                     hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
-                    raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
+                    raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save_db, local_save, i)
 
             else:
                 aup.log('hex_gdf len smaller than processing chunk')
                 hex_gdf_i = hex_gdf_res.copy()
-                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
+                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save_db, local_save)
 
         aup.log(f'Finished processing city -- {city}')
         del hex_gdf
@@ -124,7 +127,7 @@ satellite, query_sat={}, save=False, del_data=False, data_to_hex=False):
         if del_data:
             aup.delete_files_from_folder(tmp_dir)
 
-def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
+def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save_db, local_save, i=0):
     aup.log(f'Translating raster to hexagon for res: {r}')
 
     hex_raster_analysis, df_raster_analysis = aup.raster_to_hex_analysis(hex_gdf_i, df_len, index_analysis,
@@ -146,7 +149,7 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
         df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
 
     # Save - upload to database
-    if save:
+    if save_db:
         upload_chunk = 150000
         aup.log(f'Starting upload for res: {r}')
 
@@ -184,10 +187,14 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
+    '''band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
                       'swir16':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-swir16)/(nir+swir16)']} 
-    index_analysis = 'ndmi'
+                      'eq':['(nir-swir16)/(nir+swir16)']} '''
+    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+                      'red':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-red)/(nir+red)']} # NDVI equation
+
+    index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
@@ -195,11 +202,13 @@ if __name__ == "__main__":
     end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = False
-    sat_query = {"eo:cloud_cover": {"lt": 15}}
-    data_to_hex = False
+    sat_query = {"eo:cloud_cover": {"lt": 10}}
+
+    download_raster = False
+    data_to_hex = True
 
     local_save = True #------ Set True if test
-    save = False #------ Set True if full analysis
+    save_db = False #------ Set True if full analysis
 
     ###############################
     # Create folder to store city skip_list csv
@@ -240,7 +249,8 @@ if __name__ == "__main__":
 
     #---------------------------------------
     #------ Set following if test, else comment
-    city_list = ['Acapulco','Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+    # Processed NDMI cities
+    '''city_list = ['Acapulco','Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
                  'Colima','Culiacan','Cuautla','Cuernavaca','Delicias','Durango','Ensenada',
                  'Guadalajara','Guanajuato',
                  'Hermosillo','Juarez','La Paz','Laguna','Los Cabos','Los Mochis','Matamoros',
@@ -249,16 +259,22 @@ if __name__ == "__main__":
                  'Piedras Negras','Poza Rica','Puebla','Reynosa','Queretaro','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
                  'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora',
-                 'ZMVM']
-    # city_list = ['CDMX']
-    # city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
+                 'ZMVM']'''
+    
+    # Processed NDVI cities
+    # city_list = 
+
+    # City to process
+    city_list = ['Queretaro']
+
     #for city in city_list:
 
     #------ Set following if all-cities analysis, else comment
     for city in gdf_mun.city.unique():
         # Process each available city
         # if (city not in processed_city_list) and (city not in skip_list):
-        if (city not in city_list) and (city not in skip_list):
+        # if (city not in city_list) and (city not in skip_list):
+        if city in city_list:
     #---------------------------------------
             aup.log(f'\n Starting city {city}')
 
@@ -266,7 +282,8 @@ if __name__ == "__main__":
             try:
                 main(index_analysis, city, band_name_dict, start_date,
                     end_date, freq, satellite,
-                    query_sat=sat_query, save=save, del_data=del_data,
+                    query_sat=sat_query, save_db=save_db, local_save=local_save,
+                    del_data=del_data, download_raster=True,
                     data_to_hex=data_to_hex)
             
             # Except, register failure (Unsuccessful city)
