@@ -248,7 +248,7 @@ if __name__ == "__main__":
                  'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara','Guanajuato',
                  'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
                  'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Piedad',
-                 'Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula',
+                 'Piedras Negras','Poza Rica','Puebla','Reynosa','Queretaro','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
                  'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']'''
     # NDVI Processed cities
