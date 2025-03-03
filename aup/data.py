@@ -21,7 +21,6 @@ import shutil
 from . import utils
 
 
-
 def create_polygon(bbox, city, save=True):
     """Create a polygon from a bounding box and save it to a file
 
@@ -389,6 +388,55 @@ def delete_files_from_folder(delete_dir):
             utils.log('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
+def resolve_duplicates_indexes(gdf, crs):
+    """
+    Resolves duplicates in a GeoDataFrame based on the multi-level index ('u', 'v', 'key') and a 'length' column.
+    
+    Parameters:
+    gdf (geopandas.GeoDataFrame): The input GeoDataFrame with a multi-level index ('u', 'v', 'key') and a 'length' column.
+        
+    Returns:
+    geopandas.GeoDataFrame: A GeoDataFrame where duplicates based on the index are resolved according to the rules above.
+    """
+    
+    # First, sort by index to ensure consistent grouping
+    gdf = gdf.sort_index()
+    
+    # Group by the multi-level index ('u', 'v', 'key')
+    grouped = gdf.groupby(['u', 'v', 'key'])
+    
+    # Lists to track rows to drop and new rows with modified keys
+    rows_to_drop = []
+    new_rows = []
+    
+    for (u, v, key), group in grouped:
+        if len(group) > 1:
+            # Check if 'length' values are the same for all rows in this group
+            if group['length'].nunique() == 1:
+                # If the 'length' is the same for all rows, drop the duplicates, keeping the first
+                rows_to_drop.append(group.index[1:])  # Keep the first, drop the rest
+            else:
+                # If 'length' is different, increment the 'key' of the second row
+                new_row = group.iloc[1].copy()  # Copy the second row
+                new_row['key'] += 1  # Increment the key
+                new_rows.append(new_row)
+                rows_to_drop.append(group.index[1:])  # Drop the second row
+    
+    # Drop the identified duplicate rows
+    gdf = gdf.drop(pd.Index([index for sublist in rows_to_drop for index in sublist]))
+    
+    # Add the new rows with the incremented 'key'
+    # gdf = pd.DataFrame(gdf) # set as DataFrame for concat
+    gdf = pd.concat([gdf, pd.DataFrame(new_rows)], ignore_index=False)
+
+    # Set geometry
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs=crs)
+    
+    # Return the modified DataFrame sorted by the index
+    return gdf.sort_index()
+
+
+
 def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', projected_crs="EPSG:6372"):
     """
     Download OSMnx edges and nodes from DataBase according to GeoDataFrame boundary
@@ -424,6 +472,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
 
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
+
+    # remove duplicates and set key index counter
+    edges = resolve_duplicates_indexes(edges, "EPSG:4326")
 
     edges = edges.set_index(["u", "v", "key"])
 
@@ -474,9 +525,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     return G, nodes, edges
 
 
-def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
-    """Download OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
-       Based on Script07-download_osmnx.py located in database.
+def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',specific_date=(False, None)):
+    """Downloads OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
+       [Based on Script07-download_osmnx.py, located in repository 'database'.]
 
     Args:
         aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
@@ -485,6 +536,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
                                  for more details see OSMnx documentation.
         network_type (str, optional): String with the type of network to download (drive, walk, bike, all_private, all) for more details see OSMnx documentation. 
                                         Defaults to 'all_private'.
+        specific_date(tupple,optional): Tupple with a boolean and a string. If the boolean is True, the string will be used as the date for the overpass query.
+                                        The string's date must be in the format yyyy-mm-ddThh:mm:ssZ and start with [out:json][timeout:90].
+                                        For example, '[out:json][timeout:90][date:"2010-01-01T00:00:00Z"]' would download the network as it was in 2010.
+                                        Defaults to (False, None).
 
     Returns:
         G (networkx.MultiDiGraph): Graph with edges and nodes within boundaries
@@ -506,6 +561,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
         e = coord_val.maxx.max()
         w = coord_val.minx.min()
         print(f"Extracted min and max coordinates from the municipality. Polygon N:{round(n,5)}, S:{round(s,5)}, E{round(e,5)}, W{round(w,5)}.")
+
+        # Sets specific date for overpass query
+        if specific_date[0]:
+            ox.settings.overpass_settings = specific_date[1]
 
         # Downloads OSMnx graph from bounding box
         G = ox.graph_from_bbox(n, s, e, w,
@@ -579,7 +638,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
     for col in edges.columns:
         if any(isinstance(val, list) for val in edges[col]):
             edges[col] = edges[col].astype('string')
-            print(f"Column: {col} in nodes gdf, has a list in it, the column data was converted to string.")
+            print(f"Column: {col} in edges gdf, has a list in it, the column data was converted to string.")
 
     # Final format
     nodes_gdf = nodes.set_crs("EPSG:4326")
