@@ -184,10 +184,13 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
-                      'swir16':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-swir16)/(nir+swir16)']} 
-    index_analysis = 'ndmi'
+    # band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
+    #                   'swir16':[False], #If GSD(resolution) of band is different, set True.
+    #                  'eq':['(nir-swir16)/(nir+swir16)']} 
+    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+                       'red':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-red)/(nir+red)']} 
+    index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
@@ -195,7 +198,7 @@ if __name__ == "__main__":
     end_date = '2023-12-31'
     satellite = "sentinel-2-l2a"
     del_data = False
-    sat_query = {"eo:cloud_cover": {"lt": 15}}
+    sat_query = {"eo:cloud_cover": {"lt": 10}}
     data_to_hex = False
 
     local_save = True #------ Set True if test
@@ -240,11 +243,20 @@ if __name__ == "__main__":
 
     #---------------------------------------
     #------ Set following if test, else comment
-    city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+    # NDMI processed cities
+    '''city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
                  'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara','Guanajuato',
                  'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
                  'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Piedad',
                  'Piedras Negras','Poza Rica','Puebla','Queretaro','San Martin','Tapachula',
+                 'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
+                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']'''
+    # NDVI Processed cities
+    processed_city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+                 'Colima','Delicias','Durango','Guadalajara',
+                 'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
+                 'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca',
+                 'Piedras Negras','Puebla','Quereatro','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
                  'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
     # city_list = ['CDMX']
@@ -255,7 +267,7 @@ if __name__ == "__main__":
     for city in gdf_mun.city.unique():
         # Process each available city
         # if (city not in processed_city_list) and (city not in skip_list):
-        if (city not in city_list) and (city not in skip_list):
+        if (city not in processed_city_list) and (city not in skip_list):
     #---------------------------------------
             aup.log(f'\n Starting city {city}')
 
