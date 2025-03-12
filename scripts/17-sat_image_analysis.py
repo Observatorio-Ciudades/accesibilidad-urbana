@@ -196,14 +196,15 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    # band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
-    #                   'swir16':[False], #If GSD(resolution) of band is different, set True.
-    #                  'eq':['(nir-swir16)/(nir+swir16)']}
-    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
-                       'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-red)/(nir+red)']}
-    index_analysis = 'ndvi'
+    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
+                       'swir16':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-swir16)/(nir+swir16)']}
+    # band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+    #                    'red':[False], #If GSD(resolution) of band is different, set True.
+    #                   'eq':['(nir-red)/(nir+red)']}
+    index_analysis = 'ndmi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
+    # tmp_dir = '/run/media/edgaregurrola/ext_ssd/Repos/observatorio-ciudades/accesibilidad-urbana/data/tmp_ndmi/'
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
@@ -211,9 +212,9 @@ if __name__ == "__main__":
     satellite = "sentinel-2-l2a"
     del_data = False
 
-    sat_query = {"eo:cloud_cover": {"lt": 10}}
+    sat_query = {"eo:cloud_cover": {"lt": 15}}
 
-    download_raster = False
+    download_raster = True
     data_to_hex = True
 
     local_save = False #------ Set True if test
@@ -222,6 +223,7 @@ if __name__ == "__main__":
     ###############################
     # Create folder to store city skip_list csv
     folder_dir = f'../data/processed/{index_analysis}_skip_city/'
+
     if os.path.exists(folder_dir) == False:
         os.mkdir(folder_dir)
 
@@ -255,31 +257,32 @@ if __name__ == "__main__":
         aup.log('Currently processed data:')
         aup.log(processed_city_dict)
         # temporary code to finish uploading Toluca
-        processed_city_dict['Toluca'].discard(11)
-        aup.log(processed_city_dict)
+        # processed_city_dict['Toluca'].discard(11)
+        # aup.log(processed_city_dict)
         pass
     except:
+        aup.log('Could not download preprocessed data')
         pass
 
     #---------------------------------------
     #------ Set following if test, else comment
     # NDMI processed cities
-    '''city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+    processed_city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
                  'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara','Guanajuato',
                  'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
                  'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Piedad',
                  'Piedras Negras','Poza Rica','Puebla','Reynosa','Queretaro','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
-                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']'''
+                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
     # NDVI Processed cities
-    processed_city_list = ['Acapulco','Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+    '''processed_city_list = ['Acapulco','Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
                  'Colima','Cuautla','Cuernavaca','Delicias','Durango','Ensenada','Guadalajara',
                  'Hermosillo','Juarez','La Paz','Laguna','Los Cabos','Los Mochis','Matamoros','Mexicali','Mazatlan',
                  'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Poza Rica',
                  'Piedras Negras','Puebla','Quereatro','Reynosa','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
                  'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora',
-                 'ZMVM']
+                 'ZMVM']'''
     # city_list = ['CDMX']
     # city_list = ['La Paz','Laguna','Leon','Los Cabos','Matamoros','Mazatlan','Merida','Monclova','Monterrey','Nogales','Nuevo Laredo']
     #for city in city_list:
@@ -288,7 +291,9 @@ if __name__ == "__main__":
     for city in gdf_mun.city.unique():
         # Process each available city
         # if (city not in processed_city_list) and (city not in skip_list):
-        if (city in processed_city_list) and ((city not in processed_city_dict.keys()) or
+        # if (city in processed_city_list) and ((city not in processed_city_dict.keys()) or
+        #     (len(processed_city_dict[city])<4)) and (city not in skip_list):
+        if ((city not in processed_city_dict.keys()) or
             (len(processed_city_dict[city])<4)) and (city not in skip_list):
     #---------------------------------------
             aup.log(f'\n Starting city {city}')
@@ -298,7 +303,7 @@ if __name__ == "__main__":
                 main(index_analysis, city, band_name_dict, start_date,
                     end_date, freq, satellite,
                     query_sat=sat_query, save_db=save_db, local_save=local_save,
-                    del_data=del_data, download_raster=False,
+                    del_data=del_data, download_raster=download_raster,
                     data_to_hex=data_to_hex, processed_data=processed_city_dict)
 
             # Except, register failure (Unsuccessful city)
