@@ -173,17 +173,19 @@ def socio_polygon_to_points(
 	column_start=0,
 	column_end=-1,
 	cve_column="CVEGEO",
-	avg_column=None,
+	no_distr_cols=None,
 ):
 	"""
 	Assign the proportion of sociodemographic data from polygons to points
 	Arguments:
 		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each AGEB
+		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each polygon (e.g. AGEB)
 		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
 		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
-		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
-		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
+		cve_column (str, optional): Column name with unique code for identifying each poly in gdf_socio. Defaults to "CVEGEO".
+		no_distr_cols (list, optional): List containing column names whose data should not be divided by the number of nodes within each polygon.
+	                                    (e.g. Average level of schooling in a polygon should not be distributed between the nodes, but passed. Total population should be distributed). Defaults to None.
+		Column name list with data to not divide. Defaults to None.
 	Returns:
 		nodes (GeoDataFrame):  Shows the proportion of population by nodes in the AGEB
 	"""
@@ -191,25 +193,31 @@ def socio_polygon_to_points(
 	if column_end == -1:
 		column_end = len(list(gdf_socio.columns))
 
-	if avg_column is None:
-		avg_column = []
-	totals = (
-		gpd.sjoin(nodes, gdf_socio)
-		.groupby(cve_column)
-		.count()
-		.rename(columns={"x": "nodes_in"})[["nodes_in"]]
-		.reset_index()
-	)  # caluculate the totals
-	# get a temporal dataframe with the totals and columns
+	if no_distr_cols is None:
+		no_distr_cols = []
+	
+	# Count the number of nodes in each polygon
+	totals = (gpd.sjoin(nodes, gdf_socio) # <-- Creates a gdf where each node has every gdf_socio col (including cve_column)
+		   .groupby(cve_column) # <-- Groups all data by cve_column
+		   .count() # <-- Counts the number of nodes in each cve_column (e.g. one AGEB with 100 nodes)
+		   .rename(columns={"x": "nodes_in"})[["nodes_in"]] # <-- Assuming that 'x' is a col in 'nodes', renames data (counted nodes) to "nodes_in" and keeps that col only
+		   .reset_index() # <-- Resets index (.groupby(cve_column) sets that col as index, restores it as col)
+		   ) # Result: a df with [cve_column, nodes_in] where each row is an polygon and 'nodes_in' is the number of nodes in that polygon
+
+	# Merge to create temporal dataframe with the gdf_socio data and total number of nodes (nodes_in)
 	temp = pd.merge(gdf_socio, totals, on=cve_column)
-	# get the average for the values
+
+	# Distribute the values of each polygon using the number of nodes within it (except for those in no_distr_cols, which are not distributed)
 	for col in temp.columns.tolist()[column_start:column_end]:
-		if col not in avg_column:
+		if col not in no_distr_cols:
 			temp[col] = temp[col] / temp["nodes_in"]
+
+	# Join the nodes with the values and drop columns
 	temp = temp.set_crs("EPSG:4326")
 	nodes = gpd.sjoin(nodes, temp)
-	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)  # drop the nodes_in column
-	return nodes  # spatial join the nodes with the values
+	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)
+
+	return nodes
 
 def socio_points_to_polygon(
 	gdf_polygon,
@@ -223,15 +231,14 @@ def socio_points_to_polygon(
 
 	"""Group sociodemographic point data in polygons
     Arguments:
-        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
+        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped (e.g. hexs)
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
-        cve_column (str): Column name with polygon id in gdf_polygon.
+        cve_column (str): Column name with polygon id in gdf_polygon (e.g. hex_id_{res})
         string_columns (list): List with column names for string data in gdf_socio.
-		count_pois (tuple): 
         wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
         avg_column (list, optional): List with column names with average data. Defaults to None.
-		include_nearest (tuple,optional): tuple containing boolean. If False, ignores points that fall outside gdf_polygon.
-																	If True, find closest poly vertex to point and assigns the point to it.
+		include_nearest (tuple,optional): tuple containing boolean. If False, completely ignores points that fall outside all gdf_polygon.
+																	If True, for each point that fell outside the polys, finds closest poly vertex and assigns the point to that poly.
 																	Defaults to (False, '_')
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
     Returns:
@@ -239,10 +246,12 @@ def socio_points_to_polygon(
 
 	"""
 
+	# Create empty list to store data before converting to DataFrame (output)
 	dictionary_list = []
 	# Adds census data from points to polygon
 	gdf_tmp_1 = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
 	
+	# Consider (or not) points that fall outside the polys in gdf_polygon
 	if include_nearest[0]:
 		points_id =  include_nearest[1]
         # Find points of gdf_socio that were left outside gdf_polygon by merging gdf_socio and gdf_tmp_1
@@ -258,33 +267,36 @@ def socio_points_to_polygon(
 		gdf2 = gdf_poly_edges.to_crs(projected_crs)
 		nearest = gpd.sjoin_nearest(gdf1, gdf2,lsuffix="left", rsuffix="right")
 		gdf_tmp_2 = nearest.to_crs('EPSG:4326')
-		
+		# Concatenate gdf_tmp_1 (points inside polys) and gdf_tmp_2 (points outside polys)
 		gdf_tmp = pd.concat([gdf_tmp_1,gdf_tmp_2])
-	
 	else:
 		gdf_tmp = gdf_tmp_1.copy()
 
-	# convert data types
+	# Convert data types according to string columns (non-string columns become numeric_columns)
 	all_columns = list(gdf_socio.columns)
 	numeric_columns = [x for x in all_columns if x not in string_columns]
 	type_dict = {"string": string_columns, "float": numeric_columns}
 	gdf_tmp = convert_type(gdf_tmp, type_dict)
 
-	#group sociodemographic points to polygon
+	# Group sociodemographic points to polygon
 	for idx in gdf_tmp[cve_column].unique():
-
+		# Filters data by polygon (cve_column)
 		socio_filter = gdf_tmp.loc[gdf_tmp[cve_column]==idx].copy()
-
-		dict_tmp = group_sociodemographic_data(socio_filter, numeric_columns,
-		avg_column=avg_column, avg_dict=wgt_dict)
-		
+		# Groups data
+		dict_tmp = group_sociodemographic_data(socio_filter,
+										 numeric_columns,
+										 avg_column=avg_column, 
+										 avg_dict=wgt_dict
+										 )
+		# Indicates polygon id
 		dict_tmp[cve_column] = idx
-		
+		# Appends data to dictionary list
 		dictionary_list.append(dict_tmp)
-	
+	# Creates DataFrame from dictionary list
 	data = pd.DataFrame.from_dict(dictionary_list)
 
 	return data
+
 
 def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None):
 	
@@ -1086,7 +1098,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
-								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC, has no equations.
+								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC(2020) / PCON_LIM(2010), has no equations.
 	"""
 	
 	##########################################################################################
@@ -1207,8 +1219,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 						 'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
 						 'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
 						 'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-						 'REL_H_M','POB0_14','POB15_64','POB65_MAS',
-						 'PCON_DISC'] #PCON_DISC was added later
+						 'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+		if year == "2010":
+			columns_of_interest.append('PCON_LIM')
+		elif year == "2020":
+			columns_of_interest.append('PCON_DISC')
 		
 		# Why to keep two dfs with pop_mza_gdf data from the current AGEB:
 		# --> 'mza_ageb_gdf' stores all data from pop_mza_gdf for the current AGEB.

@@ -638,7 +638,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',spe
     for col in edges.columns:
         if any(isinstance(val, list) for val in edges[col]):
             edges[col] = edges[col].astype('string')
-            print(f"Column: {col} in nodes gdf, has a list in it, the column data was converted to string.")
+            print(f"Column: {col} in edges gdf, has a list in it, the column data was converted to string.")
 
     # Final format
     nodes_gdf = nodes.set_crs("EPSG:4326")
