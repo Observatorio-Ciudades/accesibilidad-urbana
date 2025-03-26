@@ -51,7 +51,8 @@ download_raster=True, data_to_hex=False, processed_data={}):
         # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
         df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
                                             start_date, end_date, tmp_dir, band_name_dict,
-                                            query=query_sat, satellite = satellite)
+                                            query=query_sat, satellite = satellite,
+                                            compute_unavailable_dates=False) # Determine whether to interpolate dates
 
         aup.log(f'Finished downloading and processing rasters for {city}')
     else:
@@ -162,6 +163,8 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
         aup.gdf_to_db_slow(hex_raster_analysis, f'{index_analysis}_analysis_hex',
                             'raster_analysis', if_exists='append')
 
+        # Removed process since dissagregated hexagon data isn't uploaded anymore
+
         # if r == 8:
             # df upload
             # aup.df_to_db_slow(df_raster_analysis, f'{index_analysis}_complete_dataset_hex',
@@ -196,22 +199,28 @@ if __name__ == "__main__":
     aup.log('--'*20)
     aup.log('Starting script')
 
-    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
-                       'swir16':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-swir16)/(nir+swir16)']}
-    # band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
-    #                    'red':[False], #If GSD(resolution) of band is different, set True.
-    #                   'eq':['(nir-red)/(nir+red)']}
-    index_analysis = 'ndmi'
-    tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    # tmp_dir = '/run/media/edgaregurrola/ext_ssd/Repos/observatorio-ciudades/accesibilidad-urbana/data/tmp_ndmi/'
+    # band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
+    #                   'swir16':[False], #If GSD(resolution) of band is different, set True.
+    #                  'eq':['(nir-swir16)/(nir+swir16)']}
+    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+                        'red':[False], #If GSD(resolution) of band is different, set True.
+                       'eq':['(nir-red)/(nir+red)']}
+    # band_name_dict = {'lwir11':[False],
+    #                  'eq':["((lwir11*0.00341802) + 149.0)-273.15"]}
+
+    index_analysis = 'ndvi'
+    # tmp_dir = f'../data/processed/tmp_{index_analysis}/'
+    tmp_dir = f'/mnt/ext_ssd/Repos/observatorio-ciudades/accesibilidad-urbana/data/tmp_{index_analysis}/'
     res = [8,11] # 8, 11
     freq = 'MS'
     start_date = '2018-01-01'
     end_date = '2023-12-31'
+    # satellite = "landsat-c2-l2"
     satellite = "sentinel-2-l2a"
     del_data = False
 
+    # sat_query = {"eo:cloud_cover": {"lt": 15},
+    #               "platform": {"in": ["landsat-8", "landsat-9"]}}
     sat_query = {"eo:cloud_cover": {"lt": 15}}
 
     download_raster = True
@@ -267,13 +276,13 @@ if __name__ == "__main__":
     #---------------------------------------
     #------ Set following if test, else comment
     # NDMI processed cities
-    processed_city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
+    '''processed_city_list = ['Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
                  'Colima','Culiacan','Delicias','Durango','Ensenada','Guadalajara','Guanajuato',
                  'Hermosillo','La Paz','Laguna','Los Cabos','Matamoros','Mexicali','Mazatlan',
                  'Monclova','Monterrey','Nogales','Nuevo Laredo','Oaxaca','Pachuca','Piedad',
                  'Piedras Negras','Poza Rica','Puebla','Reynosa','Queretaro','San Martin','Tapachula',
                  'Tehuacan','Tepic','Tijuana','Tlaxcala','Toluca','Tulancingo','Tuxtla',
-                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']
+                 'Uruapan','Vallarta','Victoria','Villahermosa','Xalapa','Zacatecas','Zamora']'''
     # NDVI Processed cities
     '''processed_city_list = ['Acapulco','Aguascalientes','CDMX','Chihuahua','Chilpancingo','Ciudad Obregon',
                  'Colima','Cuautla','Cuernavaca','Delicias','Durango','Ensenada','Guadalajara',
