@@ -5,10 +5,7 @@ script_directory = Path(__file__).resolve().parent
 
 load_dotenv(script_directory /'.env')
 
-<<<<<<< Updated upstream
-=======
 #load_dotenv('../../../')
->>>>>>> Stashed changes
 
 """Global settings, can be configured by user with utils.config()."""
 
