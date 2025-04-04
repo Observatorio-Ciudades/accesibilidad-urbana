@@ -46,3 +46,4 @@ aup.egg-info/
 
 # env
 *.env
+notebooks/Predictor_uso_de_suelo/843_buildings.csv.gz
