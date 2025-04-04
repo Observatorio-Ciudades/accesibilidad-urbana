@@ -7,6 +7,10 @@ load_dotenv(script_directory /'.env')
 
 #load_dotenv('../../../')
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1a332bbab5f5c27d0639afbd859c4ec088640fe3
 """Global settings, can be configured by user with utils.config()."""
 
 import logging as lg
