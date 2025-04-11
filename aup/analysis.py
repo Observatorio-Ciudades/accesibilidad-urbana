@@ -128,39 +128,40 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	return nodes
 
 
-def group_by_hex_mean(nodes, hex_bins, resolution, group_column_names, hex_column_id, osmid=True):
+def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexbins
-		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
-		group_column_names (str,list): column name or list of column names to group with
-		hex_column_id (str): column name with the hex_id
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes with data to group.
+		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexs where data will be grouped.
+		group_column_names (str,list): column name or list of column names to group where data will be changed to 1 if 0 to differentiate from NaNs.
+		hex_id_col (str): column name with the hex_id.
+		osmid (bool, optional): If True, osmid column will be dropped. Defaults to True.
 
 	Returns:
-		geopandas.GeoDataFrame:  GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
+		geopandas.GeoDataFrame:  GeoDataFrame with hex_id_col, geometry and average distance to each amenity for each hexbin
 	"""
-	dist_col = group_column_names
+	
+	# Copy data to avoid editing originals
+	substitute_cols = group_column_names
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	# Group data by hex_id
 	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
-	nodes_hex = nodes_in_hex.groupby([hex_column_id]).mean()
+	nodes_hex = nodes_in_hex.groupby([hex_id_col]).mean()
 	# Merge back to geometry
-	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_column_id,how = 'outer')
+	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_id_col,how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
 	else:
 		hex_new = hex_new.drop(['index_right'],axis=1)
-	
-	# Check for NaN values
-	if type(dist_col) == list:
-		for dc in dist_col:
-			hex_new[dc].apply(lambda x: x+1 if x==0 else x )
+	# Susbstitute 0 for 1 in order to differentiate from NaNs
+	if type(substitute_cols) == list:
+		for col in substitute_cols:
+			hex_new[col].apply(lambda x: x+1 if x==0 else x)
 	else:
-		hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
+		hex_new[substitute_cols].apply(lambda x: x+1 if x==0 else x)
 	# Fill NaN values
 	hex_new.fillna(0, inplace=True)
 	
@@ -172,17 +173,19 @@ def socio_polygon_to_points(
 	column_start=0,
 	column_end=-1,
 	cve_column="CVEGEO",
-	avg_column=None,
+	no_distr_cols=None,
 ):
 	"""
 	Assign the proportion of sociodemographic data from polygons to points
 	Arguments:
 		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each AGEB
+		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each polygon (e.g. AGEB)
 		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
 		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
-		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
-		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
+		cve_column (str, optional): Column name with unique code for identifying each poly in gdf_socio. Defaults to "CVEGEO".
+		no_distr_cols (list, optional): List containing column names whose data should not be divided by the number of nodes within each polygon.
+	                                    (e.g. Average level of schooling in a polygon should not be distributed between the nodes, but passed. Total population should be distributed). Defaults to None.
+		Column name list with data to not divide. Defaults to None.
 	Returns:
 		nodes (GeoDataFrame):  Shows the proportion of population by nodes in the AGEB
 	"""
@@ -190,25 +193,31 @@ def socio_polygon_to_points(
 	if column_end == -1:
 		column_end = len(list(gdf_socio.columns))
 
-	if avg_column is None:
-		avg_column = []
-	totals = (
-		gpd.sjoin(nodes, gdf_socio)
-		.groupby(cve_column)
-		.count()
-		.rename(columns={"x": "nodes_in"})[["nodes_in"]]
-		.reset_index()
-	)  # caluculate the totals
-	# get a temporal dataframe with the totals and columns
+	if no_distr_cols is None:
+		no_distr_cols = []
+	
+	# Count the number of nodes in each polygon
+	totals = (gpd.sjoin(nodes, gdf_socio) # <-- Creates a gdf where each node has every gdf_socio col (including cve_column)
+		   .groupby(cve_column) # <-- Groups all data by cve_column
+		   .count() # <-- Counts the number of nodes in each cve_column (e.g. one AGEB with 100 nodes)
+		   .rename(columns={"x": "nodes_in"})[["nodes_in"]] # <-- Assuming that 'x' is a col in 'nodes', renames data (counted nodes) to "nodes_in" and keeps that col only
+		   .reset_index() # <-- Resets index (.groupby(cve_column) sets that col as index, restores it as col)
+		   ) # Result: a df with [cve_column, nodes_in] where each row is an polygon and 'nodes_in' is the number of nodes in that polygon
+
+	# Merge to create temporal dataframe with the gdf_socio data and total number of nodes (nodes_in)
 	temp = pd.merge(gdf_socio, totals, on=cve_column)
-	# get the average for the values
+
+	# Distribute the values of each polygon using the number of nodes within it (except for those in no_distr_cols, which are not distributed)
 	for col in temp.columns.tolist()[column_start:column_end]:
-		if col not in avg_column:
+		if col not in no_distr_cols:
 			temp[col] = temp[col] / temp["nodes_in"]
+
+	# Join the nodes with the values and drop columns
 	temp = temp.set_crs("EPSG:4326")
 	nodes = gpd.sjoin(nodes, temp)
-	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)  # drop the nodes_in column
-	return nodes  # spatial join the nodes with the values
+	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)
+
+	return nodes
 
 def socio_points_to_polygon(
 	gdf_polygon,
@@ -222,15 +231,14 @@ def socio_points_to_polygon(
 
 	"""Group sociodemographic point data in polygons
     Arguments:
-        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
+        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped (e.g. hexs)
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
-        cve_column (str): Column name with polygon id in gdf_polygon.
+        cve_column (str): Column name with polygon id in gdf_polygon (e.g. hex_id_{res})
         string_columns (list): List with column names for string data in gdf_socio.
-		count_pois (tuple): 
         wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
         avg_column (list, optional): List with column names with average data. Defaults to None.
-		include_nearest (tuple,optional): tuple containing boolean. If False, ignores points that fall outside gdf_polygon.
-																	If True, find closest poly vertex to point and assigns the point to it.
+		include_nearest (tuple,optional): tuple containing boolean. If False, completely ignores points that fall outside all gdf_polygon.
+																	If True, for each point that fell outside the polys, finds closest poly vertex and assigns the point to that poly.
 																	Defaults to (False, '_')
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
     Returns:
@@ -238,10 +246,12 @@ def socio_points_to_polygon(
 
 	"""
 
+	# Create empty list to store data before converting to DataFrame (output)
 	dictionary_list = []
 	# Adds census data from points to polygon
 	gdf_tmp_1 = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
 	
+	# Consider (or not) points that fall outside the polys in gdf_polygon
 	if include_nearest[0]:
 		points_id =  include_nearest[1]
         # Find points of gdf_socio that were left outside gdf_polygon by merging gdf_socio and gdf_tmp_1
@@ -257,33 +267,36 @@ def socio_points_to_polygon(
 		gdf2 = gdf_poly_edges.to_crs(projected_crs)
 		nearest = gpd.sjoin_nearest(gdf1, gdf2,lsuffix="left", rsuffix="right")
 		gdf_tmp_2 = nearest.to_crs('EPSG:4326')
-		
+		# Concatenate gdf_tmp_1 (points inside polys) and gdf_tmp_2 (points outside polys)
 		gdf_tmp = pd.concat([gdf_tmp_1,gdf_tmp_2])
-	
 	else:
 		gdf_tmp = gdf_tmp_1.copy()
 
-	# convert data types
+	# Convert data types according to string columns (non-string columns become numeric_columns)
 	all_columns = list(gdf_socio.columns)
 	numeric_columns = [x for x in all_columns if x not in string_columns]
 	type_dict = {"string": string_columns, "float": numeric_columns}
 	gdf_tmp = convert_type(gdf_tmp, type_dict)
 
-	#group sociodemographic points to polygon
+	# Group sociodemographic points to polygon
 	for idx in gdf_tmp[cve_column].unique():
-
+		# Filters data by polygon (cve_column)
 		socio_filter = gdf_tmp.loc[gdf_tmp[cve_column]==idx].copy()
-
-		dict_tmp = group_sociodemographic_data(socio_filter, numeric_columns,
-		avg_column=avg_column, avg_dict=wgt_dict)
-		
+		# Groups data
+		dict_tmp = group_sociodemographic_data(socio_filter,
+										 numeric_columns,
+										 avg_column=avg_column, 
+										 avg_dict=wgt_dict
+										 )
+		# Indicates polygon id
 		dict_tmp[cve_column] = idx
-		
+		# Appends data to dictionary list
 		dictionary_list.append(dict_tmp)
-	
+	# Creates DataFrame from dictionary list
 	data = pd.DataFrame.from_dict(dictionary_list)
 
 	return data
+
 
 def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None):
 	
@@ -832,7 +845,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, count_pois=(False,0), projected_crs="EPSG:6372",
 			  preprocessed_nearest=(False,'dir')):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
@@ -845,7 +858,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 							If "length", will use walking speed.
 							If "time_min", edges with time information must be provided.
 		walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
-							   or if prox_measure="time_min" but needing to fill time_min NaNs.
+							   or if prox_measure="time_min" but needing to fill time_min NaNs. Defaults to 4 (km/hr).
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
@@ -858,7 +871,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 	# Helps by printing steps to find solutions (If using, make sure test_save_dir exists.)
 	test_save = False
-	test_save_dir = "../data/external/debugging/pois_time/"
+	test_save_dir = "../data/debugging/pois_time/"
 
     ##########################################################################################
     # STEP 1: NEAREST. 
@@ -877,12 +890,12 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 
-		# As no amenities were found, output columns are set to nan.
+		# As no amenities were found, time columns are set to nan, while count columns are set to 0.
 		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
 		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
 		if count_pois[0]: 
-			nodes_time[f'{poi_name}_{count_pois[1]}min'] = np.nan # If requested pois_count, value is set to np.nan.
-			print(f"0 {poi_name} found. Pois count set to nan for all nodes.")
+			nodes_time[f'{poi_name}_{count_pois[1]}min'] = 0 # If requested pois_count, value is set to 0.
+			print(f"0 {poi_name} found. Pois count set to 0 for all nodes.")
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
 			return nodes_time
 		else:
@@ -920,7 +933,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
 		else:
-			# NaNs in time_min? --> Use walking speed
+			# NaNs in time_min? --> Use specified walking speed (defaults to 4km/hr) to calculate time_min.
 			no_time = len(edges.loc[edges['time_min'].isna()])
 			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
 			print(f"Calculated time for {no_time} edges that had no time data.")
@@ -930,8 +943,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		
 		# -----
 		if test_save:
-			nodes.to_file(test_save_dir + f"nodes_{poi_name}.geojson", driver='GeoJSON')
-			edges.to_file(test_save_dir + f"edges_{poi_name}.geojson", driver='GeoJSON')
+			nodes.to_file(test_save_dir + f"01_nodes_{poi_name}.geojson", driver='GeoJSON')
+			edges.to_file(test_save_dir + f"01_edges_{poi_name}.geojson", driver='GeoJSON')
 		# -----
 
 		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
@@ -939,7 +952,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_analysis.to_file(test_save_dir + f"empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
+			nodes_analysis.to_file(test_save_dir + f"02_empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
 		# -----
 
 		# nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
@@ -947,7 +960,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_time.to_file(test_save_dir + f"empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
+			nodes_time.to_file(test_save_dir + f"03_empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
 		# -----
 
 		# --------------- 2.3 PROCESSING DISTANCE
@@ -961,7 +974,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if (len(nearest) % 250)==0:
 			batch_size = len(nearest)/200
 			for k in range(int(batch_size)+1):
-				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
+				print(f"Starting batch200 k={k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
 				source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
@@ -971,7 +984,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				
 				# -----
 				if test_save:
-					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
+					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
 				# -----
 
 				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
@@ -986,6 +999,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 					poiscount_cols.append(batch_poiscount_col)
 					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
+					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
 					
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -999,7 +1014,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		else:
 			batch_size = len(nearest)/250
 			for k in range(int(batch_size)+1):
-				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
+				print(f"Starting batch250 k={k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
 				source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
@@ -1009,7 +1024,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 				# -----
 				if test_save:
-					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
+					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
 				# -----
 
 				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
@@ -1024,6 +1039,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 					poiscount_cols.append(batch_poiscount_col)
 					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
+					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
 
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -1037,7 +1054,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_time.to_file(test_save_dir + f"nodes_time_{poi_name}.gpkg", driver='GPKG')
+			nodes_time.to_file(test_save_dir + f"05_nodes_time_{poi_name}.gpkg", driver='GPKG')
 		# -----
 
 		##########################################################################################
@@ -1067,19 +1084,21 @@ def weighted_average(df, weight_column, value_column):
 	return weighted_average
 
 
-def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
+def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False):
 	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
 		As of this version, if couldn't find all values, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
 	Args:
 		pop_ageb_gdf (geopandas.GeoDataFrame): GeoDataFrame with AGEB polygons containing pop data.
 		pop_mza_gdf (geopandas.GeoDataFrame): GeoDataFrame with block polygons containing pop data.
+		year (str): String that contains the year of the AGEBs and blocks population data. 
+					Function has additional steps for year="2020".
 		extended_logs (bool, optional): Boolean - if true prints statistical logs while processing for each AGEB.
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
-								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC.
+								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC(2020) / PCON_LIM(2010), has no equations.
 	"""
 	
 	##########################################################################################
@@ -1087,8 +1106,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	print("INSPECTING AGEBs.")
 
 	# --------------- 1.1 SET COLUMNS TO .UPPER() EXCEPT FOR GEOMETRY
-	# (When the equations were written, we used UPPER names, easier to read and also
-	# easier to change it this way and then return output with .lower columns)
+	# (Equations were written using tables where UPPER names were used. Output is returned in .lower)
 	pop_ageb_gdf = pop_ageb_gdf.copy()
 	pop_ageb_gdf.columns = pop_ageb_gdf.columns.str.upper()
 	pop_ageb_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
@@ -1097,10 +1115,53 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	pop_mza_gdf.columns = pop_mza_gdf.columns.str.upper()
 	pop_mza_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
 
-	# --------------- 1.2 CHECK FOR DIFFERENCES IN AGEBs
-	# Look for AGEBs in both gdfs
-	agebs_in_ageb_gdf = list(pop_ageb_gdf['CVE_AGEB'].unique())
-	agebs_in_mza_gdf = list(pop_mza_gdf['CVE_AGEB'].unique())
+	# --------------- 1.2 CHECK FOR UNIQUE AGEBs DIFFERENCES
+	# Look for all unique AGEBs in both gdfs
+	agebs_in_ageb_gdf = list(pop_ageb_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
+	agebs_in_mza_gdf = list(pop_mza_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
+	if year == '2020':
+		# ADDITIONAL STEP - BLOCKS_800 EXPLANATION: 
+		# In 2020 INEGI created a category for blocks that do not have a geometry assigned to them.
+		# These are called "Caserío urbano disperso" and have population assigned to them.
+		# Here, they are loaded because their data plays part finding missing AGEBs 
+		# and in the calculation of nan values using AGEBs data (Step 2.4).
+		# BLOCKS_800 - Load and format blocks_800
+		blocks_800_df = pd.read_csv("../data/external/census/census_2020_blocks800.csv")
+		blocks_800_df.columns = blocks_800_df.columns.str.upper()
+		# BLOCKS_800 - Filter for current municipalities
+		muns_in_agebs_gdf = list(pop_ageb_gdf.CVEGEO_MUN.unique())
+		muns_in_mza_gdf = list(pop_mza_gdf.CVEGEO_MUN.unique())
+		municipalities_lst =  set(muns_in_agebs_gdf+muns_in_mza_gdf)
+		municipalities_int_lst = [int(munic) for munic in municipalities_lst]
+		blocks_800_df = blocks_800_df.loc[blocks_800_df.CVEGEO_MUN.isin(municipalities_int_lst)].copy()
+		if len(blocks_800_df)>0:
+			blocks_800_present = True #Checker
+			print(f"FOUND {len(blocks_800_df)} blocks_800 in current municipalities.")
+			# BLOCKS_800 - Identify which blocks_800 have an AGEB
+			agebs_in_blocks800df = list(blocks_800_df['CVEGEO_AGEB'].unique())
+			complementary_blocks800_agebslst = [] #Will be added
+			blocks800_only = [] #Will NOT be added
+			for ageb in agebs_in_blocks800df:
+				if ageb in agebs_in_ageb_gdf:
+					complementary_blocks800_agebslst.append(ageb) #List of AGEBs from blocks_800 available in pop_ageb_gdf.
+				else:
+					blocks800_only.append(ageb) #List of AGEBs from blocks_800 NOT available in pop_ageb_gdf.
+
+			# BLOCKS_800 - Add blocks_800 only for those that have an AGEB in pop_ageb_gdf.
+			complementary_blocks800 = blocks_800_df.loc[blocks_800_df.CVEGEO_AGEB.isin(complementary_blocks800_agebslst)].copy()
+			print(f"ADDED {len(complementary_blocks800)} blocks_800 for {len(complementary_blocks800_agebslst)} AGEBs.")
+			print("Printing AGEBs with blocks_800 list:")
+			print(complementary_blocks800_agebslst)
+			# BLOCKS_800 - Show blocks_800 that have no AGEB (Won't be added.)
+			print(f"REMOVED blocks_800 from {len(blocks800_only)} other AGEBs not available in pop_gdf_ageb.")
+			print("Printing AGEBs from blocks_800 that won't be used.")
+			print(blocks800_only)
+		else:
+			blocks_800_present = False #Checker
+			print(f"Found zero blocks_800 in current municipalities.")
+	else:
+		blocks_800_present = False #Checker (There are no blocks 800 in 2010)
+
 
 	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
 		print("Error: Area of interest has no pop data.")
@@ -1109,8 +1170,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 	# Test for AGEBs present in mza_gdf but not in AGEB_gdf (could crash if unchecked)
 	missing_agebs = list(set(agebs_in_mza_gdf) - set(agebs_in_ageb_gdf))
 	if len(missing_agebs) > 0:
-		print(f'WARNING: AGEBs {missing_agebs} present in mza_gdf but missing from ageb_gdf.')
-		print(f'WARNING: Removing AGEBs {missing_agebs} from AGEB analysis.')
+		print(f'WARNING: {len(missing_agebs)} AGEBs present in mza_gdf but missing from ageb_gdf.')
+		print(f'WARNING: {len(missing_agebs)} AGEBs will not be part of AGEBs analysis. Printing missing AGEBs.')
+		print(missing_agebs)
+
 
 	##########################################################################################
 	# STEP 2: CALCULATE NAN VALUES
@@ -1124,11 +1187,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 	# --------------- 2.0 NaNs CALCULATION Start
 	i = 1
-	for ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB
+	for cvegeo_ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB in pop_mza_gdf
 
 		if extended_logs:
 			print('--'*20)
-			print(f'Calculating NaNs for AGEB {ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
+			print(f'Calculating NaNs for AGEB {cvegeo_ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
 		
 		# LOG CODE - Progress logs
 		# Measures current progress, prints if passed a checkpoint of progress_logs list.
@@ -1140,27 +1203,40 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 				break
 
 		# --------------- 2.1 FIND CURRENT AGEB BLOCK DATA
-		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVE_AGEB'] == ageb].copy()
+		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVEGEO_AGEB'] == cvegeo_ageb].copy() #Previously 'CVE_AGEB'
 
 		# --------------- 2.2 KEEP OUT OF THE PROCESS ROWS WHICH HAVE 0 VALUES (Blocks where ALL values are NaNs)
 		# 2.2a) Set columns to be analysed
-		columns_of_interest = ['POBFEM','POBMAS',
-							'P_0A2','P_0A2_F','P_0A2_M',
-							'P_3A5','P_3A5_F','P_3A5_M',
-							'P_6A11','P_6A11_F','P_6A11_M',
-							'P_12A14','P_12A14_F','P_12A14_M',
-							'P_15A17','P_15A17_F','P_15A17_M',
-							'P_18A24','P_18A24_F','P_18A24_M',
-							'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
-							'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
-							'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
-							'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
-							'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-							'REL_H_M','POB0_14','POB15_64','POB65_MAS',
-							'PCON_DISC'] #Added later
-		blocks = mza_ageb_gdf[['CVEGEO','POBTOT'] + columns_of_interest].copy()
+		columns_of_interest = ['POBTOT','POBFEM','POBMAS',
+						 'P_0A2','P_0A2_F','P_0A2_M',
+						 'P_3A5','P_3A5_F','P_3A5_M',
+						 'P_6A11','P_6A11_F','P_6A11_M',
+						 'P_12A14','P_12A14_F','P_12A14_M',
+						 'P_15A17','P_15A17_F','P_15A17_M',
+						 'P_18A24','P_18A24_F','P_18A24_M',
+						 'P_60YMAS','P_60YMAS_F','P_60YMAS_M',
+						 'P_3YMAS','P_3YMAS_F','P_3YMAS_M',
+						 'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
+						 'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
+						 'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
+						 'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+		if year == "2010":
+			columns_of_interest.append('PCON_LIM')
+		elif year == "2020":
+			columns_of_interest.append('PCON_DISC')
 		
-		# 2.2b) Find rows with nan values and sum of nan values
+		# Why to keep two dfs with pop_mza_gdf data from the current AGEB:
+		# --> 'mza_ageb_gdf' stores all data from pop_mza_gdf for the current AGEB.
+		# --> 'blocks' stores pop data only and gets split into blocks_values and blocks_nans ahead, which get edited during the process.
+		blocks = mza_ageb_gdf[['CVEGEO_MZA'] + columns_of_interest].copy() #Previously 'CVEGEO'
+
+		# BLOCKS 800 - Consider posible blocks 800 on current AGEB
+		if blocks_800_present:
+			mza800_ageb_df = complementary_blocks800.loc[complementary_blocks800['CVEGEO_AGEB'] == cvegeo_ageb].copy()
+			mza800_ageb_df = mza800_ageb_df[['CVEGEO_MZA'] + columns_of_interest].copy()
+			blocks = pd.concat([blocks,mza800_ageb_df])
+		
+		# 2.2b) Find rows with nan values and total amount of values available per row (found_values)
 		blocks['found_values'] = 0
 		checker_cols = []
 
@@ -1171,10 +1247,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			blocks[col] = pd.to_numeric(blocks[col])
 			# Set checker column to 'exist' (1)
 			blocks[checker_col] = 1
-			# If it doesn't exist, set that row's check to (0)
+			# For each row, if value doesn't exist (NaN), set that row's checker to (0)
 			idx = blocks[col].isna()
 			blocks.loc[idx, checker_col] = 0
-			# Add checker column to checker_cols list
+			# Add checker column to checker_cols list (To remove it later)
 			checker_cols.append(checker_col)
 		
 		# Sum total number of identified nan values by row
@@ -1182,13 +1258,17 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		# Drop checker columns
 		blocks.drop(columns=checker_cols, inplace=True)
 		
-		# 2.2c) Loc rows with values in columns_of_interest (In these rows, NaNs calculation is possible)
+		# 2.2c) Loc rows with values in columns_of_interest 
+		# (In these rows, NaNs calculation is possible)
 		blocks_values = blocks.loc[blocks['found_values'] > 0].copy()
 		blocks_values.drop(columns=['found_values'],inplace=True)
+		blocks_values.reset_index(inplace=True,drop=True) #Reset index before NaN calculation to make sure there are no duplicated indexes.
 		
-		# 2.2d) Save rows with 0 values for later. (In these rows, can't calculate NaNs, must distribute values)
+		# 2.2d) Save rows with 0 values for later. 
+		# (In these rows, can't calculate NaNs since everything is NaN. Will be returned to output as it is)
 		blocks_nans = blocks.loc[blocks['found_values'] == 0].copy()
 		blocks_nans.drop(columns=['found_values'],inplace=True)
+		blocks_nans.reset_index(inplace=True,drop=True)
 
 		del blocks
 
@@ -1209,7 +1289,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		"""
 
 		if extended_logs:
-			print(f'Calculating NaNs using block data for AGEB {ageb}.')
+			print(f'Calculating NaNs using block data for AGEB {cvegeo_ageb}.')
 
 		# 2.3a) Count current (original) nan values
 		original_nan_values = int(blocks_values.isna().sum().sum())
@@ -1390,33 +1470,30 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
 		
-		# 2.3f) Join back blocks with values with blocks without values
-		blocks_calc = pd.concat([blocks_values,blocks_nans])
-		
 		# --------------- 2.4 CALCULATE NaN values using AGEBs.
   		# For the nan values that couldn't be solved, distributes AGEB data.
 		"""
-		This is the second important sub-step towards filling missing values. It's meant to be a temporary solution while a more accurate solution is built.
+		This is the second important sub-step towards filling missing values. 
+		It's meant to be a temporary solution while a more accurate solution is built.
 		
 		It fills the remaining NaNs by distributing the known AGEB data into each of the blocks inside each AGEB, using POBTOT as an indicator 
-		to the amount of each age group to be distributed. Blocks which originaly had no data (NaN values only), remain empty.
+		to the amount of each age group to be distributed. Blocks which originaly had no data on POBTOT remain empty.
 		"""
 		
 		# 2.4a) Prepare for second loop
-		# Remove masc/fem relation from analysis as it complicates this and further processes
-    	# If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)
-		ageb_filling_cols = columns_of_interest.copy()
-		ageb_filling_cols.remove('REL_H_M')
-		blocks_calc.drop(columns=['REL_H_M'],inplace=True)
+		# Masc/fem relation helped find NaN values in blocks but it complicates this and further processes
+		# Remove masc/fem relation from analysis [If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)]
+		columns_of_interest.remove('REL_H_M')
+		blocks_values.drop(columns=['REL_H_M'],inplace=True)
 
 		# If not in crash check from STEP 1:
-		if ageb not in missing_agebs:
+		if cvegeo_ageb not in missing_agebs:
 
 			if extended_logs:
-				print(f'Calculating NaNs using AGEB data for AGEB {ageb}.')
+				print(f'Calculating NaNs using AGEB data for AGEB {cvegeo_ageb}.')
 
 			# Locate AGEB data in pop_ageb_gdf (Total known data that should be found if adding all blocks data)
-			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVE_AGEB'] == ageb]
+			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVEGEO_AGEB'] == cvegeo_ageb] #Previously 'CVE_AGEB'
 
 			# LOG CODE - Statistics
 			# This log registers the solving method that was used to solve columns
@@ -1424,51 +1501,55 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			solved_using_ageb = 0 # for log statistics
 			
 			# 2.4b) Fill with AGEB values.
-			for col in ageb_filling_cols:
+			for col in columns_of_interest:
 				# Find number of nan values in current col
-				col_nan_values = blocks_calc.isna().sum()[col]
+				col_nan_values = blocks_values.isna().sum()[col]
 
-				# If there are no nan values left in col, does nothing.
+				# If there are no nan values left in col, does nothing.f
 				if col_nan_values == 0:
 					solved_using_blocks += 1 # for log statistics
 				
 				# Elif there is only one value left, assign missing value directly to cell.
-				elif col_nan_values == 1: 
+				elif col_nan_values == 1:
 					# Calculate missing value
 					ageb_col_value = ageb_gdf[col].unique()[0]
-					current_block_sum = blocks_calc[col].sum()
+					current_block_sum = blocks_values[col].sum()
 					missing_value = ageb_col_value - current_block_sum
 					# Add missing value to na cell in column
-					blocks_calc[col].fillna(missing_value,inplace=True)
+					blocks_values[col].fillna(missing_value,inplace=True)
 					solved_using_ageb += 1 # for log statistics
 				
 				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distributing indicator.
-				elif col_nan_values > 1:        
-					# Locate rows with NaNs in current col 
-					# This ensures POBTOT as a distributing indicator works for the missing data rows only
-					idx = blocks_calc[col].isna()
-					# Set distributing factor to 0
-					blocks_calc['dist_factor'] = 0
-					# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
-					blocks_calc.loc[idx,'dist_factor'] = (blocks_calc['POBTOT']) / blocks_calc.loc[idx]['POBTOT'].sum()
-					# Calculate missing value
-					ageb_col_value = ageb_gdf[col].unique()[0]
-					current_block_sum = blocks_calc[col].sum()
-					missing_value = ageb_col_value - current_block_sum
-					# Distribute missing value in those rows using POBTOT factor
-					blocks_calc[col].fillna(missing_value * blocks_calc['dist_factor'], inplace=True)
-					blocks_calc.drop(columns=['dist_factor'],inplace=True)
-					solved_using_ageb += 1 # for log statistics
+				elif col_nan_values > 1:
+					try:    
+						# Locate rows with NaNs in current col 
+						# This ensures POBTOT as a distributing indicator works for the missing data rows only
+						idx = blocks_values[col].isna()
+						# Set distributing factor to 0
+						blocks_values['dist_factor'] = 0
+						# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
+						blocks_values.loc[idx,'dist_factor'] = (blocks_values['POBTOT']) / blocks_values.loc[idx]['POBTOT'].sum()
+						# Calculate missing value
+						ageb_col_value = ageb_gdf[col].unique()[0]
+						current_block_sum = blocks_values[col].sum()
+						missing_value = ageb_col_value - current_block_sum
+						# Distribute missing value in those rows using POBTOT factor
+						blocks_values[col].fillna(missing_value * blocks_values['dist_factor'], inplace=True)
+						blocks_values.drop(columns=['dist_factor'],inplace=True)
+						solved_using_ageb += 1 # for log statistics
+					except:
+						print(f"CRASH ON COL: {col}.")
+						blocks_values.to_csv("../data/processed/pop_data/" + f"ageb_{cvegeo_ageb}_blocks_values.csv")
 
 			# LOG CODE - Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100 # for log statistics
-				pct_col_byagebs = (solved_using_ageb / len(ageb_filling_cols))*100 # for log statistics
+				pct_col_byblocks = (solved_using_blocks / len(columns_of_interest))*100 # for log statistics
+				pct_col_byagebs = (solved_using_ageb / len(columns_of_interest))*100 # for log statistics
 				print(f'{pct_col_byblocks}% of columns solved using block data only.')
 				print(f'{pct_col_byagebs}% of columns required AGEB filling.')
 		
 			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = ageb # for log statistics
+			acc_statistics.loc[i,'ageb'] = cvegeo_ageb # for log statistics
 			# Percentage of NaNs found using blocks gdf
 			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # for log statistics
 			# Columns which could be solved entirely using equations in block_gdf
@@ -1479,18 +1560,18 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			acc_statistics.loc[i,'unable_to_solve'] = 0 # for log statistics
 
 		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf) 
-			# EVERYTHING here is for log statistics
+			# EVERYTHING here is for log statistics ONLY
 			if extended_logs:
-				print(f"NANs on AGEB {ageb} cannot be calculated using AGEB data because it doesn't exist.")
+				print(f"NANs on AGEB {cvegeo_ageb} cannot be calculated using AGEB data because it doesn't exist.")
 
 			# Solving method used to solve column
 			solved_using_blocks = 0
 			unable_tosolve = 0
 			
 			# LOG CODE - Statistics - Register how columns where solved.
-			for col in ageb_filling_cols:
+			for col in columns_of_interest:
 				# Find number of nan values in current col
-				col_nan_values = blocks_calc.isna().sum()[col]
+				col_nan_values = blocks_values.isna().sum()[col]
 				# If there are no nan values left in col, pass.
 				if col_nan_values == 0:
 					solved_using_blocks += 1
@@ -1499,13 +1580,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 
 			# Logs Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(ageb_filling_cols))*100
-				pct_col_notsolved = (unable_tosolve / len(ageb_filling_cols))*100
+				pct_col_byblocks = (solved_using_blocks / len(columns_of_interest))*100
+				pct_col_notsolved = (unable_tosolve / len(columns_of_interest))*100
 				print(f"{pct_col_byblocks}% of columns solved using block data only.")
 				print(f"{pct_col_notsolved}% of columns couldn't be solved.")
 
 			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = ageb
+			acc_statistics.loc[i,'ageb'] = cvegeo_ageb
 			# Percentage of NaNs found using blocks gdf
 			acc_statistics.loc[i,'nans_calculated'] = nan_reduction
 			# Columns which could be solved entirely using equations in block_gdf
@@ -1516,16 +1597,20 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,extended_logs=False):
 			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve
 
 		# --------------- 2.5 Return calculated data to original block gdf for the current AGEB (mza_ageb_gdf)
-		# 2.5a) Change original cols for calculated cols
-		calculated_cols = ['POBTOT'] + ageb_filling_cols
-		mza_ageb_gdf = mza_ageb_gdf.drop(columns=calculated_cols) #Drops current block pop cols
-		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO') #Replaces with calculated (blocks_calc) cols
 
-		# 2.5b) Restore column order from original (input) block gdf
+		# 2.5a) Join back blocks with values with blocks without values
+		blocks_nans.drop(columns=['REL_H_M'],inplace=True)
+		blocks_calc = pd.concat([blocks_values,blocks_nans])
+
+		# 2.5b) Change original cols for calculated cols
+		mza_ageb_gdf = mza_ageb_gdf.drop(columns=columns_of_interest) #Drops current block pop cols
+		mza_ageb_gdf = pd.merge(mza_ageb_gdf, blocks_calc, on='CVEGEO_MZA') #Replaces with calculated (blocks_calc) cols #Previously on='CVEGEO'
+
+		# 2.5c) Restore column order from original (input) block gdf
 		column_order = list(pop_mza_gdf.columns.values)
 		mza_ageb_gdf = mza_ageb_gdf[column_order]
 
-		# 2.5c) Save to mza_calc gdf (Function's output)
+		# 2.5d) Save to mza_calc gdf (Function's output)
 		if i == 1:
 			mza_calc = mza_ageb_gdf.copy()
 		else:
