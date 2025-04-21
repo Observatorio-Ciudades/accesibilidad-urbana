@@ -1084,7 +1084,7 @@ def weighted_average(df, weight_column, value_column):
 	return weighted_average
 
 
-def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False):
+def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False,main_folder_path='../'):
 	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
 		As of this version, if couldn't find all values, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
@@ -1094,6 +1094,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		year (str): String that contains the year of the AGEBs and blocks population data. 
 					Function has additional steps for year="2020".
 		extended_logs (bool, optional): Boolean - if true prints statistical logs while processing for each AGEB.
+		main_folder_path (str, optional): String containing the main folder path for the project. Defaults to '../'.
+										  (Used to load blocks_800 data for 2020)
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
@@ -1126,7 +1128,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		# Here, they are loaded because their data plays part finding missing AGEBs 
 		# and in the calculation of nan values using AGEBs data (Step 2.4).
 		# BLOCKS_800 - Load and format blocks_800
-		blocks_800_df = pd.read_csv("../data/external/census/census_2020_blocks800.csv")
+		blocks_800_df = pd.read_csv(main_folder_path+"data/external/census/census_2020_blocks800.csv")
 		blocks_800_df.columns = blocks_800_df.columns.str.upper()
 		# BLOCKS_800 - Filter for current municipalities
 		muns_in_agebs_gdf = list(pop_ageb_gdf.CVEGEO_MUN.unique())
