@@ -1289,6 +1289,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			ageb_available = True
 			# Locate AGEB data in pop_ageb_gdf (Total known data that should be found if adding all blocks data)
 			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVEGEO_AGEB'] == cvegeo_ageb] #Previously 'CVE_AGEB'
+		else:
+			ageb_available = False
 
 		# 2.3 prep) Set POBTOT_ages, POBFEM_ages and POBMAS_ages
 		# The POBTOT, POBFEM and POBMAS values available account for more population than the total population that can be calculated using the age groups.
@@ -1527,7 +1529,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		if ageb_available:
 
 			if extended_logs:
-				print(f'Calculating NaNs distributing AGEB data for AGEB {cvegeo_ageb}.')
+				print(f'Distributing AGEB values to NaNs for AGEB {cvegeo_ageb}.')
 
 			# LOG CODE - Statistics
 			# This log registers the solving method that was used to solve columns
@@ -1538,7 +1540,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			# Note: This is not the desired solution, as POBTOT data could be greater than the sum of the age groups, but it is the best aproximation.
 			pobtot_ages_nans = blocks_values.isna().sum()['POBTOT_ages']
 			blocks_values.POBTOT_ages.fillna(blocks_values.POBTOT, inplace=True)
-			print(f"Note: Filled {pobtot_ages_nans} POBTOT_ages NaN values using POBTOT data out of {len( blocks_values)} blocks with data.")
+			pct_pobtot_ages_nans = (pobtot_ages_nans / len(blocks_values)) * 100
+			if extended_logs:
+				print(f"Note: Replaced {pobtot_ages_nans}/{len(blocks_values)} ({pct_pobtot_ages_nans}%) NaN values in POBTOT_ages using POBTOT data in AGEB {cvegeo_ageb}.")
+			if pct_pobtot_ages_nans>25:
+				print(f"NOTE: More than 25% ({pct_pobtot_ages_nans}%) of POBTOT_ages NaN values were replaced using POBTOT data in AGEB {cvegeo_ageb}.")
 			
 			# 2.4b) Fill by distributing AGEB values.
 			for col in columns_of_interest:
@@ -1598,8 +1604,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 
 		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf) 
 			# EVERYTHING here is for log statistics ONLY
-			if extended_logs:
-				print(f"NANs on AGEB {cvegeo_ageb} cannot be calculated using AGEB data because it doesn't exist.")
+			print(f'Distributing AGEB values to NaNs for AGEB {cvegeo_ageb} not possible since AGEB does not exist.')
 
 			# Solving method used to solve column
 			solved_using_relations = 0
@@ -1672,7 +1677,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	pct_unable_to_solve = round((unable_to_solve/total_cols)*100,2) # for log statistics
 
 	print("Finished calculating NaNs.")
-	print(f"Percentage of NaNs found using blocks gdf: {nans_calculated}%.")
+	print(f"Percentage of NaNs found using using known relations: {nans_calculated}%.")
 	print(f"Columns which could be solved entirely using known relations: {cols_byrelations} ({pct_cols_byrelations}%).")
 	print(f"Columns which required distributing AGEB data: {cols_bydistribution} ({pct_cols_bydistribution}%).")
 	print(f"Columns which couldn't be solved: {unable_to_solve} ({pct_unable_to_solve}%).")

@@ -21,12 +21,12 @@ else:
     distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks (nans values calculated), nodes and hexs pop data to the database.
 
     This updated script produced the following tables:
-    censo/pobcenso_inegi_10_mzaageb_mza
-    censo/pobcenso_inegi_10_mzaageb_node
-    censo/pobcenso_inegi_10_mzaageb_hex (res 8, 9 and 10)
-    censo/pobcenso_inegi_20_mzaageb_mza
-    censo/pobcenso_inegi_20_mzaageb_node
-    censo/pobcenso_inegi_20_mzaageb_hex (res 8, 9 and 10)
+    sociodemografico/pobcenso_inegi_10_mzaageb_mza
+    sociodemografico/pobcenso_inegi_10_mzaageb_node
+    sociodemografico/pobcenso_inegi_10_mzaageb_hex (res 8, 9 and 10)
+    sociodemografico/pobcenso_inegi_20_mzaageb_mza
+    sociodemografico/pobcenso_inegi_20_mzaageb_node
+    sociodemografico/pobcenso_inegi_20_mzaageb_hex (res 8, 9 and 10)
 """
 
 def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=True):
@@ -47,7 +47,7 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
     city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
     cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
     # To avoid error that happens when there's only one MUN in State: 
-    # e.g.: <<< SELECT * FROM censo.censo_inegi_{year[2:]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
+    # e.g.: <<< SELECT * FROM sociodemografico.censo_inegi_{year[2:]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
     # Duplicate mun inside tupple if there's only one MUN.
     if len(cvegeo_mun_lst) >= 2:
         cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
@@ -56,9 +56,9 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
         cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
     aup.log(f"--- Area of interest muns: {cvegeo_mun_tpl}.")
     # Load AGEBs and blocks
-    ageb_query = f"SELECT * FROM censo.censo_inegi_{year[2:]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
+    ageb_query = f"SELECT * FROM sociodemografico.censo_inegi_{year[2:]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
     pop_ageb_gdf = aup.gdf_from_query(ageb_query, geometry_col='geometry')
-    mza_query = f"SELECT * FROM censo.censo_inegi_{year[2:]}_mza WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
+    mza_query = f"SELECT * FROM sociodemografico.censo_inegi_{year[2:]}_mza WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
     pop_mza_gdf = aup.gdf_from_query(mza_query, geometry_col='geometry')
     # Set CRS
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
@@ -142,14 +142,31 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
     # Format data
     nodes.reset_index(inplace=True)
     nodes = nodes.to_crs("EPSG:4326")
+    # Save disk space ---
+    del aoi
+    # -------------------
     
     # 3.1 --------------- CREATE VORONOI POLYGONS USING NODES
     aup.log("--- Creating voronois with nodes osmid data.")
+    # Create a more contained area of interest (Helps avoid bigger than necessary voronoi polygons on the edges of the city)
+    # Turn all blocks into a single buffered geometry
+    blocks_buffer = pop_mza_gdf_calc.copy()
+    if blocks_buffer.crs != projected_crs:
+        blocks_buffer = blocks_buffer.to_crs(projected_crs)
+    blocks_buffer = blocks_buffer.buffer(100).reset_index().dissolve()
+    # Rename geom col
+    blocks_buffer.rename(columns={0:'geometry'},inplace=True)
+    # Turn into GeoDataFrame
+    blocks_buffer = blocks_buffer.set_geometry('geometry')
+    blocks_buffer = blocks_buffer.set_crs(projected_crs)
     # Create voronois
-    voronois_gdf = aup.voronoi_points_within_aoi(aoi,nodes,'osmid')
+    voronois_gdf = aup.voronoi_points_within_aoi(area_of_interest=blocks_buffer,
+                                                 points=nodes,
+                                                 points_id_col='osmid',
+                                                 projected_crs=projected_crs)
     voronois_gdf = voronois_gdf[['osmid','geometry']]
     # Save disk space ---
-    del aoi
+    del blocks_buffer
     # -------------------
 
     # 3.2 --------------- SPATIAL INTERSECTION OF VORONOI POLYGONS WITH BLOCKS
@@ -379,9 +396,9 @@ if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 22.')
 
-    # ------------------------------ SCRIPT CONFIGURATION - BASE DATA REQUIRED ------------------------------    
+    # ------------------------------ SCRIPT CONFIGURATION - BASE DATA REQUIRED ------------------------------
     # Year of analysis
-    year = '2010' # '2010' or '2020'. ('2010' still WIP, not tested)
+    year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
     # Hexgrid res of output
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
     
@@ -391,6 +408,9 @@ if __name__ == "__main__":
     #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
     skip_city_list = []
 
+    # Projected CRS to be used when necessary
+    projected_crs = "EPSG:6372"
+
     # ------------------------------ SCRIPT CONFIGURATION - SCRIPT STEPS ------------------------------
     # (Used to divide process during Dev.)
     process_nodes_to_hexs = True
@@ -398,7 +418,7 @@ if __name__ == "__main__":
     # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
     
     # Save output to database?
-    save_schema = 'censo'
+    save_schema = 'sociodemografico'
     save_blocks = False
     blocks_save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_mza'
     save_nodes = False
@@ -407,12 +427,12 @@ if __name__ == "__main__":
     hexs_save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
-    local_save = False
+    local_save = True
     local_save_dir = f"../data/scripts_output/script_22/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
     test = True
-    city_list = ['Aguascalientes']
+    city_list = ['Guadalajara']
 
     # ------------------------------ SCRIPT START - NOT CONFIGURATION ------------------------------
     # Cities (database) [Always 2020]
