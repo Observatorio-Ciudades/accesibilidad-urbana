@@ -21,12 +21,12 @@ else:
     distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks (nans values calculated), nodes and hexs pop data to the database.
 
     This updated script produced the following tables:
-    sociodemografico/pobcenso_inegi_10_mzaageb_mza
-    sociodemografico/pobcenso_inegi_10_mzaageb_node
-    sociodemografico/pobcenso_inegi_10_mzaageb_hex (res 8, 9 and 10)
-    sociodemografico/pobcenso_inegi_20_mzaageb_mza
-    sociodemografico/pobcenso_inegi_20_mzaageb_node
-    sociodemografico/pobcenso_inegi_20_mzaageb_hex (res 8, 9 and 10)
+    sociodemografico/pobvoronoi_inegi_10_mzaageb_mza
+    sociodemografico/pobvoronoi_inegi_10_mzaageb_node
+    sociodemografico/pobvoronoi_inegi_10_mzaageb_hex (res 8, 9 and 10)
+    sociodemografico/pobvoronoi_inegi_20_mzaageb_mza
+    sociodemografico/pobvoronoi_inegi_20_mzaageb_node
+    sociodemografico/pobvoronoi_inegi_20_mzaageb_hex (res 8, 9 and 10)
 """
 
 def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=True):
@@ -406,7 +406,7 @@ if __name__ == "__main__":
     # NOTE: The following cities's output have population differences between input (Blocks) and output (Nodes, hexs)
     # due to blocks/agebs being outside of the municipality boundaries (attributed to INEGI, 2020)
     #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
-    skip_city_list = []
+    skip_city_list = ['CDMX','ZMVM','Guadalajara','Monterrey','Puebla','Pachuca','Toluca']
 
     # Projected CRS to be used when necessary
     projected_crs = "EPSG:6372"
@@ -419,19 +419,19 @@ if __name__ == "__main__":
     
     # Save output to database?
     save_schema = 'sociodemografico'
-    save_blocks = False
-    blocks_save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_mza'
-    save_nodes = False
-    nodes_save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_node'
-    save_hexs = False
-    hexs_save_table = f'pobcenso_inegi_{year[2:]}_mzaageb_hex'
+    save_blocks = True
+    blocks_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_mza'
+    save_nodes = True
+    nodes_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_node'
+    save_hexs = True
+    hexs_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
-    local_save = True
+    local_save = False
     local_save_dir = f"../data/scripts_output/script_22/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
-    test = True
+    test = False
     city_list = ['Guadalajara']
 
     # ------------------------------ SCRIPT START - NOT CONFIGURATION ------------------------------

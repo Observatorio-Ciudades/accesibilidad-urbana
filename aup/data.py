@@ -408,7 +408,13 @@ def resolve_duplicates_indexes(gdf, crs):
     """
     
     # First, sort by index to ensure consistent grouping
+    gdf.reset_index(inplace=True)
+    if 'index' in gdf.columns:
+        gdf.drop(columns=['index'],inplace=True)
     gdf = gdf.sort_index()
+
+    # Set all keys to 0 (Whenever two OSMnx downloads overlap in an area, different keys could be set for the same edge. This is a safe net.)
+    gdf['key'] = 0
     
     # Group by the multi-level index ('u', 'v', 'key')
     grouped = gdf.groupby(['u', 'v', 'key'])
@@ -420,15 +426,28 @@ def resolve_duplicates_indexes(gdf, crs):
     for (u, v, key), group in grouped:
         if len(group) > 1:
             # Check if 'length' values are the same for all rows in this group
+            
+            # NOTE: 
+            # To adecuately solve the duplicates it would be necessary to verify that group['length'].nunique() == length of group, not '1'.
+            # e.g.
+            # --> u 4325294017 v 7164228101 key 0 length 321.210
+            # --> u 4325294017 v 7164228101 key 0 length 188.481
+            # --> u 4325294017 v 7164228101 key 0 length 188.481
+            # --> u 4325294017 v 7164228101 key 0 length 321.210
+            # In this (real) case, since .nunique() is not 1, it would assign a different key (0, 1, 2, 3) to each row instead of dropping the ones with the same length and assigning keys 0 and 1 to the remaining rows.
+
             if group['length'].nunique() == 1:
                 # If the 'length' is the same for all rows, drop the duplicates, keeping the first
                 rows_to_drop.append(group.index[1:])  # Keep the first, drop the rest
             else:
-                # If 'length' is different, increment the 'key' of the second row
-                new_row = group.iloc[1].copy()  # Copy the second row
-                new_row['key'] += 1  # Increment the key
-                new_rows.append(new_row)
-                rows_to_drop.append(group.index[1:])  # Drop the second row
+                # If 'length' is different, increment the 'key' of each of the following rows by 1
+                change_key=0
+                for i in range(1, len(group)):
+                    change_key+=1
+                    new_row = group.iloc[i].copy() # Copy the row
+                    new_row['key'] = change_key # Increment the key
+                    new_rows.append(new_row) # Append the new row
+                    rows_to_drop.append([group.index[i]]) # Drop the original row
     
     # Drop the identified duplicate rows
     gdf = gdf.drop(pd.Index([index for sublist in rows_to_drop for index in sublist]))
@@ -478,10 +497,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     nodes_query = f"SELECT * FROM {schema}.{nodes_folder} WHERE osmid IN {str(tuple(nodes_id))}"
     nodes = gdf_from_query(nodes_query, geometry_col="geometry", index_col="osmid")
 
+    # remove duplicates and set key index counter
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
-
-    # remove duplicates and set key index counter
     edges = resolve_duplicates_indexes(edges, "EPSG:4326")
 
     edges = edges.set_index(["u", "v", "key"])
