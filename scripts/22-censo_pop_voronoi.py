@@ -317,17 +317,17 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
             hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns, include_nearest=(True,'osmid')) 
             aup.log(f"--- Agregated socio data to hex with a total of {hex_socio_df['pobtot'].sum()} population for resolution {res}.")
             # Hexagons data to hex_gdf GeoDataFrame
-            hex_socio_gdf_tmp = hex_res_gdf.merge(hex_socio_df, on='hex_id')
+            hex_socio_gdf = hex_res_gdf.merge(hex_socio_df, on='hex_id')
 
             # 4.3 --------------- CALCULATE POP DENSITY IN HEXS
             # Calculate population density (Considering tot pop and tot area of hex instead of average of nodes)
-            hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
-            hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
-            aup.log(f"--- Calculated an average density of {hex_socio_gdf_tmp['dens_pob_ha'].mean()}")
+            hectares = hex_socio_gdf.to_crs("EPSG:6372").area / 10000
+            hex_socio_gdf['dens_pob_ha'] = hex_socio_gdf['pobtot'] / hectares 
+            aup.log(f"--- Calculated an average density of {hex_socio_gdf['dens_pob_ha'].mean()}")
             
 
-            # 4.4 --------------- ADD MISSING HEXS
-            # EXPLANATION: 
+            # 4.4 --------------- ADD MISSING URBAN HEXS WITH A POBTOT AND DENSITY OF 0
+            # EXPLANATION:
             # The spatial intersection in step 3.2 creates split blocks containing data from the original BLOCK and each voronoi polygons it falls in.
             # After that, the data is grouped by osmid, and the data is distributed to nodes.
             # That means that not all nodes are added, just those whose voronoi polygon intersected any block. The rest are dropped.
@@ -336,7 +336,7 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
             # This step adds those missing urban hexs with pop data = 0.
 
             # List all currently added hex_ids
-            current_res_hex_ids = list(hex_socio_gdf_tmp.hex_id.unique())
+            current_res_hex_ids = list(hex_socio_gdf.hex_id.unique())
             # Identify all current res's urban hex_ids
             urban_res_hexs = hex_res_gdf.loc[hex_res_gdf['type']=='urban'].copy()
             aup.log(f"--- Found {len(urban_res_hexs)} urban hexs.")
@@ -350,41 +350,40 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
                 missing_hexs_gdf[col] = 0
             missing_hexs_gdf['dens_pob_ha'] = 0
             # Concatenate missing hexs to hex_socio_gdf
-            hex_socio_gdf_tmp = pd.concat([hex_socio_gdf_tmp,missing_hexs_gdf])
+            hex_socio_gdf = pd.concat([hex_socio_gdf,missing_hexs_gdf])
             aup.log(f"--- Added {len(missing_hexs_gdf)} missing urban hexs to hex_socio_gdf.")
-
-            # 4.5 --------------- CONCATENATE ALL RESOLUTIONS
-            # Concatenate in hex_socio_gdf (if more resolutions, next resolution will also be stored here)
-            hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])
             
-        # 4.4 --------------- SAVE
-        # Final format
-        hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
-        # Save to database
-        if save_hexs:
-            aup.log(f"--- Saving {city}'s hexs pop data to database.")
-            # Saving hexs to database
-            limit_len = 10000
-            if len(hex_socio_gdf)>limit_len:
-                c_upload = len(hex_socio_gdf)/limit_len
-                for k in range(int(c_upload)+1):
-                    aup.log(f"--- Uploading pop hexs - Starting range k = {k} of {int(c_upload)}")
-                    gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
-                    aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
-                aup.log(f"--- Uploaded pop hexs for {city}.")
-            else:
-                aup.gdf_to_db_slow(hex_socio_gdf, hexs_save_table, save_schema, if_exists='append')
-                aup.log(f"--- Uploaded pop hexs for {city}.")
-        # Saving hexs locally
-        if local_save:
-            aup.log(f"--- Saving {city}'s hexs pop data locally.")
-            hex_socio_gdf.to_file(local_save_dir + f"script22_{year}{city}_hex.gpkg", driver='GPKG')
-        # Save disk space
+            # 4.5 --------------- SAVE CURRENT RES HEXS
+            # Final format
+            hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
+            # Save to database
+            if save_hexs:
+                aup.log(f"--- Saving {city}'s hexs res {res} pop data to database.")
+                # Saving hexs to database
+                limit_len = 10000
+                if len(hex_socio_gdf)>limit_len:
+                    c_upload = len(hex_socio_gdf)/limit_len
+                    for k in range(int(c_upload)+1):
+                        aup.log(f"--- Uploading pop hexs res {res} - Starting range k = {k} of {int(c_upload)}")
+                        gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                        aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
+                    aup.log(f"--- Uploaded pop hexs res {res} for {city}.")
+                else:
+                    aup.gdf_to_db_slow(hex_socio_gdf, hexs_save_table, save_schema, if_exists='append')
+                    aup.log(f"--- Uploaded pop hexs res {res} for {city}.")
+            # Saving hexs locally
+            if local_save:
+                aup.log(f"--- Saving {city}'s hexs res {res} pop data locally.")
+                hex_socio_gdf.to_file(local_save_dir + f"script22_{year}{city}_hex_res{res}.gpkg", driver='GPKG')
+            
+            # 4.6 --------------- SAVE DISK SPACE AFTER EACH ITERATION
+            # Save disk space (Gets created again in next iteration)
+            del hex_res_gdf
+            del hex_socio_df
+            del hex_socio_gdf
+        
+        # Save disk space (After all iterations)
         del pop_nodes_gdf
-        del hex_res_gdf
-        del hex_socio_df
-        del hex_socio_gdf_tmp
-        del hex_socio_gdf
 
     else:
         aup.log(f"--- Skipped nodes to hexs processing and saving for {city}.")
@@ -398,7 +397,7 @@ if __name__ == "__main__":
 
     # ------------------------------ SCRIPT CONFIGURATION - BASE DATA REQUIRED ------------------------------
     # Year of analysis
-    year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
+    year = '2010' # '2010' or '2020'. ('2010' still WIP, not tested)
     # Hexgrid res of output
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
     
@@ -406,7 +405,7 @@ if __name__ == "__main__":
     # NOTE: The following cities's output have population differences between input (Blocks) and output (Nodes, hexs)
     # due to blocks/agebs being outside of the municipality boundaries (attributed to INEGI, 2020)
     #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
-    skip_city_list = ['CDMX','ZMVM','Guadalajara','Monterrey','Puebla','Pachuca','Toluca']
+    skip_city_list = ['ZMVM']#,'CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','León','Querétaro','Juarez','Laguna']
 
     # Projected CRS to be used when necessary
     projected_crs = "EPSG:6372"
