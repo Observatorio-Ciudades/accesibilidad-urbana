@@ -263,7 +263,7 @@ def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=
     if save_nodes:
         aup.log(f"--- Saving {city}'s nodes pop data to database.")
         # Saving nodes to database
-        limit_len = 10000
+        limit_len = 20000
         if len(pop_nodes_gdf_save)>limit_len:
             c_upload = len(pop_nodes_gdf_save)/limit_len
             for k in range(int(c_upload)+1):
@@ -397,7 +397,7 @@ if __name__ == "__main__":
 
     # ------------------------------ SCRIPT CONFIGURATION - BASE DATA REQUIRED ------------------------------
     # Year of analysis
-    year = '2010' # '2010' or '2020'. ('2010' still WIP, not tested)
+    year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
     # Hexgrid res of output
     res_list = [8,9,10] #Only 8,9,10 and 11 available, run 8 and 9 only for prox. analysis v2.
     
@@ -405,7 +405,11 @@ if __name__ == "__main__":
     # NOTE: The following cities's output have population differences between input (Blocks) and output (Nodes, hexs)
     # due to blocks/agebs being outside of the municipality boundaries (attributed to INEGI, 2020)
     #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
-    skip_city_list = ['ZMVM']#,'CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','León','Querétaro','Juarez','Laguna']
+
+    # NOTE: The following cities are big heavy metro areas, process can be lengthy.
+    #['ZMVM','CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','León','Querétaro','Juarez','Laguna']
+
+    skip_city_list = []
 
     # Projected CRS to be used when necessary
     projected_crs = "EPSG:6372"
@@ -418,11 +422,11 @@ if __name__ == "__main__":
     
     # Save output to database?
     save_schema = 'sociodemografico'
-    save_blocks = True
+    save_blocks = False
     blocks_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_mza'
-    save_nodes = True
+    save_nodes = False
     nodes_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_node'
-    save_hexs = True
+    save_hexs = False
     hexs_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
