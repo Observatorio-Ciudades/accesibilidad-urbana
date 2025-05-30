@@ -1,595 +1,689 @@
-## Librerías ###
+# Librerías:
 import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import plotly.graph_objects as go
-from streamlit_folium import folium_static, st_folium
 import folium
-from folium.plugins import FeatureGroupSubGroup
-from folium import GeoJson
-import geopandas as gpd
+from streamlit_folium import st_folium
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd 
+from matplotlib.patches import Patch
 
-# Estilos para ocultar el botón de pantalla completa
-hide_img_fs = '''
-            <style>
-            button[title="View fullscreen"]{
-                visibility: hidden;}
-            </style>
-            '''
 
-# Función para leer los archivos gpd y cambiarles el formato de coordenada
-def read_file(filepath):
-    return gpd.read_file(filepath).to_crs('EPSG:4326') 
+# Configuración de la página
+st.set_page_config(page_title="Proyecto Volvo", layout="wide")
 
-# Configuración inicial de la página de Streamlit
-st.set_page_config(
-    page_title="Proyecto Volvo",
-    page_icon=":car",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
-
-if "map" not in st.session_state:
-    st.session_state.map = None
-    st.session_state.legend = None
-
-# Portada
-
-# Remove header space
-
-st.markdown(""" 
-    <style>
-    
-           /* Remove blank space at top and bottom */ 
-           .block-container {
-               padding-top: 0rem;
-               padding-bottom: 0rem;
-            }
-           
-           /* Remove blank space at the center canvas */ 
-           .st-emotion-cache-z5fcl4 {
-               position: relative;
-               top: -62px;
-               }
-           
-           /* Make the toolbar transparent and the content below it clickable */ 
-           .st-emotion-cache-18ni7ap {
-               pointer-events: none;
-               background: rgb(255 255 255 / 0%)
-               }
-           .st-emotion-cache-zq5wmm {
-               pointer-events: auto;
-               background: rgb(255 255 255);
-               border-radius: 5px;
-               }
-    </style>
-    """, unsafe_allow_html=True) #Hacer el header más estrecho.
-
-# Banner
-url = "https://raw.githubusercontent.com/Observatorio-Ciudades/NuevaAlameda/main/output/figures/Header_un_cuarto.jpg"
-st.image(url, use_container_width=True)
-
-# Sidebar
-st.sidebar.title("Instructivo de uso")
-st.sidebar.markdown(
-    """
-    - [Datos](#datos)
-    - [Visualizaciones](#visualizaciones)
-    - [Mapas](#mapas)
-    """
-)
+# Título de la aplicación
+st.title("Comparación de Datos: Guadalajara vs Medellín")
 
 # Descripción de la página
 st.markdown("""
-         Insertar descripción del proyecto aquí.
+         Insertar la descripción del proyecto aquí.
          """)
 
-tab1, tab2 = st.tabs(["Guadalajara", "Medellín"])
-with tab1:
-    #@st.cache_data
-    st.markdown("""
-        ### Guadalajara
-        Insertar descripción de la ciudad aquí.
-        """)
-    # Agregar un mapa interactivo de la ciudad de México
-    m = folium.Map(location=[20.659698, -103.349609], zoom_start=12)
-    folium.Marker(location=[20.659698, -103.349609], popup="Guadalajara").add_to(m)
-    folium_static(m, width=1200, height=600)
+# Selección en la barra lateral
+visualizacion = st.sidebar.selectbox(
+    "Selecciona la visualización:",
+    ("Mapas", "Hallazgos")
+)
 
-with tab2:
-    #@st.cache_data
-    st.markdown("""
-        ### Medellín
-        Insertar descripción de la ciudad aquí.
-        """)
-    # Agregar un mapa interactivo de Medellín
-    m = folium.Map(location=[6.2442, -75.5812], zoom_start=12)
-    folium.Marker(location=[6.2442, -75.5812], popup="Medellín").add_to(m)
-    folium_static(m, width=1200, height=600)
+# Datos a utilizar:
+data_caminabilidad_GDL = pd.read_excel("/home/jovyan/accesibilidad-urbana/data/external/Encuesta_Caminata_GDL.xlsx")
+# Falta la base de datos para Medellín
 
+# Selectbox para tipos de territorios de análisis
+calidad_de_vida = st.selectbox("Seleccione el tipo calidad que quiera ver", 
+                               ('Alto-bajo', 'Bajo-alto', 'Alto-alto'), key ='calidad_de_vida')
 
-def user_area_selection():
-    st.markdown(
-        """
-        ### Selección de área de usuario
-        Selecciona un área de interés en el mapa.
-        """)
-    # Columnas
-    col1, col2, col3 = st.columns([0.30, 0.30, 0.30])
-    
-    # Columna 1
-    with col1:
-        st.write("### Área de usuario")
-    
-    # Columna 2
-    with col2:
-        st.write("### Área de usuario")
-        seleccionador_1 = st.selectbox(
-            label = "Columna de selección", label_visibility = "collapsed",
-            options = ["Localidad 1", "Localidad 2", "Localidad 3"],
-            placeholder = "Selecciona una localidad",
-            help = "Selecciona una localidad de la lista desplegable",
-            key = "selector_1"
-            )
+# División en dos columnas
+col1, col2 = st.columns(2)
+
+# Contenido para la columna de Guadalajara
+with col1:
+    st.header("Guadalajara")
+    if visualizacion == "Mapas":
+        # Crear un mapa centrado en Guadalajara
+        mapa_gdl = folium.Map(location=[20.6597, -103.3496], zoom_start=12)
+        folium.Marker([20.6597, -103.3496], tooltip="Guadalajara").add_to(mapa_gdl)
+        st_folium(mapa_gdl, width=450, height=300)
+    elif visualizacion == "Hallazgos":
+        # ==== Análisis de datos Guadalajara ====
+        # Gráfica de pastel según el género
+        # Obtener datos cruzados
+        cross_tab = pd.crosstab(
+            data_caminabilidad_GDL['¿Hace uso de algún equipamiento/sitio de interés localizado en el sector/territorio?'],
+            data_caminabilidad_GDL['Género']
+        )
+
+        # Definir colores personalizados
+        outer_colors = ['#FF6B6B', '#4ECDC4']  # Colores para equipamiento (No/Sí)
+        inner_colors = ['#FFA07A', '#FFD166', '#7FB3D5', '#A2D9CE']  # Colores para géneros
+
+        st.subheader("¿Hace uso de algún equipamiento/sitio de interés localizado en el sector/territorio?")
+
+        fig, ax = plt.subplots(figsize=(12, 12)) 
+
+        # --- Anillo Exterior (Equipamiento) ---
+        outer_wedges, outer_texts, outer_autotexts = ax.pie(
+            cross_tab.sum(axis=1),
+            labels=cross_tab.index,
+            autopct='%1.1f%%',
+            startangle=90,
+            pctdistance=0.85,
+            wedgeprops=dict(width=0.4, edgecolor='w', linewidth=2),
+            colors=outer_colors,
+            textprops={'fontsize': 12, 'weight': 'bold'}
+        )
+
+        # --- Anillo Interior (Género) ---
+        # Crear los valores y etiquetas
+        inner_values = []
+        inner_labels = []
+        inner_color_map = []
+
+        # Iterar por cada categoría de equipamiento y género
+        color_idx = 0
+        for i, equip_category in enumerate(cross_tab.index):
+            for j, gender in enumerate(cross_tab.columns):
+                value = cross_tab.loc[equip_category, gender]
+                inner_values.append(value)
+                inner_labels.append(f"{gender}\n({value})")
+                inner_color_map.append(inner_colors[color_idx])
+                color_idx += 1
+
+        # Crear el anillo interior
+        inner_wedges, inner_texts = ax.pie(
+            inner_values,
+            labels=inner_labels,
+            radius=0.6,
+            wedgeprops=dict(width=0.3, edgecolor='w', linewidth=2),
+            startangle=90,
+            colors=inner_color_map,
+            labeldistance=0.4,  # Colocar etiquetas más cerca del centro
+            textprops={'fontsize': 9, 'ha': 'center', 'va': 'center', 'weight': 'bold'}
+        )
+
+        # --- Leyenda Mejorada ---
+        legend_elements = [
+            # Categorías principales
+            Patch(facecolor=outer_colors[0], label=f'No usa equipamiento ({cross_tab.sum(axis=1).iloc[0]} personas)'),
+            Patch(facecolor=outer_colors[1], label=f'Sí usa equipamiento ({cross_tab.sum(axis=1).iloc[1]} personas)'),
+            # Separador
+            Patch(facecolor='white', label=''),
+            # Subcategorías por género
+        ]
+
+        # Agregar las subcategorías dinámicamente
+        color_idx = 0
+        for i, equip_category in enumerate(cross_tab.index):
+            for j, gender in enumerate(cross_tab.columns):
+                value = cross_tab.loc[equip_category, gender]
+                status = "No usan" if equip_category == cross_tab.index[0] else "Sí usan"
+                legend_elements.append(
+                    Patch(facecolor=inner_colors[color_idx], 
+                        label=f'{gender} - {status} ({value})')
+                )
+                color_idx += 1
+
+        ax.legend(
+            handles=legend_elements,
+            title="Distribución por Equipamiento y Género",
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.02),
+            frameon=True,
+            fancybox=True,
+            shadow=True,
+            title_fontsize=16,
+            fontsize=14,
+            ncol=2  
+        )
+
+        # Ajustar diseño con más espacio para la leyenda inferior
+        plt.subplots_adjust(bottom=0.1)  # Dejar espacio en la parte inferior
+        ax.axis('equal')
+
+        st.pyplot(fig)
+
+        # ===Gráfica para el tiempo prmedio caminado===
         
-    # Columna 3
-    with col3:
-        st.write("### Área de usuario")
-        seleccionador_2 = st.selectbox(
-            label = "Columna de selección", label_visibility = "collapsed",
-            options = ["Localidad 1", "Localidad 2", "Localidad 3"],
-            placeholder = "Selecciona una localidad",
-            help = "Selecciona una localidad de la lista desplegable",
-            key = "selector_2"
-            )
-    
-    # Guardar la selección del usuario  
-    st.session_state.seleccionador_1 = seleccionador_1
-    st.session_state.seleccionador_2 = seleccionador_2
-
-    return seleccionador_1, seleccionador_2
-
-# def user_indicator_selection():
-#     st.markdown(
-#         """
-#         ### Selección de indicador
-#         Selecciona un indicador de interés.
-#         """)
-#     # Columnas
-#     col1, _, _ = st.columns([0.30, 0.30, 0.30])
-    
-#     # Columna 1
-#     with col1:
-#         st.write("### Indicador")
-#         column_to_plot = st.selectbox(
-#             label = "Columna de selección", label_visibility = "collapsed",
-#             options = ["Indicador 1", "Indicador 2", "Indicador 3"],
-#             placeholder = "Selecciona un indicador",
-#             help = "Selecciona un indicador de la lista desplegable"
-#             )
-    
-#     # Returning the selected indicator for further use
-#     return column_to_plot
-    
-
-# Simular un DataFrame ficticio
-df_fake = pd.DataFrame({
-    "Localidad 1": np.random.rand(50),
-    "Localidad 2": np.random.rand(50),
-    "Localidad 3": np.random.rand(50),
-})
-
-def scatters(seleccionador_1, seleccionador_2, column_to_plot):
-    st.markdown(
-        """
-        ### Gráfico de dispersión
-        Gráfico de dispersión de los indicadores seleccionados.
-        """)
-    if seleccionador_1 and seleccionador_2:
-        # Guardar el estado de los selectores
-        # Actualizar session_state solo si cambia la selección
-        if("seleccionador_1" not in st.session_state or seleccionador_1 != st.session_state.seleccionador_1):
-            st.session_state.seleccionador_1 = seleccionador_1
-        if("seleccionador_2" not in st.session_state or seleccionador_2 != st.session_state.seleccionador_2):
-            st.session_state.seleccionador_2 = seleccionador_2
-            
-            st.session_state.seleccionador_1 = seleccionador_1
-            st.session_state.seleccionador_2 = seleccionador_2
-            
-        # Renderizar las gráficas siempre, independientemente de si cambian o no los selectores
-        col1, col2, col3 = st.columns([0.25, 0.25, 0.25])
-        with col1:
-            st.write("### Gráfico de dispersión")
-            # Crear un gráfico de dispersión
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_fake[seleccionador_1],
-                y=df_fake[seleccionador_2],
-                mode='markers',
-                marker=dict(size=10, color='blue'),
-                text=column_to_plot
-            ))
-            fig.update_layout(
-                title="Gráfico de dispersión",
-                xaxis_title=seleccionador_1,
-                yaxis_title=seleccionador_2
-            )
-            st.plotly_chart(fig, use_container_width=True, key="scatter1")
-            
-        # Columna 2
-        with col2:
-            st.write("### Gráfico de dispersión")
-            # Crear un gráfico de dispersión
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_fake[seleccionador_1],
-                y=df_fake[seleccionador_2],
-                mode='markers',
-                marker=dict(size=10, color='blue'),
-                text=column_to_plot
-            ))
-            fig.update_layout(
-                title="Gráfico de dispersión",
-                xaxis_title=seleccionador_1,
-                yaxis_title=seleccionador_2
-            )
-            st.plotly_chart(fig, use_container_width=True, key="scatter2")
-            
-        # Columna 3
-        with col3:
-            st.write("### Gráfico de dispersión")
-            # Crear un gráfico de dispersión
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_fake[seleccionador_1],
-                y=df_fake[seleccionador_2],
-                mode='markers',
-                marker=dict(size=10, color='blue'),
-                text=column_to_plot
-            ))
-            fig.update_layout(
-                title="Gráfico de dispersión",
-                xaxis_title=seleccionador_1,
-                yaxis_title=seleccionador_2
-            )
-            st.plotly_chart(fig, use_container_width=True, key="scatter3")
-    else:
-        st.warning("Por favor, selecciona un área de usuario y un indicador para continuar.")
-    
-    
-# Función para agregar un geodataframe como capa al mapa interactivo
-def add_gdf_to_map(gdf, name, color, m, weight=1, 
-                   fill_opacity=0, dashArray=None, show=False):
-    g = FeatureGroupSubGroup(m, name, show=show)
-    m.add_child(g)
-    
-    fields = [field for field in gdf.columns if field != 'geometry']
-    
-    GeoJson(
-        gdf,
-        zoom_on_click=True,
-        style_function=lambda feature: {
-            'fillColor': color,
-            'color': 'black',
-            'weight': weight,
-            'fillOpacity': fill_opacity,
-            'dashArray': None if dashArray is None else dashArray,
-        },
-        highlight_function=lambda x: {'weight': 5, 'color': 'white'},
-        tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True)
-    ).add_to(g)
-
-def add_gdf_marker(gdf, name, color, icon_name, icon_color, m):
-    g = FeatureGroupSubGroup(m, name)
-    m.add_child(g)
-    
-    fields = [field for field in gdf.columns if field != 'geometry']
-    
-    GeoJson(
-        gdf,
-        zoom_on_click=True,
-        style_function=lambda feature: {
-            'fillColor': color,
-            'color': 'black',
-            'weight': 1,
-            'fillOpacity': 0.6,
-        },
-        highlight_function=lambda x: {'weight': 3, 'color': 'black'},
-        tooltip=folium.GeoJsonTooltip(fields=fields, labels=True, sticky=True)
-    ).add_to(g)
-    
-    for _, row in gdf.iterrows():
-        lat = row.geometry.y
-        lon = row.geometry.x
-            
-        folium.Marker(
-            location=[lat, lon],
-            icon=folium.Icon(color=icon_color, prefix='fa', icon=icon_name)
-        ).add_to(g)
+        st.subheader("¿Cuánto tiempo le tomó el recorrido caminando para legar a su lugar de destino?")
+        # Crear un histograma del tiempo promedio caminado
+        tiempo_caminado = data_caminabilidad_GDL['¿Cuánto tiempo le tomó el recorrido caminando para legar a su lugar de destino? (Ingresar en minutos)'].dropna()
+        fig, ax = plt.subplots(figsize=(10, 8))
+        ax.hist(tiempo_caminado, bins=30, color='#4ECDC4', edgecolor='black')
+        ax.set_xlabel("Tiempo (minutos)", fontsize=14)
+        ax.set_ylabel("Frecuencia", fontsize=14)
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        st.pyplot(fig)
         
-def mapas():
-    # TEST fixed container
-    custom_css = """
-    <style>
-    /* Style for the container with height limit */
-    .fixed-height-container {
-        height: 10px; /* Set your desired height limit */
-        overflow: hidden; /* Prevent scrolling */
-    }
+        # === Histogramas de importancia de la caminata ===
 
-    /* Optional: Style for the content inside the container */
-    .fixed-height-content {
-        width: 100%;    }
-    </style>
-    """
-    st.markdown(custom_css, unsafe_allow_html=True)
+        categorias = st.selectbox('Selecciona una categoría:', 
+                                ['Seguridad', 'Mixtura del suelo', 'Intersecciones', 'Vegetación', 
+                                'Densidad de población', 'Presencia de Andares', 'Proximidad'], key='categorias')
 
-    # with st.container():
-    #     st.markdown('<div class="fixed-height-container"><div class="fixed-height-content">', 
-    #                 unsafe_allow_html=True)
-    #     col1, col2 = st.columns([0.88, 0.12])
-    #     if st.session_state.map is None:
-    #         with col1:
-    #             m = mapa_usuario_1()
-    #             st.session_state.map = m
-    #             st.components.v1.html(m.render(), height=500)
+        # Función para convertir texto a escala numérica
+        def convertir_a_escala_numerica(datos_texto):
+            """
+            Convierte las respuestas de texto a escala numérica -2 a 2
+            con manejo robusto de diferentes formatos de texto
+            """
+            mapeo_escala = {
+                "no es importante": -2,
+                "es poco importante": -1,
+                "moderadamente importante": 0,
+                "es importante": 1,
+                "muy importante": 2,
+                # Variaciones comunes que podrían aparecer
+                "importante": 1,
+                "poco importante": -1,
+                "no importante": -2
+            }
+            
+            # Convertir a minúsculas y eliminar espacios extras
+            datos_limpios = datos_texto.str.lower().str.strip()
+            
+            # Mapear y convertir a numérico
+            datos_numericos = datos_limpios.map(mapeo_escala)
+            
+            # Eliminar valores no mapeados (NaN)
+            datos_numericos = datos_numericos.dropna()
+            
+            return datos_numericos
 
-    #         with col2:
-    #             legend = mostrar_legenda()
-    #             st.session_state.legend = legend
-    #     else:
-    #         with col1:
-    #             st.components.v1.html(st.session_state.map.render(), height=500) #Optimizar el renderizado.
-    #         with col2:
-    #             mostrar_legenda()
+        # Función para crear histograma con escala de importancia
+        def crear_histograma_importancia(datos_texto, titulo, color, xlabel):
+            """
+            Crea un histograma con escala de importancia de -2 a 2
+            Convierte automáticamente de texto a números
+            """
+            
+            datos_numericos = convertir_a_escala_numerica(datos_texto)
 
-    #     st.markdown('</div></div>', unsafe_allow_html=True)
+            if len(datos_numericos) == 0:
+                st.warning("No hay datos válidos para mostrar en esta categoría.")
+                return None
 
-# def mapa_usuario_1():
-#     # f = folium.Figure(width=1800, height=500)
-#     m = folium.Map(
-#         location=[buffer.geometry.centroid.y.mean(), 
-#         buffer.geometry.centroid.x.mean()],
-#         zoom_start=12,
-#         tiles="cartodb positron",
-#     )
+            fig, ax = plt.subplots(figsize=(12, 10))
 
-#     # Add HQSL choropleth to map
-#     hqsl=folium.FeatureGroup(name='HQSL', show=True)
-#     m.add_child(hqsl)
-#     folium.Choropleth(
-#             geo_data=hexas_santiago,
-#             name="HQSL",
-#             data=hexas_santiago,
-#             key_on="feature.properties.fidx_txt",
-#             columns=["fidx_txt", "class"],
-#             fill_color="RdPu",
-#             fill_opacity=0.5,
-#             line_opacity=0.05,
-#             legend_name="HQSL",
-#         ).geojson.add_to(hqsl)
-    
-#     # Add calidad de espacio publico choropleth to map
-#     cal_ep=folium.FeatureGroup(name='Calidad de espacio público', show=False)
-#     m.add_child(cal_ep)
-#     folium.Choropleth(
-#             geo_data=calidad_ep,
-#             name="Calidad de espacio público",
-#             data=calidad_ep,
-#             key_on="feature.properties.fidx_txt",
-#             columns=["fidx_txt", "calidad_ep"],
-#             fill_color="Spectral",
-#             fill_opacity=0.75,
-#             line_opacity=0,
-#             legend_name="Calidad de espacio público",
-#         ).geojson.add_to(cal_ep)
-    
+            # Añadir información sobre la muestra
+            total_respuestas = len(datos_numericos)
+            ax.text(0.02, 0.98, f'Total de respuestas válidas: {total_respuestas}', 
+                    transform=ax.transAxes, fontsize=11, 
+                    verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
+            # Crear bins específicos para la escala -2 a 2
+            bins = [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]
 
-    
-#     # add_gdf_to_map(hexas_santiago, "Hexágonos Análisis", "green", m)
-    
-#     add_gdf_to_map(uv_geom, "Unidades Vecinales", "red", m,
-#                    weight=1, fill_opacity=0, show=False)
-    
-#     add_gdf_to_map(comunas_geom, "Comunas", "white", m,
-#                    weight=2, fill_opacity=0, show=True)
-    
-#     add_gdf_to_map(buffer, "Nueva Alameda", "white", m,
-#                      fill_opacity=0.5, weight=0.5, show=True)
-    
-#     # st.write("Mapa Interactivo Usuario 1")
-#     # avoid page reload
-#     folium.LayerControl(collapsed=False, position="topleft",).add_to(m)
-#     # st_folium(m, width=1800, height=250, returned_objects=[]) # height 700
-#     # Test for static map
-#     # folium_static(m, width=1000, height=500) # height 700
-#     # Test remove returned_objects
-#     # st_map = st_folium(m, width=1800, height=500, returned_objects=[]) # height 700
-    
-#     # Working section
-#     # st.components.v1.html(folium.Figure().add_child(m).render(), height=500)
-    
-    
-#     # st.html("<style> .main {overflow: hidden} </style>")
-#     #css = '''
-#     #<style>
-#     #section.main > div:has(~ footer ) {
-#     #    padding-bottom: 5px;
-#     #}
-#     #</style>
-#     #'''
-#     #st.markdown(css, unsafe_allow_html=True)''
-#     return folium.Figure().add_child(m)
+            # Crear el histograma con datos numéricos
+            counts, _, patches = ax.hist(datos_numericos, bins=bins, color=color, edgecolor='black', alpha=0.7)
 
+            # Personalizar los ticks del eje X
+            ax.set_xticks([-2, -1, 0, 1, 2])
+            ax.set_xticklabels([
+                'No es\nimportante\n(-2)', 
+                'Poco\nimportante\n(-1)', 
+                'Moderadamente\nimportante\n(0)', 
+                'Es\nimportante\n(1)', 
+                'Muy\nimportante\n(2)'
+            ], fontsize=10)
+            
+            # Configurar límites del eje X
+            ax.set_xlim(-2.7, 2.7)
+            
+            # Etiquetas y título
+            ax.set_xlabel(xlabel, fontsize=14, fontweight='bold')
+            ax.set_ylabel("Frecuencia", fontsize=14, fontweight='bold')
+            ax.set_title(titulo, fontsize=16, fontweight='bold', pad=20)
+            
+            # Grid mejorado
+            ax.grid(axis='y', linestyle='--', alpha=0.5)
+            ax.set_axisbelow(True)
+            
+            # Añadir valores encima de cada barra
+            for i, count in enumerate(counts):
+                if count > 0:  # Solo mostrar si hay datos
+                    ax.text([-2, -1, 0, 1, 2][i], count + max(counts)*0.01, 
+                        f'{int(count)}', ha='center', va='bottom', fontweight='bold')
+            
+            # Estadísticas descriptivas (solo si hay datos)
+            if len(datos_numericos) > 0:
+                media = datos_numericos.mean()
+                mediana = datos_numericos.median()
+                
+                # Añadir líneas de referencia
+                #ax.axvline(media, color='red', linestyle='--', alpha=0.8, linewidth=2, label=f'Media: {media:.2f}')
+                ax.axvline(mediana, color='orange', linestyle='--', alpha=0.8, linewidth=2, label=f'Mediana: {mediana:.2f}')
+                
+                # Leyenda
+                ax.legend(loc='upper right', framealpha=0.9)
+            
+            
+            plt.tight_layout()
+            
+            return fig
 
-# def mostrar_legenda():
+        # Procesamiento según la categoría seleccionada
+        if categorias == 'Seguridad':
+            st.subheader("📍 Importancia de la Seguridad")
+            datos_texto = data_caminabilidad_GDL['Sentirme seguro/a frente a posibles delitos en mi trayecto'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto, 
+                "Distribución de Importancia: Seguridad en el Trayecto",
+                '#FF6B6B',
+                "Nivel de Importancia de la Seguridad"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias == 'Mixtura del suelo':
+            st.subheader("🏢 Importancia de la Mixtura del Suelo")
+            datos_texto = data_caminabilidad_GDL['La posibilidad de hacer múltiples vueltas/trámites en mi recorrido'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Mixtura del Suelo",
+                '#4ECDC4',
+                "Nivel de Importancia de la Mixtura del Suelo"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias == 'Intersecciones':        
+            st.subheader("🛣️ Importancia de las Intersecciones")
+            datos_texto = data_caminabilidad_GDL['La posibilidad de poder tomar desvíos y hacer múltiples trayectos en mi recorrido'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Intersecciones y Desvíos",
+                '#FFD166',
+                "Nivel de Importancia de las Intersecciones"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias == 'Vegetación':
+            st.subheader("🌳 Importancia de la Vegetación")
+            
+            # Primer gráfico: Sombra de vegetación
+            st.write("**Comodidad por sombra de vegetación:**")
+            datos_texto1 = data_caminabilidad_GDL['Sentirme cómodo/a por la sombra generada por la vegetación'].dropna()
+            fig1 = crear_histograma_importancia(
+                datos_texto1,
+                "Distribución de Importancia: Sombra de Vegetación",
+                '#7FB3D5',
+                "Nivel de Importancia de la Sombra"
+            )
+            if fig1:
+                st.pyplot(fig1)
+            
+            # Segundo gráfico: Paisaje agradable
+            st.write("**Paisaje agradable:**")
+            datos_texto2 = data_caminabilidad_GDL['Que el paisaje sea agradable'].dropna()
+            fig2 = crear_histograma_importancia(
+                datos_texto2,
+                "Distribución de Importancia: Paisaje Agradable",
+                '#98D8C8',
+                "Nivel de Importancia del Paisaje"
+            )
+            if fig2:
+                st.pyplot(fig2)
+            
+        elif categorias == 'Densidad de población':
+            st.subheader("👥 Importancia de la Densidad de Población")
+            datos_texto = data_caminabilidad_GDL['Sentirme cómodo/a en términos de la cantidad de gente a lo largo de mi recorrido'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Densidad de Población",
+                '#A2D9CE',
+                "Nivel de Importancia de la Densidad Poblacional"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias == 'Presencia de Andares':
+            st.subheader("🚶 Importancia de la Presencia de Andenes")
+            datos_texto = data_caminabilidad_GDL['La presencia de andenes'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Presencia de Andenes",
+                '#FF6B6B',
+                "Nivel de Importancia de los Andenes"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias == 'Proximidad':
+            st.subheader("📍 Importancia de la Proximidad")
+            datos_texto = data_caminabilidad_GDL['La cercanía del equipamiento X'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Proximidad al Equipamiento",
+                '#E74C3C',
+                "Nivel de Importancia de la Proximidad"
+            )
+            if fig:
+                st.pyplot(fig)
 
-#     # Add whitebox background
-#     # Define the HTML and CSS for the white box
-#     # Define the HTML and CSS for the background white box
+# Contenido para la columna de Medellín
+with col2:
+    st.header("Medellín")
+    if visualizacion == "Mapas":
+        # Crear un mapa centrado en Medellín
+        mapa_med = folium.Map(location=[6.2442, -75.5812], zoom_start=12)
+        folium.Marker([6.2442, -75.5812], tooltip="Medellín").add_to(mapa_med)
+        st_folium(mapa_med, width=450, height=300)
+    elif visualizacion == "Hallazgos":
+        # Gráfica de pastel según el género
+        # Obtener datos cruzados
+        cross_tab = pd.crosstab(
+            data_caminabilidad_GDL['¿Hace uso de algún equipamiento/sitio de interés localizado en el sector/territorio?'],
+            data_caminabilidad_GDL['Género']
+        )
 
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
-#     st.markdown(' ')
+        # Definir colores personalizados
+        outer_colors = ['#FF6B6B', '#4ECDC4']  # Colores para equipamiento (No/Sí)
+        inner_colors = ['#FFA07A', '#FFD166', '#7FB3D5', '#A2D9CE']  # Colores para géneros
 
-#     st.markdown(
-#     """
-#     <style>
-#         .centered-text {
-#             text-align: center; /* Center the text horizontally */
-#             font-size: 16px; /* Set the text size */
-#             width: 20%; /* Ensure the text spans the entire container width */
-#             font-weight: bold; /* Make the text bold */
-#         }
-#     </style>
+        st.subheader("¿Hace uso de algún equipamiento/sitio de interés localizado en el sector/territorio?")
 
-#     <div class="centered-text">
-#         Simbología
-#     </div>
-#     """,
-#     unsafe_allow_html=True)
+        fig, ax = plt.subplots(figsize=(12, 12)) 
 
-#     # st.markdown('#### Elements')
-#     st.markdown(f"""
-#         <span style="display: inline-flex; align-items: center;">
-#             <span style="background-color: rgba(227, 227, 227, 0.5); border: 1px solid rgba(0, 0, 0, 1); display: inline-block;
-#             width: 20px; height: 20px;"></span>
-#             <span style="padding-left: 5px; font-size: 12px;">Nueva Alameda</span>
-#         </span>
-#         """, unsafe_allow_html=True)
-#     st.markdown(f""" 
-#         <span style="display: inline-flex; align-items: center;"> 
-#             <span style="background-color: rgba(53, 202, 12, 0); border: 1px solid rgba(0, 0, 0, 1); display: inline-block;
-#             width: 20px; height: 20px;"></span>
-#             <span style="padding-left: 5px; font-size: 12px;">Unidades Vecinales</span>
-#         </span>
-#         """, unsafe_allow_html=True)
-#     st.markdown(f"""
-#         <span style="display: inline-flex; align-items: center;">
-#             <span style="background-color: rgba(0, 99, 194, 0); border: 3px solid rgba(0, 0, 0, 1); display: inline-block;
-#             width: 20px; height: 20px;"></span>
-#             <span style="padding-left: 5px; font-size: 12px;">Comunas</span>
-#         </span>
-#         """, unsafe_allow_html=True)
-    
-#     # HQSL Choropleth legend
-    
-#     st.markdown(
-#     """
-#     <style>
-#         .centered-text {
-#             text-align: center; /* Center the text horizontally */
-#             font-size: 12px; /* Set the text size */
-#             width: 20%; /* Ensure the text spans the entire container width */
-#             font-weight: bold; /* Make the text bold */
-#         }
-#     </style>
+        # --- Anillo Exterior (Equipamiento) ---
+        outer_wedges, outer_texts, outer_autotexts = ax.pie(
+            cross_tab.sum(axis=1),
+            labels=cross_tab.index,
+            autopct='%1.1f%%',
+            startangle=90,
+            pctdistance=0.85,
+            wedgeprops=dict(width=0.4, edgecolor='w', linewidth=2),
+            colors=outer_colors,
+            textprops={'fontsize': 12, 'weight': 'bold'}
+        )
 
-#     <div class="centered-text">
-#         Calidad de Vida Social (HQSL)
-#     </div>
-#     """,
-#     unsafe_allow_html=True
-# )
-#     st.markdown("""
-#         <span style="display: inline-flex; align-items: center;">
-#             <span style=" background: rgb(63,94,251);
-#                 background: linear-gradient(0deg, rgba(254,235,226,1) 17%, 
-#                 rgba(252,197,192,1) 34%, rgba(250,159,181,1) 51%, 
-#                 rgba(247,104,161,1) 68%, 
-#                 rgba(197,27,138,1) 85%, rgba(122,1,119,1) 100%);
-#                 display: inline-block;
-#             width: 20px; height: 60px;">
-#         </span>
-#                 <style>
-#         .multiline-span {
-#             display: inline-block; /* Allows span to have block-like behavior while remaining inline */
-#             width: 200px; /* Set a width to control where the text wraps */
-#                 margin-left: 10px; /* Add a left indent */
-#                  font-size: 12px; /* Set the text size */
-#         }
-#     </style>
-# </head>
-# <body>
-#     <span class="multiline-span">
-#         Mayor<br>
-#                 <br>
-#         Menor
-#     </span>
-#         """, unsafe_allow_html=True)
-    
-#     # Calidad del espacio público legend
-    
-#     st.markdown(
-#     """
-#     <style>
-#         .centered-text {
-#             text-align: left; /* Center the text horizontally */
-#             font-size: 12px; /* Set the text size */
-#             width: 100%; /* Ensure the text spans the entire container width */
-#             font-weight: bold; /* Make the text bold */
-#             margin-bottom: 0; /* Remove spacing below the text */
-#         }
-#     </style>
+        # --- Anillo Interior (Género) ---
+        # Crear los valores y etiquetas
+        inner_values = []
+        inner_labels = []
+        inner_color_map = []
 
-#     <div class="centered-text">
-#         Calidad del espacio público para la movilidad activa
-#     </div>
-#     """,
-#     unsafe_allow_html=True
-# )
-#     st.markdown("""
-#         <span style="display: inline-flex; align-items: center;">
-#             <span style=" background: rgb(158,1,66);
-#             background: linear-gradient(0deg, rgba(158,1,66,1) 10%, 
-#                 rgba(213,62,79,1) 20%, rgba(244,109,67,1) 30%, 
-#                 rgba(253,174,97,1) 40%, rgba(254,224,139,1) 50%, 
-#                 rgba(230,245,152,1) 60%, rgba(171,221,164,1) 70%, 
-#                 rgba(102,194,165,1) 80%, rgba(50,136,189,1) 90%, 
-#                 rgba(94,79,162,1) 100%);
-#                 display: inline-block;
-#             width: 20px; height: 60px;">
-#         </span>
-#                 <style>
-#         .multiline-span {
-#             display: inline-block; /* Allows span to have block-like behavior while remaining inline */
-#             width: 200px; /* Set a width to control where the text wraps */
-#                 margin-left: 10px; /* Add a left indent */
-#                  font-size: 12px; /* Set the text size */
-#         }
-#     </style>
-# </head>
-# <body>
-#     <span class="multiline-span">
-#         Mayor<br>
-#                 <br>
-#         Menor
-#     </span>
-#         """, unsafe_allow_html=True)
+        # Iterar por cada categoría de equipamiento y género
+        color_idx = 0
+        for i, equip_category in enumerate(cross_tab.index):
+            for j, gender in enumerate(cross_tab.columns):
+                value = cross_tab.loc[equip_category, gender]
+                inner_values.append(value)
+                inner_labels.append(f"{gender}\n({value})")
+                inner_color_map.append(inner_colors[color_idx])
+                color_idx += 1
 
-#def set_footer():
-    #st.image("output/figures/Footer_un_cuarto.jpg", use_column_width=True)
+        # Crear el anillo interior
+        inner_wedges, inner_texts = ax.pie(
+            inner_values,
+            labels=inner_labels,
+            radius=0.6,
+            wedgeprops=dict(width=0.3, edgecolor='w', linewidth=2),
+            startangle=90,
+            colors=inner_color_map,
+            labeldistance=0.4,  # Colocar etiquetas más cerca del centro
+            textprops={'fontsize': 9, 'ha': 'center', 'va': 'center', 'weight': 'bold'}
+        )
 
-# Función principal de Streamlit
-def main():
-    
-    mapas()
-    st.divider()
-    seleccionador1, seleccionador2 = user_area_selection()
-    scatters(seleccionador1, seleccionador2, column_to_plot = None)
-    #column_to_plot = user_indicator_selection()
-    #gauges(seleccionador1, seleccionador2, column_to_plot)
-    #set_footer()
+        # --- Leyenda Mejorada ---
+        legend_elements = [
+            # Categorías principales
+            Patch(facecolor=outer_colors[0], label=f'No usa equipamiento ({cross_tab.sum(axis=1).iloc[0]} personas)'),
+            Patch(facecolor=outer_colors[1], label=f'Sí usa equipamiento ({cross_tab.sum(axis=1).iloc[1]} personas)'),
+            # Separador
+            Patch(facecolor='white', label=''),
+            # Subcategorías por género
+        ]
 
-# Llamada a la función principal
-if __name__ == "__main__":
-    main()  
+        # Agregar las subcategorías dinámicamente
+        color_idx = 0
+        for i, equip_category in enumerate(cross_tab.index):
+            for j, gender in enumerate(cross_tab.columns):
+                value = cross_tab.loc[equip_category, gender]
+                status = "No usan" if equip_category == cross_tab.index[0] else "Sí usan"
+                legend_elements.append(
+                    Patch(facecolor=inner_colors[color_idx], 
+                        label=f'{gender} - {status} ({value})')
+                )
+                color_idx += 1
+
+        ax.legend(
+            handles=legend_elements,
+            title="Distribución por Equipamiento y Género",
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.02),
+            frameon=True,
+            fancybox=True,
+            shadow=True,
+            title_fontsize=16,
+            fontsize=14,
+            ncol=2  
+        )
+
+        # Ajustar diseño con más espacio para la leyenda inferior
+        plt.subplots_adjust(bottom=0.1)  # Dejar espacio en la parte inferior
+        ax.axis('equal')
+
+        st.pyplot(fig)
+
+        # ===Gráfica para el tiempo prmedio caminado===
+        
+        st.subheader("¿Cuánto tiempo le tomó el recorrido caminando para legar a su lugar de destino?")
+        # Crear un histograma del tiempo promedio caminado
+        tiempo_caminado = data_caminabilidad_GDL['¿Cuánto tiempo le tomó el recorrido caminando para legar a su lugar de destino? (Ingresar en minutos)'].dropna()
+        fig, ax = plt.subplots(figsize=(10, 8))
+        ax.hist(tiempo_caminado, bins=30, color='#4ECDC4', edgecolor='black')
+        ax.set_xlabel("Tiempo (minutos)", fontsize=14)
+        ax.set_ylabel("Frecuencia", fontsize=14)
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        st.pyplot(fig)
+        
+        # === Histogramas de importancia de la caminata ===
+
+        categorias_Medellin = st.selectbox(
+            'Selecciona una categoría:', 
+            ['Seguridad', 'Mixtura del suelo', 'Intersecciones', 'Vegetación', 
+            'Densidad de población', 'Presencia de Andares', 'Proximidad'],
+            key='selectbox_categorias_2'  # Key única para este selectbox
+        )
+
+        # Función para convertir texto a escala numérica
+        def convertir_a_escala_numerica(datos_texto):
+            """
+            Convierte las respuestas de texto a escala numérica -2 a 2
+            con manejo robusto de diferentes formatos de texto
+            """
+            mapeo_escala = {
+                "no es importante": -2,
+                "es poco importante": -1,
+                "moderadamente importante": 0,
+                "es importante": 1,
+                "muy importante": 2,
+                # Variaciones comunes que podrían aparecer
+                "importante": 1,
+                "poco importante": -1,
+                "no importante": -2
+            }
+            
+            # Convertir a minúsculas y eliminar espacios extras
+            datos_limpios = datos_texto.str.lower().str.strip()
+            
+            # Mapear y convertir a numérico
+            datos_numericos = datos_limpios.map(mapeo_escala)
+            
+            # Eliminar valores no mapeados (NaN)
+            datos_numericos = datos_numericos.dropna()
+            
+            return datos_numericos
+
+        # Función para crear histograma con escala de importancia
+        def crear_histograma_importancia(datos_texto, titulo, color, xlabel):
+            """
+            Crea un histograma con escala de importancia de -2 a 2
+            Convierte automáticamente de texto a números
+            """
+            
+            datos_numericos = convertir_a_escala_numerica(datos_texto)
+
+            if len(datos_numericos) == 0:
+                st.warning("No hay datos válidos para mostrar en esta categoría.")
+                return None
+
+            fig, ax = plt.subplots(figsize=(12, 10))
+
+            # Añadir información sobre la muestra
+            total_respuestas = len(datos_numericos)
+            ax.text(0.02, 0.98, f'Total de respuestas válidas: {total_respuestas}', 
+                    transform=ax.transAxes, fontsize=11, 
+                    verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+            # Crear bins específicos para la escala -2 a 2
+            bins = [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]
+
+            # Crear el histograma con datos numéricos
+            counts, _, patches = ax.hist(datos_numericos, bins=bins, color=color, edgecolor='black', alpha=0.7)
+
+            # Personalizar los ticks del eje X
+            ax.set_xticks([-2, -1, 0, 1, 2])
+            ax.set_xticklabels([
+                'No es\nimportante\n(-2)', 
+                'Poco\nimportante\n(-1)', 
+                'Moderadamente\nimportante\n(0)', 
+                'Es\nimportante\n(1)', 
+                'Muy\nimportante\n(2)'
+            ], fontsize=10)
+            
+            # Configurar límites del eje X
+            ax.set_xlim(-2.7, 2.7)
+            
+            # Etiquetas y título
+            ax.set_xlabel(xlabel, fontsize=14, fontweight='bold')
+            ax.set_ylabel("Frecuencia", fontsize=14, fontweight='bold')
+            ax.set_title(titulo, fontsize=16, fontweight='bold', pad=20)
+            
+            # Grid mejorado
+            ax.grid(axis='y', linestyle='--', alpha=0.5)
+            ax.set_axisbelow(True)
+            
+            # Añadir valores encima de cada barra
+            for i, count in enumerate(counts):
+                if count > 0:  # Solo mostrar si hay datos
+                    ax.text([-2, -1, 0, 1, 2][i], count + max(counts)*0.01, 
+                        f'{int(count)}', ha='center', va='bottom', fontweight='bold')
+            
+            # Estadísticas descriptivas (solo si hay datos)
+            if len(datos_numericos) > 0:
+                media = datos_numericos.mean()
+                mediana = datos_numericos.median()
+                
+                # Añadir líneas de referencia
+                #ax.axvline(media, color='red', linestyle='--', alpha=0.8, linewidth=2, label=f'Media: {media:.2f}')
+                ax.axvline(mediana, color='orange', linestyle='--', alpha=0.8, linewidth=2, label=f'Mediana: {mediana:.2f}')
+                
+                # Leyenda
+                ax.legend(loc='upper right', framealpha=0.9)
+            
+            
+            plt.tight_layout()
+            
+            return fig
+
+        # Procesamiento según la categoría seleccionada
+        if categorias_Medellin == 'Seguridad':
+            st.subheader("📍 Importancia de la Seguridad")
+            datos_texto = data_caminabilidad_GDL['Sentirme seguro/a frente a posibles delitos en mi trayecto'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto, 
+                "Distribución de Importancia: Seguridad en el Trayecto",
+                '#FF6B6B',
+                "Nivel de Importancia de la Seguridad"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias_Medellin == 'Mixtura del suelo':
+            st.subheader("🏢 Importancia de la Mixtura del Suelo")
+            datos_texto = data_caminabilidad_GDL['La posibilidad de hacer múltiples vueltas/trámites en mi recorrido'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Mixtura del Suelo",
+                '#4ECDC4',
+                "Nivel de Importancia de la Mixtura del Suelo"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias_Medellin == 'Intersecciones':        
+            st.subheader("🛣️ Importancia de las Intersecciones")
+            datos_texto = data_caminabilidad_GDL['La posibilidad de poder tomar desvíos y hacer múltiples trayectos en mi recorrido'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Intersecciones y Desvíos",
+                '#FFD166',
+                "Nivel de Importancia de las Intersecciones"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias_Medellin == 'Vegetación':
+            st.subheader("🌳 Importancia de la Vegetación")
+            
+            # Primer gráfico: Sombra de vegetación
+            st.write("**Comodidad por sombra de vegetación:**")
+            datos_texto1 = data_caminabilidad_GDL['Sentirme cómodo/a por la sombra generada por la vegetación'].dropna()
+            fig1 = crear_histograma_importancia(
+                datos_texto1,
+                "Distribución de Importancia: Sombra de Vegetación",
+                '#7FB3D5',
+                "Nivel de Importancia de la Sombra"
+            )
+            if fig1:
+                st.pyplot(fig1)
+            
+            # Segundo gráfico: Paisaje agradable
+            st.write("**Paisaje agradable:**")
+            datos_texto2 = data_caminabilidad_GDL['Que el paisaje sea agradable'].dropna()
+            fig2 = crear_histograma_importancia(
+                datos_texto2,
+                "Distribución de Importancia: Paisaje Agradable",
+                '#98D8C8',
+                "Nivel de Importancia del Paisaje"
+            )
+            if fig2:
+                st.pyplot(fig2)
+            
+        elif categorias_Medellin == 'Densidad de población':
+            st.subheader("👥 Importancia de la Densidad de Población")
+            datos_texto = data_caminabilidad_GDL['Sentirme cómodo/a en términos de la cantidad de gente a lo largo de mi recorrido'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Densidad de Población",
+                '#A2D9CE',
+                "Nivel de Importancia de la Densidad Poblacional"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias_Medellin == 'Presencia de Andares':
+            st.subheader("🚶 Importancia de la Presencia de Andenes")
+            datos_texto = data_caminabilidad_GDL['La presencia de andenes'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Presencia de Andenes",
+                '#FF6B6B',
+                "Nivel de Importancia de los Andenes"
+            )
+            if fig:
+                st.pyplot(fig)
+            
+        elif categorias_Medellin == 'Proximidad':
+            st.subheader("📍 Importancia de la Proximidad")
+            datos_texto = data_caminabilidad_GDL['La cercanía del equipamiento X'].dropna()
+            fig = crear_histograma_importancia(
+                datos_texto,
+                "Distribución de Importancia: Proximidad al Equipamiento",
+                '#E74C3C',
+                "Nivel de Importancia de la Proximidad"
+            )
+            if fig:
+                st.pyplot(fig)
