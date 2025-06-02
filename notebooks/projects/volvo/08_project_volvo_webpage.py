@@ -53,10 +53,10 @@ with col1:
                 st.error(f"La ruta {base_path} no existe.")
                 return
 
-            # Coordenadas centradas en Guadalajara
+            # Coordenadas centradas en Guadalajara (prueba)
             m = folium.Map(location=[20.6736, -103.344], zoom_start=13, tiles="cartodbpositron")
 
-            # Paleta de colores fija (puedes personalizarla o ampliarla)
+            # Paleta de colores para los sectores
             color_palette = [
                 "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
                 "#9467bd", "#8c564b", "#e377c2", "#7f7f7f"
