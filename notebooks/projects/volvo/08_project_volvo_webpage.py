@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd 
 from matplotlib.patches import Patch
+import geopandas as gpd
+import os
+import random
 
 
 # Configuración de la página
@@ -40,10 +43,67 @@ col1, col2 = st.columns(2)
 with col1:
     st.header("Guadalajara")
     if visualizacion == "Mapas":
-        # Crear un mapa centrado en Guadalajara
-        mapa_gdl = folium.Map(location=[20.6597, -103.3496], zoom_start=12)
-        folium.Marker([20.6597, -103.3496], tooltip="Guadalajara").add_to(mapa_gdl)
-        st_folium(mapa_gdl, width=450, height=300)
+
+        def edges_to_map_all_sectors(base_path):
+            """
+            Carga archivos *_edges.shp de todos los sectores y los muestra en un mapa,
+            cada uno con un color distinto y control de capas.
+            """
+            if not os.path.exists(base_path):
+                st.error(f"La ruta {base_path} no existe.")
+                return
+
+            # Coordenadas centradas en Guadalajara
+            m = folium.Map(location=[20.6736, -103.344], zoom_start=13, tiles="cartodbpositron")
+
+            # Paleta de colores fija (puedes personalizarla o ampliarla)
+            color_palette = [
+                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+                "#9467bd", "#8c564b", "#e377c2", "#7f7f7f"
+            ]
+
+            # Mapeo fijo de sector a color
+            sectores = sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
+            colores = {sector: color_palette[i % len(color_palette)] for i, sector in enumerate(sectores)}
+
+            for sector in sectores:
+                sector_path = os.path.join(base_path, sector)
+
+                for file in os.listdir(sector_path):
+                    if file.endswith('_edges.shp') or file.endswith('_edges_proj_net_final.shp'):
+                        file_path = os.path.join(sector_path, file)
+                        try:
+                            gdf = gpd.read_file(file_path)
+
+                            tooltip_fields = [col for col in gdf.columns if isinstance(col, str)][:2]
+
+                            folium.GeoJson(
+                                gdf,
+                                name=f"{sector} - {file}",
+                                style_function=lambda feature, col=colores[sector]: {
+                                    'color': col,
+                                    'weight': 2,
+                                    'opacity': 0.8
+                                },
+                                tooltip=folium.GeoJsonTooltip(fields=tooltip_fields)
+                            ).add_to(m)
+
+                        except Exception as e:
+                            st.warning(f"No se pudo cargar {file} en {sector}: {e}")
+
+            folium.LayerControl(collapsed=False).add_to(m)
+            st.subheader("Mapa de líneas por sector (Guadalajara)")
+            st_folium(m, width=900, height=400)
+
+        # USO:
+        st.sidebar.title("Opciones del mapa")
+        ver_mapa = st.sidebar.checkbox("Mostrar mapas de líneas por sector", value=True)
+
+        if ver_mapa:
+            base_path = "/home/jovyan/accesibilidad-urbana/data/external/WalkabilityIndex/"
+            edges_to_map_all_sectors(base_path)
+
+
     elif visualizacion == "Hallazgos":
         # ==== Análisis de datos Guadalajara ====
         # Gráfica de pastel según el género
@@ -248,10 +308,12 @@ with col1:
             if len(datos_numericos) > 0:
                 media = datos_numericos.mean()
                 mediana = datos_numericos.median()
+                moda = datos_numericos.mode().iloc[0]
                 
                 # Añadir líneas de referencia
                 #ax.axvline(media, color='red', linestyle='--', alpha=0.8, linewidth=2, label=f'Media: {media:.2f}')
-                ax.axvline(mediana, color='orange', linestyle='--', alpha=0.8, linewidth=2, label=f'Mediana: {mediana:.2f}')
+                ax.axvline(mediana, color='maroon', linestyle='--', alpha=0.8, linewidth=4, label=f'Mediana: {mediana:.2f}')
+                ax.axvline(moda, color='darkgreen', linestyle='--', alpha=0.8, linewidth=4, label=f'Moda: {moda:.2f}')
                 
                 # Leyenda
                 ax.legend(loc='upper right', framealpha=0.9)
@@ -368,7 +430,7 @@ with col2:
         # Crear un mapa centrado en Medellín
         mapa_med = folium.Map(location=[6.2442, -75.5812], zoom_start=12)
         folium.Marker([6.2442, -75.5812], tooltip="Medellín").add_to(mapa_med)
-        st_folium(mapa_med, width=450, height=300)
+        st_folium(mapa_med, width=900, height=400)
     elif visualizacion == "Hallazgos":
         # Gráfica de pastel según el género
         # Obtener datos cruzados
@@ -466,7 +528,7 @@ with col2:
 
         st.pyplot(fig)
 
-        # ===Gráfica para el tiempo prmedio caminado===
+        # ===Gráfica para el tiempo promedio caminado===
         
         st.subheader("¿Cuánto tiempo le tomó el recorrido caminando para legar a su lugar de destino?")
         # Crear un histograma del tiempo promedio caminado
@@ -575,10 +637,13 @@ with col2:
             if len(datos_numericos) > 0:
                 media = datos_numericos.mean()
                 mediana = datos_numericos.median()
+                moda = datos_numericos.mode().iloc[0]
+
                 
                 # Añadir líneas de referencia
                 #ax.axvline(media, color='red', linestyle='--', alpha=0.8, linewidth=2, label=f'Media: {media:.2f}')
-                ax.axvline(mediana, color='orange', linestyle='--', alpha=0.8, linewidth=2, label=f'Mediana: {mediana:.2f}')
+                ax.axvline(mediana, color='maroon', linestyle='--', alpha=0.8, linewidth=4, label=f'Mediana: {mediana:.2f}')
+                ax.axvline(moda, color='darkgreen', linestyle='--', alpha=0.8, linewidth=4, label=f'Moda: {moda:.2f}')
                 
                 # Leyenda
                 ax.legend(loc='upper right', framealpha=0.9)
