@@ -5,7 +5,6 @@ script_directory = Path(__file__).resolve().parent
 
 load_dotenv(script_directory /'.env')
 
-
 """Global settings, can be configured by user with utils.config()."""
 
 import logging as lg
