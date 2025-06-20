@@ -14,7 +14,7 @@ from scipy import optimize
 import shapely
 from scipy.spatial import Voronoi
 from math import sqrt
-
+from tqdm import tqdm
 
 
 
@@ -128,39 +128,40 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	return nodes
 
 
-def group_by_hex_mean(nodes, hex_bins, resolution, group_column_names, hex_column_id, osmid=True):
+def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=True):
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
 	Arguments:
-		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexbins
-		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
-		group_column_names (str,list): column name or list of column names to group with
-		hex_column_id (str): column name with the hex_id
+		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes with data to group.
+		hex_bins (geopandas.GeoDataFrame): GeoDataFrame with the hexs where data will be grouped.
+		group_column_names (str,list): column name or list of column names to group where data will be changed to 1 if 0 to differentiate from NaNs.
+		hex_id_col (str): column name with the hex_id.
+		osmid (bool, optional): If True, osmid column will be dropped. Defaults to True.
 
 	Returns:
-		geopandas.GeoDataFrame:  GeoDataFrame with the hex_id{resolution}, geometry and average distance to amenity for each hexbin
+		geopandas.GeoDataFrame:  GeoDataFrame with hex_id_col, geometry and average distance to each amenity for each hexbin
 	"""
-	dist_col = group_column_names
+	
+	# Copy data to avoid editing originals
+	substitute_cols = group_column_names
 	nodes = nodes.copy()
 	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
 	# Group data by hex_id
 	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
-	nodes_hex = nodes_in_hex.groupby([hex_column_id]).mean()
+	nodes_hex = nodes_in_hex.groupby([hex_id_col]).mean()
 	# Merge back to geometry
-	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_column_id,how = 'outer')
+	hex_new = pd.merge(hex_bins,nodes_hex,right_index=True,left_on=hex_id_col,how = 'outer')
 	if osmid:
 		hex_new = hex_new.drop(['index_right','osmid'],axis=1)
 	else:
 		hex_new = hex_new.drop(['index_right'],axis=1)
-	
-	# Check for NaN values
-	if type(dist_col) == list:
-		for dc in dist_col:
-			hex_new[dc].apply(lambda x: x+1 if x==0 else x )
+	# Susbstitute 0 for 1 in order to differentiate from NaNs
+	if type(substitute_cols) == list:
+		for col in substitute_cols:
+			hex_new[col].apply(lambda x: x+1 if x==0 else x)
 	else:
-		hex_new[dist_col].apply(lambda x: x+1 if x==0 else x )
+		hex_new[substitute_cols].apply(lambda x: x+1 if x==0 else x)
 	# Fill NaN values
 	hex_new.fillna(0, inplace=True)
 	
@@ -172,17 +173,19 @@ def socio_polygon_to_points(
 	column_start=0,
 	column_end=-1,
 	cve_column="CVEGEO",
-	avg_column=None,
+	no_distr_cols=None,
 ):
 	"""
 	Assign the proportion of sociodemographic data from polygons to points
 	Arguments:
 		nodes (geopandas.GeoDataFrame): GeoDataFrame with the nodes to group
-		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each AGEB
+		gdf_socio (geopandas.GeoDataFrame): GeoDataFrame with the sociodemographic attributes of each polygon (e.g. AGEB)
 		column_start (int, optional): Column position were sociodemographic data starts in gdf_population. Defaults to 0.
 		column_end (int, optional): Column position were sociodemographic data ends in gdf_population. Defaults to -1.
-		cve_column (str, optional): Column name with unique code for identification. Defaults to "CVEGEO".
-		avg_column (list, optional): Column name lists with data to average and not divide. Defaults to None.
+		cve_column (str, optional): Column name with unique code for identifying each poly in gdf_socio. Defaults to "CVEGEO".
+		no_distr_cols (list, optional): List containing column names whose data should not be divided by the number of nodes within each polygon.
+	                                    (e.g. Average level of schooling in a polygon should not be distributed between the nodes, but passed. Total population should be distributed). Defaults to None.
+		Column name list with data to not divide. Defaults to None.
 	Returns:
 		nodes (GeoDataFrame):  Shows the proportion of population by nodes in the AGEB
 	"""
@@ -190,25 +193,31 @@ def socio_polygon_to_points(
 	if column_end == -1:
 		column_end = len(list(gdf_socio.columns))
 
-	if avg_column is None:
-		avg_column = []
-	totals = (
-		gpd.sjoin(nodes, gdf_socio)
-		.groupby(cve_column)
-		.count()
-		.rename(columns={"x": "nodes_in"})[["nodes_in"]]
-		.reset_index()
-	)  # caluculate the totals
-	# get a temporal dataframe with the totals and columns
+	if no_distr_cols is None:
+		no_distr_cols = []
+	
+	# Count the number of nodes in each polygon
+	totals = (gpd.sjoin(nodes, gdf_socio) # <-- Creates a gdf where each node has every gdf_socio col (including cve_column)
+		   .groupby(cve_column) # <-- Groups all data by cve_column
+		   .count() # <-- Counts the number of nodes in each cve_column (e.g. one AGEB with 100 nodes)
+		   .rename(columns={"x": "nodes_in"})[["nodes_in"]] # <-- Assuming that 'x' is a col in 'nodes', renames data (counted nodes) to "nodes_in" and keeps that col only
+		   .reset_index() # <-- Resets index (.groupby(cve_column) sets that col as index, restores it as col)
+		   ) # Result: a df with [cve_column, nodes_in] where each row is an polygon and 'nodes_in' is the number of nodes in that polygon
+
+	# Merge to create temporal dataframe with the gdf_socio data and total number of nodes (nodes_in)
 	temp = pd.merge(gdf_socio, totals, on=cve_column)
-	# get the average for the values
+
+	# Distribute the values of each polygon using the number of nodes within it (except for those in no_distr_cols, which are not distributed)
 	for col in temp.columns.tolist()[column_start:column_end]:
-		if col not in avg_column:
+		if col not in no_distr_cols:
 			temp[col] = temp[col] / temp["nodes_in"]
+
+	# Join the nodes with the values and drop columns
 	temp = temp.set_crs("EPSG:4326")
 	nodes = gpd.sjoin(nodes, temp)
-	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)  # drop the nodes_in column
-	return nodes  # spatial join the nodes with the values
+	nodes.drop(["nodes_in", "index_right"], axis=1, inplace=True)
+
+	return nodes
 
 def socio_points_to_polygon(
 	gdf_polygon,
@@ -222,15 +231,14 @@ def socio_points_to_polygon(
 
 	"""Group sociodemographic point data in polygons
     Arguments:
-        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped
+        gdf_polygon (geopandas.GeoDataFrame): GeoDataFrame polygon where sociodemographic data will be grouped (e.g. hexs)
         gdf_socio (geopandas.GeoDataFrame): GeoDataFrame points with sociodemographic data
-        cve_column (str): Column name with polygon id in gdf_polygon.
+        cve_column (str): Column name with polygon id in gdf_polygon (e.g. hex_id_{res})
         string_columns (list): List with column names for string data in gdf_socio.
-		count_pois (tuple): 
         wgt_dict {dict, optional): Dictionary with average column names and weight column names for weighted average. Defaults to None.
         avg_column (list, optional): List with column names with average data. Defaults to None.
-		include_nearest (tuple,optional): tuple containing boolean. If False, ignores points that fall outside gdf_polygon.
-																	If True, find closest poly vertex to point and assigns the point to it.
+		include_nearest (tuple,optional): tuple containing boolean. If False, completely ignores points that fall outside all gdf_polygon.
+																	If True, for each point that fell outside the polys, finds closest poly vertex and assigns the point to that poly.
 																	Defaults to (False, '_')
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
     Returns:
@@ -238,10 +246,12 @@ def socio_points_to_polygon(
 
 	"""
 
+	# Create empty list to store data before converting to DataFrame (output)
 	dictionary_list = []
 	# Adds census data from points to polygon
 	gdf_tmp_1 = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
 	
+	# Consider (or not) points that fall outside the polys in gdf_polygon
 	if include_nearest[0]:
 		points_id =  include_nearest[1]
         # Find points of gdf_socio that were left outside gdf_polygon by merging gdf_socio and gdf_tmp_1
@@ -257,33 +267,36 @@ def socio_points_to_polygon(
 		gdf2 = gdf_poly_edges.to_crs(projected_crs)
 		nearest = gpd.sjoin_nearest(gdf1, gdf2,lsuffix="left", rsuffix="right")
 		gdf_tmp_2 = nearest.to_crs('EPSG:4326')
-		
+		# Concatenate gdf_tmp_1 (points inside polys) and gdf_tmp_2 (points outside polys)
 		gdf_tmp = pd.concat([gdf_tmp_1,gdf_tmp_2])
-	
 	else:
 		gdf_tmp = gdf_tmp_1.copy()
 
-	# convert data types
+	# Convert data types according to string columns (non-string columns become numeric_columns)
 	all_columns = list(gdf_socio.columns)
 	numeric_columns = [x for x in all_columns if x not in string_columns]
 	type_dict = {"string": string_columns, "float": numeric_columns}
 	gdf_tmp = convert_type(gdf_tmp, type_dict)
 
-	#group sociodemographic points to polygon
+	# Group sociodemographic points to polygon
 	for idx in gdf_tmp[cve_column].unique():
-
+		# Filters data by polygon (cve_column)
 		socio_filter = gdf_tmp.loc[gdf_tmp[cve_column]==idx].copy()
-
-		dict_tmp = group_sociodemographic_data(socio_filter, numeric_columns,
-		avg_column=avg_column, avg_dict=wgt_dict)
-		
+		# Groups data
+		dict_tmp = group_sociodemographic_data(socio_filter,
+										 numeric_columns,
+										 avg_column=avg_column, 
+										 avg_dict=wgt_dict
+										 )
+		# Indicates polygon id
 		dict_tmp[cve_column] = idx
-		
+		# Appends data to dictionary list
 		dictionary_list.append(dict_tmp)
-	
+	# Creates DataFrame from dictionary list
 	data = pd.DataFrame.from_dict(dictionary_list)
 
 	return data
+
 
 def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None):
 	
@@ -832,7 +845,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	return hex_socio_gdf
 
-def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, count_pois=(False,0), projected_crs="EPSG:6372",
+def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, count_pois=(False,0), projected_crs="EPSG:6372",
 			  preprocessed_nearest=(False,'dir')):
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
@@ -845,7 +858,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 							If "length", will use walking speed.
 							If "time_min", edges with time information must be provided.
 		walking_speed (float): Decimal number containing walking speed (in km/hr) to be used if prox_measure="length",
-							   or if prox_measure="time_min" but needing to fill time_min NaNs.
+							   or if prox_measure="time_min" but needing to fill time_min NaNs. Defaults to 4 (km/hr).
 		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
 		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
@@ -858,7 +871,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 	# Helps by printing steps to find solutions (If using, make sure test_save_dir exists.)
 	test_save = False
-	test_save_dir = "../data/external/debugging/pois_time/"
+	test_save_dir = "../data/debugging/pois_time/"
 
     ##########################################################################################
     # STEP 1: NEAREST. 
@@ -877,12 +890,12 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 
-		# As no amenities were found, output columns are set to nan.
+		# As no amenities were found, time columns are set to nan, while count columns are set to 0.
 		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
 		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
 		if count_pois[0]: 
-			nodes_time[f'{poi_name}_{count_pois[1]}min'] = np.nan # If requested pois_count, value is set to np.nan.
-			print(f"0 {poi_name} found. Pois count set to nan for all nodes.")
+			nodes_time[f'{poi_name}_{count_pois[1]}min'] = 0 # If requested pois_count, value is set to 0.
+			print(f"0 {poi_name} found. Pois count set to 0 for all nodes.")
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
 			return nodes_time
 		else:
@@ -920,7 +933,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
 		else:
-			# NaNs in time_min? --> Use walking speed
+			# NaNs in time_min? --> Use specified walking speed (defaults to 4km/hr) to calculate time_min.
 			no_time = len(edges.loc[edges['time_min'].isna()])
 			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
 			print(f"Calculated time for {no_time} edges that had no time data.")
@@ -930,8 +943,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		
 		# -----
 		if test_save:
-			nodes.to_file(test_save_dir + f"nodes_{poi_name}.geojson", driver='GeoJSON')
-			edges.to_file(test_save_dir + f"edges_{poi_name}.geojson", driver='GeoJSON')
+			nodes.to_file(test_save_dir + f"01_nodes_{poi_name}.geojson", driver='GeoJSON')
+			edges.to_file(test_save_dir + f"01_edges_{poi_name}.geojson", driver='GeoJSON')
 		# -----
 
 		# nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
@@ -939,7 +952,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_analysis.to_file(test_save_dir + f"empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
+			nodes_analysis.to_file(test_save_dir + f"02_empty_nodes_analysis_{poi_name}.geojson", driver='GeoJSON')
 		# -----
 
 		# nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
@@ -947,7 +960,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_time.to_file(test_save_dir + f"empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
+			nodes_time.to_file(test_save_dir + f"03_empty_nodes_time_{poi_name}.gpkg", driver='GPKG')
 		# -----
 
 		# --------------- 2.3 PROCESSING DISTANCE
@@ -961,7 +974,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		if (len(nearest) % 250)==0:
 			batch_size = len(nearest)/200
 			for k in range(int(batch_size)+1):
-				print(f"Starting range k = {k+1} of {int(batch_size)+1} for {poi_name}.")
+				print(f"Starting batch200 k={k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
 				source_process = nearest.iloc[int(200*k):int(200*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
@@ -971,7 +984,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 				
 				# -----
 				if test_save:
-					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
+					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
 				# -----
 
 				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
@@ -986,6 +999,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 					poiscount_cols.append(batch_poiscount_col)
 					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
+					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
 					
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -999,7 +1014,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 		else:
 			batch_size = len(nearest)/250
 			for k in range(int(batch_size)+1):
-				print(f"Starting range k = {k+1} of {int(batch_size)+1} for source {poi_name}.")
+				print(f"Starting batch250 k={k+1} of {int(batch_size)+1} for source {poi_name}.")
 				# Calculate
 				source_process = nearest.iloc[int(250*k):int(250*(1+k))].copy()
 				nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
@@ -1009,7 +1024,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 				# -----
 				if test_save:
-					nodes_distance_prep.to_file(test_save_dir + f"nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
+					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_250batch{k}.gpkg", driver='GPKG')
 				# -----
 
 				# Extract from nodes_distance_prep to nodes_time the batch's calculated time data
@@ -1024,6 +1039,8 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 					poiscount_cols.append(batch_poiscount_col)
 					nodes_time = pd.merge(nodes_time,nodes_distance_prep[['osmid',f'{poi_name}_{count_pois[1]}min']],on='osmid',how='left')
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
+					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
+					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
 
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
@@ -1037,7 +1054,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, coun
 
 		# -----
 		if test_save:
-			nodes_time.to_file(test_save_dir + f"nodes_time_{poi_name}.gpkg", driver='GPKG')
+			nodes_time.to_file(test_save_dir + f"05_nodes_time_{poi_name}.gpkg", driver='GPKG')
 		# -----
 
 		##########################################################################################
@@ -1067,7 +1084,7 @@ def weighted_average(df, weight_column, value_column):
 	return weighted_average
 
 
-def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False):
+def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False,main_folder_path='../'):
 	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
 		As of this version, if couldn't find all values, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
@@ -1077,11 +1094,13 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		year (str): String that contains the year of the AGEBs and blocks population data. 
 					Function has additional steps for year="2020".
 		extended_logs (bool, optional): Boolean - if true prints statistical logs while processing for each AGEB.
+		main_folder_path (str, optional): String containing the main folder path for the project. Defaults to '../'.
+										  (Used to load blocks_800 data for 2020)
 
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with blocks containing pop data with no NaNs.
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
-								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC, has no equations.
+								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC(2020) / PCON_LIM(2010), has no equations.
 	"""
 	
 	##########################################################################################
@@ -1098,76 +1117,72 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	pop_mza_gdf.columns = pop_mza_gdf.columns.str.upper()
 	pop_mza_gdf.rename(columns={'GEOMETRY':'geometry'},inplace=True)
 
-	# --------------- 1.2 CHECK FOR UNIQUE AGEBs DIFFERENCES
+	# --------------- 1.2 CHECK FOR DIFFERENCES IN AVAILABLE AGEBS (agebs in pop_ageb_gdf vs agebs in pop_mza_gdf)
 	# Look for all unique AGEBs in both gdfs
 	agebs_in_ageb_gdf = list(pop_ageb_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
 	agebs_in_mza_gdf = list(pop_mza_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
+	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
+		raise ValueError("Error: Zero AGEBs found. Area of interest has no urban population data.")
+	
+	# ADDITIONAL STEP - BLOCKS_800 
+	# (Could be removed in future versions by considering geometries from Marco Geoestadístico's '_pem' layers)
 	if year == '2020':
-		# ADDITIONAL STEP - BLOCKS_800 EXPLANATION: 
-		# In 2020 INEGI created a category for blocks that do not have a geometry assigned to them.
+		# EXPLANATION - BLOCKS_800
+		# 2020's INEGI's pop data has a category for blocks that does not have a geometry assigned in the regular blocks file.
 		# These are called "Caserío urbano disperso" and have population assigned to them.
-		# Here, they are loaded because their data plays part finding missing AGEBs 
-		# and in the calculation of nan values using AGEBs data (Step 2.4).
-		# BLOCKS_800 - Load and format blocks_800
-		blocks_800_df = pd.read_csv("../data/external/census/census_2020_blocks800.csv")
+		# Here, they are loaded because their data plays part in finding missing AGEBs and in the calculation of nan values using AGEBs data (Step 2.4).
+
+		# BLOCKS_800 - Load and format blocks_800 [From database repository, script 10]
+		blocks_800_df = pd.read_csv(main_folder_path+"data/external/census/census_2020_blocks800.csv")
 		blocks_800_df.columns = blocks_800_df.columns.str.upper()
 		# BLOCKS_800 - Filter for current municipalities
-		muns_in_agebs_gdf = list(pop_ageb_gdf.CVEGEO_MUN.unique())
-		muns_in_mza_gdf = list(pop_mza_gdf.CVEGEO_MUN.unique())
-		municipalities_lst =  set(muns_in_agebs_gdf+muns_in_mza_gdf)
+		municipalities_lst =  set(list(pop_ageb_gdf.CVEGEO_MUN.unique())+list(pop_mza_gdf.CVEGEO_MUN.unique()))
 		municipalities_int_lst = [int(munic) for munic in municipalities_lst]
 		blocks_800_df = blocks_800_df.loc[blocks_800_df.CVEGEO_MUN.isin(municipalities_int_lst)].copy()
 		if len(blocks_800_df)>0:
 			blocks_800_present = True #Checker
-			print(f"FOUND {len(blocks_800_df)} blocks_800 in current municipalities.")
-			# BLOCKS_800 - Identify which blocks_800 have an AGEB
+			print(f"Blocks800 - FOUND {len(blocks_800_df)} blocks_800 in current municipalities.")
+			# BLOCKS_800 - List AGEBs available in blocks_800 data
 			agebs_in_blocks800df = list(blocks_800_df['CVEGEO_AGEB'].unique())
-			complementary_blocks800_agebslst = [] #Will be added
-			blocks800_only = [] #Will NOT be added
-			for ageb in agebs_in_blocks800df:
-				if ageb in agebs_in_ageb_gdf:
-					complementary_blocks800_agebslst.append(ageb) #List of AGEBs from blocks_800 available in pop_ageb_gdf.
-				else:
-					blocks800_only.append(ageb) #List of AGEBs from blocks_800 NOT available in pop_ageb_gdf.
-
-			# BLOCKS_800 - Add blocks_800 only for those that have an AGEB in pop_ageb_gdf.
-			complementary_blocks800 = blocks_800_df.loc[blocks_800_df.CVEGEO_AGEB.isin(complementary_blocks800_agebslst)].copy()
-			print(f"ADDED {len(complementary_blocks800)} blocks_800 for {len(complementary_blocks800_agebslst)} AGEBs.")
-			print("Printing AGEBs with blocks_800 list:")
-			print(complementary_blocks800_agebslst)
-			# BLOCKS_800 - Show blocks_800 that have no AGEB (Won't be added.)
-			print(f"REMOVED blocks_800 from {len(blocks800_only)} other AGEBs not available in pop_gdf_ageb.")
-			print("Printing AGEBs from blocks_800 that won't be used.")
-			print(blocks800_only)
+			# BLOCKS_800 - AGEBs (with blocks800) already in pop_ageb_gdf *ARE* considered in function.
+			blocks800_complementary_agebslst = [ageb for ageb in agebs_in_blocks800df if ageb in agebs_in_ageb_gdf]
+			complementary_blocks800 = blocks_800_df.loc[blocks_800_df.CVEGEO_AGEB.isin(blocks800_complementary_agebslst)].copy()
+			print(f"Blocks800 - ADDED {len(complementary_blocks800)} blocks_800 for {len(blocks800_complementary_agebslst)} AGEBs.")
+			if extended_logs:
+				print("Blocks800 - Printing AGEBs with blocks_800 list:")
+				print(blocks800_complementary_agebslst)
+			# BLOCKS_800 - AGEBs (with blocks800) NOT IN pop_ageb_gdf *ARE NOT* considered in function.
+			blocks800_only_agebslst = [ageb for ageb in agebs_in_blocks800df if ageb not in agebs_in_ageb_gdf]
+			print(f"Blocks800 - Not considering blocks_800 from {len(blocks800_only_agebslst)} other AGEBs not available in pop_gdf_ageb.")
+			if extended_logs:
+				print("Blocks800 - Printing AGEBs from blocks_800 that won't be used.")
+				print(blocks800_only_agebslst)
 		else:
 			blocks_800_present = False #Checker
-			print(f"Found zero blocks_800 in current municipalities.")
-
-	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
-		print("Error: Area of interest has no pop data.")
-		intended_crash
-
+			print(f"Blocks800 - Found zero blocks_800 in current municipalities.")
+	else:
+		blocks_800_present = False #Checker (There are no blocks 800 in 2010)
+	
 	# Test for AGEBs present in mza_gdf but not in AGEB_gdf (could crash if unchecked)
 	missing_agebs = list(set(agebs_in_mza_gdf) - set(agebs_in_ageb_gdf))
 	if len(missing_agebs) > 0:
 		print(f'WARNING: {len(missing_agebs)} AGEBs present in mza_gdf but missing from ageb_gdf.')
 		print(f'WARNING: {len(missing_agebs)} AGEBs will not be part of AGEBs analysis. Printing missing AGEBs.')
 		print(missing_agebs)
-
-
+	
 	##########################################################################################
 	# STEP 2: CALCULATE NAN VALUES
-	print("STARTING NANs calculation.")
+	print("STARTING NANs CALCULATION.")
 
 	# LOG CODE - Progress logs
 	# Will create progress logs when progress reaches these percentages:
-	progress_logs = [10,20,30,40,50,60,70,80,90,100] # for log statistics
+	#progress_logs = [10,20,30,40,50,60,70,80,90,100] # for log statistics
 	# This df stores accumulative (All AGEBs) statistics for logs.
 	acc_statistics = pd.DataFrame() # for log statistics
 
 	# --------------- 2.0 NaNs CALCULATION Start
 	i = 1
-	for cvegeo_ageb in agebs_in_mza_gdf: # Most of the code of this function iterates over each AGEB in pop_mza_gdf
+	for cvegeo_ageb in tqdm(agebs_in_mza_gdf, desc="Calculating NaNs"): # Most of the code of this function iterates over each AGEB in pop_mza_gdf [agebs_in_mza_gdf]
 
 		if extended_logs:
 			print('--'*20)
@@ -1175,12 +1190,12 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		
 		# LOG CODE - Progress logs
 		# Measures current progress, prints if passed a checkpoint of progress_logs list.
-		current_progress = (i / len(agebs_in_mza_gdf))*100
-		for checkpoint in progress_logs:
-			if current_progress >= checkpoint:
-				print(f'Calculating NaNs. {checkpoint}% done.')
-				progress_logs.remove(checkpoint)
-				break
+		#current_progress = (i / len(agebs_in_mza_gdf))*100
+		#for checkpoint in progress_logs:
+		#	if current_progress >= checkpoint:
+		#		print(f'Calculating NaNs. {checkpoint}% done.')
+		#		progress_logs.remove(checkpoint)
+		#		break
 
 		# --------------- 2.1 FIND CURRENT AGEB BLOCK DATA
 		mza_ageb_gdf = pop_mza_gdf.loc[pop_mza_gdf['CVEGEO_AGEB'] == cvegeo_ageb].copy() #Previously 'CVE_AGEB'
@@ -1199,15 +1214,19 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 						 'P_12YMAS','P_12YMAS_F','P_12YMAS_M',
 						 'P_15YMAS','P_15YMAS_F','P_15YMAS_M',
 						 'P_18YMAS','P_18YMAS_F','P_18YMAS_M',
-						 'REL_H_M','POB0_14','POB15_64','POB65_MAS',
-						 'PCON_DISC'] #PCON_DISC was added later
+						 'REL_H_M','POB0_14','POB15_64','POB65_MAS']
+		if year == "2010":
+			columns_of_interest.append('PCON_LIM')
+		elif year == "2020":
+			columns_of_interest.append('PCON_DISC')
 		
-		# Why to keep two dfs with pop_mza_gdf data from the current AGEB:
+		# Why keep two dfs with pop_mza_gdf data from the current AGEB:
 		# --> 'mza_ageb_gdf' stores all data from pop_mza_gdf for the current AGEB.
-		# --> 'blocks' stores pop data only and gets split into blocks_values and blocks_nans ahead, which get edited during the process.
+		# --> 'blocks' will store pop data only and will get split into blocks_values and blocks_nans ahead, which get edited during the process.
+		# After the editing process, the edited data is returned to the original mza_ageb_gdf.
 		blocks = mza_ageb_gdf[['CVEGEO_MZA'] + columns_of_interest].copy() #Previously 'CVEGEO'
 
-		# BLOCKS 800 - Consider posible blocks 800 on current AGEB
+		# BLOCKS 800 - Add blocks 800 on current AGEB if available
 		if blocks_800_present:
 			mza800_ageb_df = complementary_blocks800.loc[complementary_blocks800['CVEGEO_AGEB'] == cvegeo_ageb].copy()
 			mza800_ageb_df = mza800_ageb_df[['CVEGEO_MZA'] + columns_of_interest].copy()
@@ -1216,20 +1235,17 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		# 2.2b) Find rows with nan values and total amount of values available per row (found_values)
 		blocks['found_values'] = 0
 		checker_cols = []
-
 		for col in columns_of_interest:
 			# Define checker column
 			checker_col = f'check_{col}'
 			# Turn column to numeric
 			blocks[col] = pd.to_numeric(blocks[col])
-			# Set checker column to 'exist' (1)
+			# Set checker column to 'exist' (1). For each row, if value doesn't exist (NaN), set that row's checker to (0)
 			blocks[checker_col] = 1
-			# For each row, if value doesn't exist (NaN), set that row's checker to (0)
 			idx = blocks[col].isna()
 			blocks.loc[idx, checker_col] = 0
 			# Add checker column to checker_cols list (To remove it later)
 			checker_cols.append(checker_col)
-		
 		# Sum total number of identified nan values by row
 		blocks['found_values'] = blocks[checker_cols].sum(axis=1)
 		# Drop checker columns
@@ -1249,7 +1265,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 
 		del blocks
 
-		# --------------- 2.3 CALCULATE NaN values in blocks
+		# --------------- 2.3 FILL MISSING NaN VALUES USING KNOWN RELATIONS (Fills when the equation is missing one value only).
 		"""
 		This is the first important sub-step towards filling missing values. It works by filling NaNs using known relations.
 		e.g. It is known that within a block the Total population (POBTOT) = total fem. population (POBFEM) + total masc. population (POBMAS). 
@@ -1266,12 +1282,30 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		"""
 
 		if extended_logs:
-			print(f'Calculating NaNs using block data for AGEB {cvegeo_ageb}.')
+			print(f'Calculating NaNs using known relations for AGEB {cvegeo_ageb}.')
 
-		# 2.3a) Count current (original) nan values
+		# 2.3 prep) Load AGEB data if available
+		if cvegeo_ageb not in missing_agebs:
+			ageb_available = True
+			# Locate AGEB data in pop_ageb_gdf (Total known data that should be found if adding all blocks data)
+			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVEGEO_AGEB'] == cvegeo_ageb] #Previously 'CVE_AGEB'
+		else:
+			ageb_available = False
+
+		# 2.3 prep) Set POBTOT_ages, POBFEM_ages and POBMAS_ages
+		# The POBTOT, POBFEM and POBMAS values available account for more population than the total population that can be calculated using the age groups.
+		# That's because POBTOT, POBFEM and POBMAS includes:
+		# a) Estimates of population that lives in households without occupants information.
+		# b) Population that chose to not specify their age.
+		# Therefore, in order to calculate nans within the population age groups, we need to set age group totals (POBTOT_ages, POBFEM_ages and POBMAS_ages).
+		blocks_values['POBTOT_ages'] = np.nan
+		blocks_values['POBFEM_ages'] = np.nan
+		blocks_values['POBMAS_ages'] = np.nan
+
+		# 2.3 prep) Count current (original) nan values
 		original_nan_values = int(blocks_values.isna().sum().sum())
 		
-		# 2.3b) Set a start and finish nan value for while loop and run
+		# 2.3 prep) Set a start and finish nan value for while loop and run (Loop stops when no more NaNs are found)
 		start_nan_values = original_nan_values
 		finish_nan_values = start_nan_values - 1 #To kick start while loop, actual value will be calculated within loop
 		loop_count = 1
@@ -1280,11 +1314,11 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			# Amount of nans starting while loop round
 			start_nan_values = blocks_values.isna().sum().sum()
 
-			# 2.3c) Set of equation with structure [TOTAL] = [FEM.] + [MASC.]
-			# POBTOT = POBFEM + POBMAS
-			blocks_values.POBTOT.fillna(blocks_values.POBFEM + blocks_values.POBMAS, inplace=True)
-			blocks_values.POBFEM.fillna(blocks_values.POBTOT - blocks_values.POBMAS, inplace=True)
-			blocks_values.POBMAS.fillna(blocks_values.POBTOT - blocks_values.POBFEM, inplace=True)
+			# 2.3a) Set of equation with structure [TOTAL] = [FEM.] + [MASC.]
+			# POBTOT_ages = POBFEM_ages + POBMAS_ages
+			blocks_values.POBTOT_ages.fillna(blocks_values.POBFEM_ages + blocks_values.POBMAS_ages, inplace=True)
+			blocks_values.POBFEM_ages.fillna(blocks_values.POBTOT_ages - blocks_values.POBMAS_ages, inplace=True)
+			blocks_values.POBMAS_ages.fillna(blocks_values.POBTOT_ages - blocks_values.POBFEM_ages, inplace=True)
 			# <><><><><><><><><><>
 			# P_0A2 = P_0A2_F + P_0A2_M
 			blocks_values.P_0A2.fillna(blocks_values.P_0A2_F + blocks_values.P_0A2_M, inplace=True)
@@ -1322,98 +1356,111 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			blocks_values.P_60YMAS_M.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_F, inplace=True)
 			# <><><><><><><><><><>
 			
-			# 2.3d) Set of equation with structure [TOTAL] = (Age_group + Age_group + ... + Age_group) + [Specific age and beyond]
-			# POBTOT = (P_0A2) + P_3YMAS
-			# --> P_0A2 = POBTOT - P_3YMAS
-			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_3YMAS, inplace=True)
-			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_3YMAS_F, inplace=True)
-			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_3YMAS_M, inplace=True)
+			# 2.3b) Set of equation with structure [TOTAL] = (Age_group + Age_group + ... + Age_group) + [Specific age and beyond]
+			# POBTOT_ages = (P_0A2) + P_3YMAS
+			blocks_values.POBTOT_ages.fillna(blocks_values.P_0A2 + blocks_values.P_3YMAS, inplace=True)
+			blocks_values.POBFEM_ages.fillna(blocks_values.P_0A2_F + blocks_values.P_3YMAS_F, inplace=True)
+			blocks_values.POBMAS_ages.fillna(blocks_values.P_0A2_M + blocks_values.P_3YMAS_M, inplace=True)
+			# --> P_0A2 = POBTOT_ages - P_3YMAS
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT_ages - blocks_values.P_3YMAS, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_3YMAS_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_3YMAS_M, inplace=True)
 			# --> P_3YMAS = POBTOT - P_0A2
-			blocks_values.P_3YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2, inplace=True)
-			blocks_values.P_3YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F, inplace=True)
-			blocks_values.P_3YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M, inplace=True)
+			blocks_values.P_3YMAS.fillna(blocks_values.POBTOT_ages - blocks_values.P_0A2, inplace=True)
+			blocks_values.P_3YMAS_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_0A2_F, inplace=True)
+			blocks_values.P_3YMAS_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_0A2_M, inplace=True)
 			# <><><><><><><><><><>
-			# POBTOT = (P_0A2 + P_3A5 + P_6A11) + P_12YMAS
-			# --> P_0A2 = POBTOT - P_12YMAS - P_3A5 - P_6A11
-			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
-			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
-			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_12YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
-			# --> P_3A5 = POBTOT - P_12YMAS - P_0A2 - P_6A11
-			blocks_values.P_3A5.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_0A2 - blocks_values.P_6A11, inplace=True)
-			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F, inplace=True)
-			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS - blocks_values.P_12YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M, inplace=True)
-			# --> P_6A11 = POBTOT - P_12YMAS - P_0A2 - P_3A5
-			blocks_values.P_6A11.fillna(blocks_values.POBTOT - blocks_values.P_12YMAS - blocks_values.P_0A2 - blocks_values.P_3A5, inplace=True)
-			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM - blocks_values.P_12YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F, inplace=True)
-			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS - blocks_values.P_12YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M, inplace=True)
-			# --> P_12YMAS = POBTOT - P_0A2 - P_3A5 -P_6A11
-			blocks_values.P_12YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
-			blocks_values.P_12YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
-			blocks_values.P_12YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
+			# POBTOT_ages = (P_0A2 + P_3A5 + P_6A11) + P_12YMAS
+			blocks_values.POBTOT_ages.fillna(blocks_values.P_0A2 + blocks_values.P_12YMAS + blocks_values.P_3A5 + blocks_values.P_6A11, inplace=True)
+			blocks_values.POBFEM_ages.fillna(blocks_values.P_0A2_F + blocks_values.P_12YMAS_F + blocks_values.P_3A5_F + blocks_values.P_6A11_F, inplace=True)
+			blocks_values.POBMAS_ages.fillna(blocks_values.P_0A2_M + blocks_values.P_12YMAS_M + blocks_values.P_3A5_M + blocks_values.P_6A11_M, inplace=True)
+			# --> P_0A2 = POBTOT_ages - P_12YMAS - P_3A5 - P_6A11
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT_ages - blocks_values.P_12YMAS - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_12YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_12YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
+			# --> P_3A5 = POBTOT_ages - P_12YMAS - P_0A2 - P_6A11
+			blocks_values.P_3A5.fillna(blocks_values.POBTOT_ages - blocks_values.P_12YMAS - blocks_values.P_0A2 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_12YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_12YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M, inplace=True)
+			# --> P_6A11 = POBTOT_ages - P_12YMAS - P_0A2 - P_3A5
+			blocks_values.P_6A11.fillna(blocks_values.POBTOT_ages - blocks_values.P_12YMAS - blocks_values.P_0A2 - blocks_values.P_3A5, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_12YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_12YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M, inplace=True)
+			# --> P_12YMAS = POBTOT_ages - P_0A2 - P_3A5 -P_6A11
+			blocks_values.P_12YMAS.fillna(blocks_values.POBTOT_ages - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_12YMAS_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_12YMAS_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
 			# <><><><><><><><><><>
-			# POBTOT = (P_0A2 + P_3A5 + P_6A11 + P_12A14) + P_15YMAS
-			# --> P_0A2 = POBTOT - P_15YMAS - P_3A5 - P_6A11 - P_12A14
-			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
-			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
-			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
-			# --> P_3A5 = POBTOT - P_15YMAS - P_0A2 - P_6A11 - P_12A14
-			blocks_values.P_3A5.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
-			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
-			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
-			# --> P_6A11 = POBTOT - P_15YMAS - P_0A2 - P_3A5 - P_12A14
-			blocks_values.P_6A11.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)
-			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_12A14_F, inplace=True)
-			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_12A14_M, inplace=True)
-			# --> P_12A14 = POBTOT - P_15YMAS - P_0A2 - P_3A5 - P_6A11
-			blocks_values.P_12A14.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
-			blocks_values.P_12A14_F.fillna(blocks_values.POBFEM - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
-			blocks_values.P_12A14_M.fillna(blocks_values.POBMAS - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
+			# POBTOT_ages = (P_0A2 + P_3A5 + P_6A11 + P_12A14) + P_15YMAS
+			blocks_values.POBTOT_ages.fillna(blocks_values.P_0A2 + blocks_values.P_15YMAS + blocks_values.P_3A5 + blocks_values.P_6A11 + blocks_values.P_12A14, inplace=True)
+			blocks_values.POBFEM_ages.fillna(blocks_values.P_0A2_F + blocks_values.P_15YMAS_F + blocks_values.P_3A5_F + blocks_values.P_6A11_F + blocks_values.P_12A14_F, inplace=True)
+			blocks_values.POBMAS_ages.fillna(blocks_values.P_0A2_M + blocks_values.P_15YMAS_M + blocks_values.P_3A5_M + blocks_values.P_6A11_M + blocks_values.P_12A14_M, inplace=True)
+			# --> P_0A2 = POBTOT_ages - P_15YMAS - P_3A5 - P_6A11 - P_12A14
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT_ages - blocks_values.P_15YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_15YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_15YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_3A5 = POBTOT_ages - P_15YMAS - P_0A2 - P_6A11 - P_12A14
+			blocks_values.P_3A5.fillna(blocks_values.POBTOT_ages - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_6A11 = POBTOT_ages - P_15YMAS - P_0A2 - P_3A5 - P_12A14
+			blocks_values.P_6A11.fillna(blocks_values.POBTOT_ages - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_12A14 = POBTOT_ages - P_15YMAS - P_0A2 - P_3A5 - P_6A11
+			blocks_values.P_12A14.fillna(blocks_values.POBTOT_ages - blocks_values.P_15YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
+			blocks_values.P_12A14_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_15YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F, inplace=True)
+			blocks_values.P_12A14_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_15YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M, inplace=True)
 			# --> P_15YMAS = POBTOT - P_0A2 - P_3A5 - P_6A11 - P_12A14
-			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
-			blocks_values.P_15YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
-			blocks_values.P_15YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT_ages - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_15YMAS_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_15YMAS_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
 			# <><><><><><><><><><>
-			# POBTOT = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17) + P_18YMAS
-			# --> P_0A2 = POBTOT - P_18YMAS - P_3A5 - P_6A11 - P_12A14 - P_15A17
-			blocks_values.P_0A2.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
-			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
-			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
-			# --> P_3A5 = POBTOT - P_18YMAS - P_0A2 - P_6A11 - P_12A14 - P_15A17
-			blocks_values.P_3A5.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
-			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
-			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
-			# --> P_6A11 = POBTOT - P_18YMAS - P_0A2 - P_3A5 - P_12A14 - P_15A17
-			blocks_values.P_6A11.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
-			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
-			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
-			# --> P_12A14 = POBTOT - P_18YMAS - P_0A2 - P_3A5 - P_6A11 - P_15A17
-			blocks_values.P_12A14.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_15A17, inplace=True)
-			blocks_values.P_12A14_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_15A17_F, inplace=True)
-			blocks_values.P_12A14_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_15A17_M, inplace=True)
-			# --> P_15A17 = POBTOT - P_18YMAS - P_0A2 - P_3A5 - P_6A11 - P_12A14
-			blocks_values.P_15A17.fillna(blocks_values.POBTOT - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
-			blocks_values.P_15A17_F.fillna(blocks_values.POBFEM - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
-			blocks_values.P_15A17_M.fillna(blocks_values.POBMAS - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
-			# --> P_18YMAS = POBTOT - P_0A2 - P_3A5 - P_6A11 - P_12A14 - P_15A17
-			blocks_values.P_18YMAS.fillna(blocks_values.POBTOT - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
-			blocks_values.P_18YMAS_F.fillna(blocks_values.POBFEM - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
-			blocks_values.P_18YMAS_M.fillna(blocks_values.POBMAS - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# POBTOT_ages = (P_0A2 + P_3A5 + P_6A11 + P_12A14 + P_15A17) + P_18YMAS
+			blocks_values.POBTOT_ages.fillna(blocks_values.P_0A2 + blocks_values.P_18YMAS + blocks_values.P_3A5 + blocks_values.P_6A11 + blocks_values.P_12A14 + blocks_values.P_15A17, inplace=True)
+			blocks_values.POBFEM_ages.fillna(blocks_values.P_0A2_F + blocks_values.P_18YMAS_F + blocks_values.P_3A5_F + blocks_values.P_6A11_F + blocks_values.P_12A14_F + blocks_values.P_15A17_F, inplace=True)
+			blocks_values.POBMAS_ages.fillna(blocks_values.P_0A2_M + blocks_values.P_18YMAS_M + blocks_values.P_3A5_M + blocks_values.P_6A11_M + blocks_values.P_12A14_M + blocks_values.P_15A17_M, inplace=True)
+			# --> P_0A2 = POBTOT_ages - P_18YMAS - P_3A5 - P_6A11 - P_12A14 - P_15A17
+			blocks_values.P_0A2.fillna(blocks_values.POBTOT_ages - blocks_values.P_18YMAS - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_0A2_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_18YMAS_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_0A2_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_18YMAS_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_3A5 = POBTOT_ages - P_18YMAS - P_0A2 - P_6A11 - P_12A14 - P_15A17
+			blocks_values.P_3A5.fillna(blocks_values.POBTOT_ages - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_3A5_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_3A5_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_6A11 = POBTOT_ages - P_18YMAS - P_0A2 - P_3A5 - P_12A14 - P_15A17
+			blocks_values.P_6A11.fillna(blocks_values.POBTOT_ages - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_6A11_F.fillna(blocks_values.POBFEM_ages- blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_6A11_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_12A14 = POBTOT_ages - P_18YMAS - P_0A2 - P_3A5 - P_6A11 - P_15A17
+			blocks_values.P_12A14.fillna(blocks_values.POBTOT_ages - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_12A14_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_12A14_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_15A17_M, inplace=True)
+			# --> P_15A17 = POBTOT_ages - P_18YMAS - P_0A2 - P_3A5 - P_6A11 - P_12A14
+			blocks_values.P_15A17.fillna(blocks_values.POBTOT_ages - blocks_values.P_18YMAS - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
+			blocks_values.P_15A17_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_18YMAS_F - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F, inplace=True)
+			blocks_values.P_15A17_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_18YMAS_M - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M, inplace=True)
+			# --> P_18YMAS = POBTOT_ages - P_0A2 - P_3A5 - P_6A11 - P_12A14 - P_15A17
+			blocks_values.P_18YMAS.fillna(blocks_values.POBTOT_ages - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11 - blocks_values.P_12A14 - blocks_values.P_15A17, inplace=True)
+			blocks_values.P_18YMAS_F.fillna(blocks_values.POBFEM_ages - blocks_values.P_0A2_F - blocks_values.P_3A5_F - blocks_values.P_6A11_F - blocks_values.P_12A14_F - blocks_values.P_15A17_F, inplace=True)
+			blocks_values.P_18YMAS_M.fillna(blocks_values.POBMAS_ages - blocks_values.P_0A2_M - blocks_values.P_3A5_M - blocks_values.P_6A11_M - blocks_values.P_12A14_M - blocks_values.P_15A17_M, inplace=True)
 			# <><><><><><><><><><>
 
-			# 2.3e) Set of complementary equations
+			# 2.3c) Set of complementary equations
 			# REL_H_M = (POBMAS/POBFEM)*100
 			# --> POBMAS = (REL_H_M/100) * POBFEM
 			blocks_values.POBMAS.fillna(round((blocks_values.REL_H_M / 100) * blocks_values.POBFEM,0), inplace=True)
 			# --> POBFEM = (POBMAS * 100) / REL_H_M
 			blocks_values.POBFEM.fillna(round((blocks_values.POBMAS * 100) / blocks_values.REL_H_M,0), inplace=True)
 			# <><><><><><><><><><>
-			# POBTOT = POB0_14 + POB15_64 + POB65_MAS
-			# --> POB0_14 = POBTOT - POB15_64 - POB65_MAS
-			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.POB15_64 - blocks_values.POB65_MAS, inplace=True)
+			# POBTOT_ages = POB0_14 + POB15_64 + POB65_MAS
+			blocks_values.POBTOT_ages.fillna(blocks_values.POB0_14 + blocks_values.POB15_64 + blocks_values.POB65_MAS, inplace=True)
+			# --> POB0_14 = POBTOT_ages - POB15_64 - POB65_MAS
+			blocks_values.POB0_14.fillna(blocks_values.POBTOT_ages - blocks_values.POB15_64 - blocks_values.POB65_MAS, inplace=True)
 			# --> POB15_64 = POBTOT - POB0_14 - POB65_MAS
-			blocks_values.POB15_64.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB65_MAS, inplace=True)
+			blocks_values.POB15_64.fillna(blocks_values.POBTOT_ages - blocks_values.POB0_14 - blocks_values.POB65_MAS, inplace=True)
 			# --> POB65_MAS = POBTOT - POB0_14 - POB15_64
-			blocks_values.POB65_MAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14 - blocks_values.POB15_64, inplace=True)
+			blocks_values.POB65_MAS.fillna(blocks_values.POBTOT_ages - blocks_values.POB0_14 - blocks_values.POB15_64, inplace=True)
 			# <><><><><><><><><><>
 			# POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
 			# --> POB0_14 = P_0A2 + P_3A5 + P_6A11 + P_12A14
@@ -1427,12 +1474,27 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			# --> P_12A14 = POB0_14 - P_0A2 - P_3A5 - P_6A11
 			blocks_values.P_12A14.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
 			# <><><><><><><><><><>
-			# POBTOT = POB0_14 + P_15YMAS
+			# POBTOT_ages = POB0_14 + P_15YMAS
+			blocks_values.POBTOT_ages.fillna(blocks_values.POB0_14 + blocks_values.P_15YMAS, inplace=True)
 			# --> P_15YMAS = POBTOT - POB0_14
-			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT - blocks_values.POB0_14, inplace=True)
+			blocks_values.P_15YMAS.fillna(blocks_values.POBTOT_ages - blocks_values.POB0_14, inplace=True)
 			# --> POB0_14 = POBTOT - P_15YMAS
-			blocks_values.POB0_14.fillna(blocks_values.POBTOT - blocks_values.P_15YMAS, inplace=True)
+			blocks_values.POB0_14.fillna(blocks_values.POBTOT_ages - blocks_values.P_15YMAS, inplace=True)
 			# <><><><><><><><><><>
+
+			# 2.3e) Total sum of each column fill (AGEB data) [Fills only if there's exactly one NaN in column left]
+			if ageb_available:
+				for col in columns_of_interest:
+					# Find number of nan values in current col
+					col_nan_values = blocks_values.isna().sum()[col]
+					# If there is only one value left, assign missing value directly to cell.
+					if col_nan_values == 1:
+						# Calculate missing value
+						ageb_col_value = ageb_gdf[col].unique()[0] # Total AGEB value
+						current_block_sum = blocks_values[col].sum() # Current block sum
+						missing_value = ageb_col_value - current_block_sum # Difference (missing value)
+						# Add missing value to NaN cell in column
+						blocks_values[col].fillna(missing_value,inplace=True)
 			
 			# Amount of nans finishing while loop round
 			finish_nan_values = blocks_values.isna().sum().sum()
@@ -1447,7 +1509,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
 		
-		# --------------- 2.4 CALCULATE NaN values using AGEBs.
+		# --------------- 2.4 CALCULATE NaN values distributing AGEB's data.
   		# For the nan values that couldn't be solved, distributes AGEB data.
 		"""
 		This is the second important sub-step towards filling missing values. 
@@ -1457,92 +1519,95 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		to the amount of each age group to be distributed. Blocks which originaly had no data on POBTOT remain empty.
 		"""
 		
-		# 2.4a) Prepare for second loop
+		# 2.4 prep) Prepare for second loop
 		# Masc/fem relation helped find NaN values in blocks but it complicates this and further processes
 		# Remove masc/fem relation from analysis [If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)]
 		columns_of_interest.remove('REL_H_M')
 		blocks_values.drop(columns=['REL_H_M'],inplace=True)
 
 		# If not in crash check from STEP 1:
-		if cvegeo_ageb not in missing_agebs:
+		if ageb_available:
 
 			if extended_logs:
-				print(f'Calculating NaNs using AGEB data for AGEB {cvegeo_ageb}.')
-
-			# Locate AGEB data in pop_ageb_gdf (Total known data that should be found if adding all blocks data)
-			ageb_gdf = pop_ageb_gdf.loc[pop_ageb_gdf['CVEGEO_AGEB'] == cvegeo_ageb] #Previously 'CVE_AGEB'
+				print(f'Distributing AGEB values to NaNs for AGEB {cvegeo_ageb}.')
 
 			# LOG CODE - Statistics
 			# This log registers the solving method that was used to solve columns
-			solved_using_blocks = 0 # for log statistics
-			solved_using_ageb = 0 # for log statistics
+			solved_using_relations = 0 # for log statistics
+			solved_using_distribution = 0 # for log statistics
+
+			# 2.4a) Fill the missing POBTOT_ages values using the POBTOT data.
+			# Note: This is not the desired solution, as POBTOT data could be greater than the sum of the age groups, but it is the best aproximation.
+			pobtot_ages_nans = blocks_values.isna().sum()['POBTOT_ages']
+			blocks_values.POBTOT_ages.fillna(blocks_values.POBTOT, inplace=True)
+			pct_pobtot_ages_nans = (pobtot_ages_nans / len(blocks_values)) * 100
+			if extended_logs:
+				print(f"Note: Replaced {pobtot_ages_nans}/{len(blocks_values)} ({pct_pobtot_ages_nans}%) NaN values in POBTOT_ages using POBTOT data in AGEB {cvegeo_ageb}.")
+			if pct_pobtot_ages_nans>25:
+				print(f"NOTE: More than 25% ({pct_pobtot_ages_nans}%) of POBTOT_ages NaN values were replaced using POBTOT data in AGEB {cvegeo_ageb}.")
 			
-			# 2.4b) Fill with AGEB values.
+			# 2.4b) Fill by distributing AGEB values.
 			for col in columns_of_interest:
 				# Find number of nan values in current col
 				col_nan_values = blocks_values.isna().sum()[col]
 
-				# If there are no nan values left in col, does nothing.f
+				# If there are no nan values left in col, does nothing.
 				if col_nan_values == 0:
-					solved_using_blocks += 1 # for log statistics
+					solved_using_relations += 1 # for log statistics
 				
-				# Elif there is only one value left, assign missing value directly to cell.
+				# Elif there is only one value left, assign missing value directly to cell 
+				# (Should've been solved in step 2.3. This is a safety net, in case the previous step didn't solve it.)
 				elif col_nan_values == 1:
 					# Calculate missing value
-					ageb_col_value = ageb_gdf[col].unique()[0]
-					current_block_sum = blocks_values[col].sum()
-					missing_value = ageb_col_value - current_block_sum
+					ageb_col_value = ageb_gdf[col].unique()[0] # Total AGEB value
+					current_block_sum = blocks_values[col].sum() # Current block sum
+					missing_value = ageb_col_value - current_block_sum # Difference (missing value)
 					# Add missing value to na cell in column
 					blocks_values[col].fillna(missing_value,inplace=True)
-					solved_using_ageb += 1 # for log statistics
+					solved_using_relations += 1 # for log statistics
 				
-				# Elif there are more than one nan in col, distribute using POBTOT of those blocks as distributing indicator.
+				# Elif there are more than one nan in col, distribute using POBTOT_ages of those blocks as distributing indicator.
 				elif col_nan_values > 1:
-					try:    
-						# Locate rows with NaNs in current col 
-						# This ensures POBTOT as a distributing indicator works for the missing data rows only
+					try:
+						# Locate rows with NaNs in current col
+						# This ensures POBTOT_ages as a distributing indicator works for the missing data rows only, not a distributing indicator for all blocks.
 						idx = blocks_values[col].isna()
 						# Set distributing factor to 0
 						blocks_values['dist_factor'] = 0
-						# Assign to those rows a distributing factor ==> (POBTOT of each row / sum of POBTOT of those rows)
-						blocks_values.loc[idx,'dist_factor'] = (blocks_values['POBTOT']) / blocks_values.loc[idx]['POBTOT'].sum()
+						# Assign to those rows a distributing factor ==> (POBTOT_ages of each block / sum of POBTOT of all blocks)
+						blocks_values.loc[idx,'dist_factor'] = (blocks_values['POBTOT_ages']) / blocks_values.loc[idx]['POBTOT_ages'].sum()
 						# Calculate missing value
-						ageb_col_value = ageb_gdf[col].unique()[0]
-						current_block_sum = blocks_values[col].sum()
-						missing_value = ageb_col_value - current_block_sum
+						ageb_col_value = ageb_gdf[col].unique()[0] # Total AGEB value
+						current_block_sum = blocks_values[col].sum() # Current block sum
+						missing_value = ageb_col_value - current_block_sum # Difference (missing value)
 						# Distribute missing value in those rows using POBTOT factor
 						blocks_values[col].fillna(missing_value * blocks_values['dist_factor'], inplace=True)
 						blocks_values.drop(columns=['dist_factor'],inplace=True)
-						solved_using_ageb += 1 # for log statistics
+						solved_using_distribution += 1 # for log statistics
 					except:
 						print(f"CRASH ON COL: {col}.")
-						blocks_values.to_csv("../data/processed/pop_data/" + f"ageb_{cvegeo_ageb}_blocks_values.csv")
+						blocks_values.to_csv("../data/debugging/calculate_censo_nan_values_v1/" + f"ageb_{cvegeo_ageb}_blocks_values.csv")
 
 			# LOG CODE - Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(columns_of_interest))*100 # for log statistics
-				pct_col_byagebs = (solved_using_ageb / len(columns_of_interest))*100 # for log statistics
-				print(f'{pct_col_byblocks}% of columns solved using block data only.')
-				print(f'{pct_col_byagebs}% of columns required AGEB filling.')
+				pct_col_byrelations = (solved_using_relations / len(columns_of_interest))*100 # for log statistics
+				pct_col_bydistribution = (solved_using_distribution / len(columns_of_interest))*100 # for log statistics
+				print(f'{pct_col_byrelations}% of columns solved using known relations only.')
+				print(f'{pct_col_bydistribution}% of columns required distributing AGEB data.')
 		
-			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = cvegeo_ageb # for log statistics
-			# Percentage of NaNs found using blocks gdf
-			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # for log statistics
-			# Columns which could be solved entirely using equations in block_gdf
-			acc_statistics.loc[i,'block_calculated'] = solved_using_blocks # for log statistics
-			# Columns which required AGEB filling
-			acc_statistics.loc[i,'ageb_filling'] = solved_using_ageb # for log statistics
-			# All could be solved, so
-			acc_statistics.loc[i,'unable_to_solve'] = 0 # for log statistics
+			# Logs Statistics
+			acc_statistics.loc[i,'ageb'] = cvegeo_ageb # Currently examined AGEB statistics to log df.
+			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # Percentage of NaNs found using known relations gdf.
+			acc_statistics.loc[i,'cols_byrelations'] = solved_using_relations # Columns which could be solved entirely using known relations.
+			acc_statistics.loc[i,'cols_bydistribution'] = solved_using_distribution # Columns which required AGEB data distribution.
+			acc_statistics.loc[i,'unable_to_solve'] = 0 # All should be solved if distributed AGEB data.
 
 		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf) 
 			# EVERYTHING here is for log statistics ONLY
-			if extended_logs:
-				print(f"NANs on AGEB {cvegeo_ageb} cannot be calculated using AGEB data because it doesn't exist.")
+			print(f'Distributing AGEB values to NaNs for AGEB {cvegeo_ageb} not possible since AGEB does not exist.')
 
 			# Solving method used to solve column
-			solved_using_blocks = 0
+			solved_using_relations = 0
 			unable_tosolve = 0
 			
 			# LOG CODE - Statistics - Register how columns where solved.
@@ -1551,27 +1616,23 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 				col_nan_values = blocks_values.isna().sum()[col]
 				# If there are no nan values left in col, pass.
 				if col_nan_values == 0:
-					solved_using_blocks += 1
+					solved_using_relations += 1
 				else:
 					unable_tosolve += 1
 
 			# Logs Statistics - How was this AGEB solved?
 			if extended_logs:
-				pct_col_byblocks = (solved_using_blocks / len(columns_of_interest))*100
+				pct_col_byrelations = (solved_using_relations / len(columns_of_interest))*100
 				pct_col_notsolved = (unable_tosolve / len(columns_of_interest))*100
-				print(f"{pct_col_byblocks}% of columns solved using block data only.")
+				print(f"{pct_col_byrelations}% of columns solved using known relations only.")
 				print(f"{pct_col_notsolved}% of columns couldn't be solved.")
 
-			# Logs Statistics - Add currently examined AGEB statistics to log df
-			acc_statistics.loc[i,'ageb'] = cvegeo_ageb
-			# Percentage of NaNs found using blocks gdf
-			acc_statistics.loc[i,'nans_calculated'] = nan_reduction
-			# Columns which could be solved entirely using equations in block_gdf
-			acc_statistics.loc[i,'block_calculated'] = solved_using_blocks
-			# There wasn't AGEB filling, therefore:
-			acc_statistics.loc[i,'ageb_filling'] = 0
-			# Columns which couldn't be solved because there was no AGEB filling
-			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve
+			# Logs Statistics
+			acc_statistics.loc[i,'ageb'] = cvegeo_ageb # Currently examined AGEB statistics to log df.
+			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # Percentage of NaNs found using known relations gdf.
+			acc_statistics.loc[i,'cols_byrelations'] = solved_using_relations # Columns which could be solved entirely using known relations.
+			acc_statistics.loc[i,'cols_bydistribution'] = 0 # Without AGEB there was no AGEB data distribution.
+			acc_statistics.loc[i,'unable_to_solve'] = unable_tosolve # Columns which couldn't be solved because there was no AGEB data distribution.
 
 		# --------------- 2.5 Return calculated data to original block gdf for the current AGEB (mza_ageb_gdf)
 
@@ -1606,19 +1667,19 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	# Release final log statistics.
 	nans_calculated = round(acc_statistics['nans_calculated'].mean(),2) # for log statistics
 	# Columns solving method
-	block_calculated = acc_statistics['block_calculated'].sum() # for log statistics
-	ageb_filling = acc_statistics['ageb_filling'].sum() # for log statistics
+	cols_byrelations = acc_statistics['cols_byrelations'].sum() # for log statistics
+	cols_bydistribution = acc_statistics['cols_bydistribution'].sum() # for log statistics
 	unable_to_solve = acc_statistics['unable_to_solve'].sum() # for log statistics
 	# % columns solving method
-	total_cols = block_calculated + ageb_filling + unable_to_solve # for log statistics
-	pct_block_calculated = round((block_calculated/total_cols)*100,2) # for log statistics
-	pct_ageb_filling = round((ageb_filling/total_cols)*100,2) # for log statistics
+	total_cols = cols_byrelations + cols_bydistribution + unable_to_solve # for log statistics
+	pct_cols_byrelations = round((cols_byrelations/total_cols)*100,2) # for log statistics
+	pct_cols_bydistribution = round((cols_bydistribution/total_cols)*100,2) # for log statistics
 	pct_unable_to_solve = round((unable_to_solve/total_cols)*100,2) # for log statistics
 
 	print("Finished calculating NaNs.")
-	print(f"Percentage of NaNs found using blocks gdf: {nans_calculated}%.")
-	print(f"Columns which could be solved entirely using relations between age groups in block_gdf: {block_calculated} ({pct_block_calculated}%).")
-	print(f"Columns which required AGEB filling: {ageb_filling} ({pct_ageb_filling}%).")
+	print(f"Percentage of NaNs found using using known relations: {nans_calculated}%.")
+	print(f"Columns which could be solved entirely using known relations: {cols_byrelations} ({pct_cols_byrelations}%).")
+	print(f"Columns which required distributing AGEB data: {cols_bydistribution} ({pct_cols_bydistribution}%).")
 	print(f"Columns which couldn't be solved: {unable_to_solve} ({pct_unable_to_solve}%).")
 	
 	return mza_calc

@@ -20,14 +20,6 @@ import shutil
 
 from . import utils
 
- 
-'''ox.config(
-    data_folder="../data",
-    cache_folder="../data/raw/cache",
-    use_cache=True,
-    log_console=True,
-)
-'''
 
 def create_polygon(bbox, city, save=True):
     """Create a polygon from a bounding box and save it to a file
@@ -408,7 +400,13 @@ def resolve_duplicates_indexes(gdf, crs):
     """
     
     # First, sort by index to ensure consistent grouping
+    gdf.reset_index(inplace=True)
+    if 'index' in gdf.columns:
+        gdf.drop(columns=['index'],inplace=True)
     gdf = gdf.sort_index()
+
+    # Set all keys to 0 (Whenever two OSMnx downloads overlap in an area, different keys could be set for the same edge. This is a safe net.)
+    gdf['key'] = 0
     
     # Group by the multi-level index ('u', 'v', 'key')
     grouped = gdf.groupby(['u', 'v', 'key'])
@@ -420,15 +418,28 @@ def resolve_duplicates_indexes(gdf, crs):
     for (u, v, key), group in grouped:
         if len(group) > 1:
             # Check if 'length' values are the same for all rows in this group
+            
+            # NOTE: 
+            # To adecuately solve the duplicates it would be necessary to verify that group['length'].nunique() == length of group, not '1'.
+            # e.g.
+            # --> u 4325294017 v 7164228101 key 0 length 321.210
+            # --> u 4325294017 v 7164228101 key 0 length 188.481
+            # --> u 4325294017 v 7164228101 key 0 length 188.481
+            # --> u 4325294017 v 7164228101 key 0 length 321.210
+            # In this (real) case, since .nunique() is not 1, it would assign a different key (0, 1, 2, 3) to each row instead of dropping the ones with the same length and assigning keys 0 and 1 to the remaining rows.
+
             if group['length'].nunique() == 1:
                 # If the 'length' is the same for all rows, drop the duplicates, keeping the first
                 rows_to_drop.append(group.index[1:])  # Keep the first, drop the rest
             else:
-                # If 'length' is different, increment the 'key' of the second row
-                new_row = group.iloc[1].copy()  # Copy the second row
-                new_row['key'] += 1  # Increment the key
-                new_rows.append(new_row)
-                rows_to_drop.append(group.index[1:])  # Drop the second row
+                # If 'length' is different, increment the 'key' of each of the following rows by 1
+                change_key=0
+                for i in range(1, len(group)):
+                    change_key+=1
+                    new_row = group.iloc[i].copy() # Copy the row
+                    new_row['key'] = change_key # Increment the key
+                    new_rows.append(new_row) # Append the new row
+                    rows_to_drop.append([group.index[i]]) # Drop the original row
     
     # Drop the identified duplicate rows
     gdf = gdf.drop(pd.Index([index for sublist in rows_to_drop for index in sublist]))
@@ -478,10 +489,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     nodes_query = f"SELECT * FROM {schema}.{nodes_folder} WHERE osmid IN {str(tuple(nodes_id))}"
     nodes = gdf_from_query(nodes_query, geometry_col="geometry", index_col="osmid")
 
+    # remove duplicates and set key index counter
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
-
-    # remove duplicates and set key index counter
     edges = resolve_duplicates_indexes(edges, "EPSG:4326")
 
     edges = edges.set_index(["u", "v", "key"])
@@ -533,9 +543,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     return G, nodes, edges
 
 
-def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
-    """Download OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
-       Based on Script07-download_osmnx.py located in database.
+def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',specific_date=(False, None)):
+    """Downloads OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
+       [Based on Script07-download_osmnx.py, located in repository 'database'.]
 
     Args:
         aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
@@ -544,6 +554,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
                                  for more details see OSMnx documentation.
         network_type (str, optional): String with the type of network to download (drive, walk, bike, all_private, all) for more details see OSMnx documentation. 
                                         Defaults to 'all_private'.
+        specific_date(tupple,optional): Tupple with a boolean and a string. If the boolean is True, the string will be used as the date for the overpass query.
+                                        The string's date must be in the format yyyy-mm-ddThh:mm:ssZ and start with [out:json][timeout:90].
+                                        For example, '[out:json][timeout:90][date:"2010-01-01T00:00:00Z"]' would download the network as it was in 2010.
+                                        Defaults to (False, None).
 
     Returns:
         G (networkx.MultiDiGraph): Graph with edges and nodes within boundaries
@@ -565,6 +579,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
         e = coord_val.maxx.max()
         w = coord_val.minx.min()
         print(f"Extracted min and max coordinates from the municipality. Polygon N:{round(n,5)}, S:{round(s,5)}, E{round(e,5)}, W{round(w,5)}.")
+
+        # Sets specific date for overpass query
+        if specific_date[0]:
+            ox.settings.overpass_settings = specific_date[1]
 
         # Downloads OSMnx graph from bounding box
         G = ox.graph_from_bbox(n, s, e, w,
@@ -638,7 +656,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private'):
     for col in edges.columns:
         if any(isinstance(val, list) for val in edges[col]):
             edges[col] = edges[col].astype('string')
-            print(f"Column: {col} in nodes gdf, has a list in it, the column data was converted to string.")
+            print(f"Column: {col} in edges gdf, has a list in it, the column data was converted to string.")
 
     # Final format
     nodes_gdf = nodes.set_crs("EPSG:4326")
