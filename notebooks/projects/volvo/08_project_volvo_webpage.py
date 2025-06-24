@@ -405,9 +405,9 @@ def extraer_fila_por_concepto(df, concepto_buscar):
     
     return None
 
+
 def crear_grafico_genero(df, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de distribución por género"""
-    fig, ax = plt.subplots()
+    """Crea gráficos de pastel de distribución por género para cada colonia"""
     
     # Extraer datos de % Mujeres
     fila_mujeres = extraer_fila_por_concepto(df, "% Mujeres")
@@ -422,20 +422,61 @@ def crear_grafico_genero(df, colonias_gdl, colonias_mde, titulo_ciudad):
             mujeres = convertir_a_float_seguro(fila_mujeres.iloc[5:8])
             colonias = colonias_mde
         
-        hombres = 100 - mujeres
+        # Crear subplots para cada colonia
+        fig, axes = plt.subplots(1, len(colonias), figsize=(15, 5))
         
-        df_genero = pd.DataFrame({'Mujeres': mujeres, 'Hombres': hombres}, index=colonias)
-        df_genero.plot(kind='bar', stacked=True, ax=ax, color=['#E91E63', '#2196F3'])
-        ax.set_title(f'Distribución por Género - {titulo_ciudad}')
-        ax.set_ylabel('Porcentaje (%)')
-        ax.legend()
-        plt.xticks(rotation=45)
+        # Si solo hay una colonia, convertir axes a lista
+        if len(colonias) == 1:
+            axes = [axes]
+        
+        # Colores para el gráfico
+        colores = ['#E91E63', '#2196F3']  # Rosa para mujeres, azul para hombres
+        
+        for i, colonia in enumerate(colonias):
+            porcentaje_mujeres = mujeres.iloc[i]
+            porcentaje_hombres = 100 - porcentaje_mujeres
+            
+            # Datos para el gráfico de pastel
+            datos = [porcentaje_mujeres, porcentaje_hombres]
+            etiquetas = ['Mujeres', 'Hombres']
+            
+            # Crear gráfico de pastel
+            wedges, texts, autotexts = axes[i].pie(
+                datos, 
+                labels=etiquetas, 
+                colors=colores,
+                autopct='%1.1f%%',
+                startangle=90,
+                textprops={'fontsize': 10}
+            )
+            
+            # Mejorar el texto de los porcentajes
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+            
+            axes[i].set_title(f'{colonia}', fontsize=12, fontweight='bold', pad=20)
+        
+        # Título general
+        fig.suptitle(f'Distribución por Género - {titulo_ciudad}', 
+                    fontsize=16, fontweight='bold', y=1.02)
+        
+        # Leyenda compartida
+        fig.legend(wedges, etiquetas, loc='upper center', bbox_to_anchor=(0.5, 0.02), 
+                  ncol=2, fontsize=12)
+        
         plt.tight_layout()
+        
     else:
-        ax.text(0.5, 0.5, 'Datos no encontrados para % Mujeres', transform=ax.transAxes, ha='center')
-        ax.set_title(f'Distribución por Género - {titulo_ciudad}')
+        # Si no hay datos, crear un gráfico simple con mensaje
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.text(0.5, 0.5, 'Datos no encontrados para % Mujeres', 
+               transform=ax.transAxes, ha='center', va='center', fontsize=14)
+        ax.set_title(f'Distribución por Género - {titulo_ciudad}', fontsize=16)
+        ax.axis('off')
     
-    return fig
+    return fig    
+
 
 def crear_grafico_vehiculos(df, colonias_gdl, colonias_mde, titulo_ciudad):
     """Crea gráfico de tenencia de vehículos"""
