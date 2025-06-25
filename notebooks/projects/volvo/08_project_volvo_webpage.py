@@ -30,296 +30,369 @@ visualizacion = st.sidebar.selectbox(
 )
 
 # Configuración específica para cada tipo de visualización
-# if visualizacion == "Mapas":
-#     # Para mapas: selección individual de ciudad
-#     ciudad_seleccionada = st.selectbox(
-#         "Seleccione la ciudad que desea visualizar:", 
-#         ('Guadalajara', 'Medellín'), 
-#         key='ciudad_mapas'
-#     )
+if visualizacion == "Mapas":
+    # Para mapas: selección individual de ciudad
+    ciudad_seleccionada = st.selectbox(
+        "Seleccione la ciudad que desea visualizar:", 
+        ('Guadalajara', 'Medellín'), 
+        key='ciudad_mapas'
+    )
     
-#     # Función para cargar polígonos de estudio
-#     def cargar_poligonos_estudio(ruta_archivo):
-#         """
-#         Carga el archivo PoligonosEstudio.gpkg y lo añade al mapa
-#         """
-#         try:
-#             if os.path.exists(ruta_archivo):
-#                 gdf_poligonos = gpd.read_file(ruta_archivo)
-#                 if 'geometry' not in gdf_poligonos.columns or gdf_poligonos.empty:
-#                     return None
-#                 return gdf_poligonos
-#             else:
-#                 return None
-#         except Exception as e:
-#             return None
-
-#     def cargar_variables_fisicas(ruta_variables_fisicas, ciudad):
-#         """
-#         Carga las variables físicas desde la carpeta especificada
-#         """
-#         variables_fisicas = {}
-#         try:
-#             if os.path.exists(ruta_variables_fisicas):
-#                 for file in os.listdir(ruta_variables_fisicas):
-#                     if file.endswith('.shp') or file.endswith('.gpkg'):
-#                         file_path = os.path.join(ruta_variables_fisicas, file)
-#                         try:
-#                             gdf = gpd.read_file(file_path)
-#                             if 'geometry' in gdf.columns and not gdf.empty:
-#                                 if gdf.crs is not None and gdf.crs != 'EPSG:4326':
-#                                     gdf = gdf.to_crs('EPSG:4326')
-#                                 variables_fisicas[file] = gdf
-#                         except Exception as e:
-#                             continue
-#         except Exception as e:
-#             pass
-#         return variables_fisicas
-
-#     def edges_to_map_specific_sectors(base_path, sectores_objetivo, ciudad, ubicacion_centro):
-#         """
-#         Carga archivos *edges_proj_net_final.shp de sectores específicos y variables físicas,
-#         los muestra en un mapa con buffers de 10 metros para las líneas.
-#         """
-#         if not os.path.exists(base_path):
-#             st.error(f"La ruta {base_path} no existe.")
-#             return
-
-#         # Crear mapa centrado en la ciudad correspondiente - MÁS GRANDE
-#         m = folium.Map(location=ubicacion_centro, zoom_start=13, tiles="cartodbpositron")
-
-#         # Cargar variables físicas
-#         ruta_variables_fisicas = "/home/jovyan/accesibilidad-urbana/data/external/Variables_Físicas"
-#         variables_fisicas = cargar_variables_fisicas(ruta_variables_fisicas, ciudad)
-        
-#         # Añadir variables físicas al mapa
-#         for nombre_archivo, gdf_var in variables_fisicas.items():
-#             try:
-#                 folium.GeoJson(
-#                     gdf_var,
-#                     name=f"Variables Físicas - {nombre_archivo.split('.')[0]}",
-#                     style_function=lambda feature: {
-#                         'fillColor': 'green',
-#                         'color': 'darkgreen',
-#                         'weight': 2,
-#                         'fillOpacity': 0.3,
-#                         'opacity': 0.7
-#                     }
-#                 ).add_to(m)
-#             except Exception as e:
-#                 continue
-
-#         # Cargar polígonos de estudio
-#         ruta_poligonos = os.path.join(base_path, "PolígonosEstudio.gpkg")
-#         gdf_poligonos = cargar_poligonos_estudio(ruta_poligonos)
-        
-#         if gdf_poligonos is not None:
-#             try:
-#                 folium.GeoJson(
-#                     gdf_poligonos,
-#                     name="Polígonos de Estudio",
-#                     style_function=lambda feature: {
-#                         'fillColor': 'blue',
-#                         'color': 'darkblue',
-#                         'weight': 3,
-#                         'fillOpacity': 0.2,
-#                         'opacity': 0.8
-#                     }
-#                 ).add_to(m)
-#             except Exception as e:
-#                 pass
-
-#         # Paleta de colores para los sectores
-#         color_palette = [
-#             "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-#             "#9467bd", "#8c564b", "#e377c2", "#7f7f7f"
-#         ]
-
-#         # Mapeo fijo de sector a color
-#         colores = {sector: color_palette[i % len(color_palette)] for i, sector in enumerate(sectores_objetivo)}
-
-#         sectores_encontrados = []
-        
-#         for sector in sectores_objetivo:
-#             sector_path = os.path.join(base_path, sector)
+    @st.cache_data
+    def cargar_poligonos_estudio(base_path, ciudad):
+        """
+        Carga el archivo de polígonos específico para cada ciudad
+        """
+        try:
+            if ciudad == 'Guadalajara':
+                ruta_archivo = os.path.join(base_path, "PoligonosEstudio.gpkg")
+            else:  # Medellín
+                ruta_archivo = os.path.join(base_path, "PoligonoEstudio_MDE.gpkg")
             
-#             if not os.path.exists(sector_path):
-#                 continue
+            if os.path.exists(ruta_archivo):
+                gdf_poligonos = gpd.read_file(ruta_archivo)
+                if 'geometry' not in gdf_poligonos.columns or gdf_poligonos.empty:
+                    return None
+                # Simplificar geometrías para mejorar rendimiento
+                gdf_poligonos.geometry = gdf_poligonos.geometry.simplify(0.001)
+                return gdf_poligonos
+            else:
+                return None
+        except Exception as e:
+            return None
+
+    def cargar_variables_fisicas(ruta_variables_fisicas, ciudad):
+        """
+        Carga las variables físicas desde la carpeta especificada
+        """
+        variables_fisicas = {}
+        try:
+            if os.path.exists(ruta_variables_fisicas):
+                for file in os.listdir(ruta_variables_fisicas):
+                    if file.endswith('.shp') or file.endswith('.gpkg'):
+                        file_path = os.path.join(ruta_variables_fisicas, file)
+                        try:
+                            gdf = gpd.read_file(file_path)
+                            if 'geometry' in gdf.columns and not gdf.empty:
+                                if gdf.crs is not None and gdf.crs != 'EPSG:4326':
+                                    gdf = gdf.to_crs('EPSG:4326')
+                                variables_fisicas[file] = gdf
+                        except Exception as e:
+                            continue
+        except Exception as e:
+            pass
+        return variables_fisicas
+
+    @st.cache_data
+    def cargar_datos_escuelas():
+        """
+        Carga los datos de escuelas desde el archivo geojson y calcula estadísticas
+        Solo carga las columnas necesarias para mejorar rendimiento
+        """
+        try:
+            ruta_archivo = "/home/jovyan/accesibilidad-urbana/data/external/WalkabilityIndex/volvo_wgtproxanalysis_2024_mza_hex9.geojson"
+            if os.path.exists(ruta_archivo):
+                # Solo leer las columnas necesarias para las estadísticas
+                gdf_escuelas = gpd.read_file(ruta_archivo, columns=['max_escuelas', 'min_escuelas'])
                 
-#             sectores_encontrados.append(sector)
+                # Verificar que las columnas existan
+                if 'max_escuelas' in gdf_escuelas.columns and 'min_escuelas' in gdf_escuelas.columns:
+                    # Calcular estadísticas para max_escuelas (más eficiente con pandas)
+                    max_stats = {
+                        'min': float(gdf_escuelas['max_escuelas'].min()),
+                        'max': float(gdf_escuelas['max_escuelas'].max()),
+                        'mean': float(gdf_escuelas['max_escuelas'].mean())
+                    }
+                    
+                    # Calcular estadísticas para min_escuelas
+                    min_stats = {
+                        'min': float(gdf_escuelas['min_escuelas'].min()),
+                        'max': float(gdf_escuelas['min_escuelas'].max()),
+                        'mean': float(gdf_escuelas['min_escuelas'].mean())
+                    }
+                    
+                    return max_stats, min_stats
+                else:
+                    return None, None
+            else:
+                return None, None
+        except Exception as e:
+            return None, None
 
-#             for file in os.listdir(sector_path):
-#                 # SOLO archivos edges_proj_net_final.shp
-#                 if file.endswith('edges_proj_net_final.shp'):
-#                     file_path = os.path.join(sector_path, file)
-#                     try:
-#                         gdf = gpd.read_file(file_path)
-                        
-#                         if gdf.empty or 'geometry' not in gdf.columns or gdf.geometry.isnull().all():
-#                             continue
-                        
-#                         # Convertir a sistema de coordenadas apropiado para buffer
-#                         if gdf.crs is None or gdf.crs == 'EPSG:4326':
-#                             # Usar UTM apropiado según la ciudad
-#                             if ciudad == 'Guadalajara':
-#                                 gdf = gdf.to_crs('EPSG:32613')  # UTM Zone 13N para Guadalajara
-#                             else:  # Medellín
-#                                 gdf = gdf.to_crs('EPSG:32618')  # UTM Zone 18N para Medellín
-                        
-#                         # Crear buffer de 10 metros
-#                         gdf_buffer = gdf.copy()
-#                         gdf_buffer.geometry = gdf.geometry.buffer(10)
-                        
-#                         # Convertir de vuelta a WGS84 para el mapa
-#                         gdf_buffer = gdf_buffer.to_crs('EPSG:4326')
+    def edges_to_map_specific_sectors(base_path, sectores_objetivo, ciudad, ubicacion_centro):
+        """
+        Carga archivos *edges_proj_net_final.shp de sectores específicos y variables físicas,
+        los muestra en un mapa con buffers de 10 metros para las líneas.
+        """
+        if not os.path.exists(base_path):
+            st.error(f"La ruta {base_path} no existe.")
+            return
 
-#                         # Añadir al mapa con control de capas (ahora como polígonos buffer)
-#                         folium.GeoJson(
-#                             gdf_buffer,
-#                             name=f"{sector}",  # Nombre simplificado
-#                             style_function=lambda feature, col=colores[sector]: {
-#                                 'color': col,
-#                                 'fillColor': col,
-#                                 'weight': 2,
-#                                 'opacity': 0.8,
-#                                 'fillOpacity': 0.3
-#                             }
-#                         ).add_to(m)
+        # Crear mapa centrado en la ciudad correspondiente - MÁS GRANDE
+        m = folium.Map(location=ubicacion_centro, zoom_start=13, tiles="cartodbpositron")
 
-#                     except Exception as e:
-#                         continue
-
-#         # Añadir control de capas para encender/apagar
-#         folium.LayerControl(collapsed=False).add_to(m)
+        # Cargar variables físicas
+        ruta_variables_fisicas = "/home/jovyan/accesibilidad-urbana/data/external/Variables_Físicas"
+        variables_fisicas = cargar_variables_fisicas(ruta_variables_fisicas, ciudad)
         
-#         # Crear layout en dos columnas
-#         col1, col2 = st.columns([3, 1])  # 75% mapa, 25% leyenda
+        # Añadir variables físicas al mapa
+        for nombre_archivo, gdf_var in variables_fisicas.items():
+            try:
+                folium.GeoJson(
+                    gdf_var,
+                    name=f"Variables Físicas - {nombre_archivo.split('.')[0]}",
+                    style_function=lambda feature: {
+                        'fillColor': 'green',
+                        'color': 'darkgreen',
+                        'weight': 2,
+                        'fillOpacity': 0.3,
+                        'opacity': 0.7
+                    }
+                ).add_to(m)
+            except Exception as e:
+                continue
+
+        # Cargar polígonos de estudio específicos por ciudad
+        gdf_poligonos = cargar_poligonos_estudio(base_path, ciudad)
         
-#         with col1:
-#             if sectores_encontrados:
-#                 sectores_str = ", ".join(sectores_encontrados)
-#                 st.subheader(f"Mapa de líneas - {ciudad} (Sectores: {sectores_str})")
-#             else:
-#                 st.subheader(f"Mapa de líneas - {ciudad}")
+        if gdf_poligonos is not None:
+            try:
+                folium.GeoJson(
+                    gdf_poligonos,
+                    name="Polígonos de Estudio",
+                    style_function=lambda feature: {
+                        'fillColor': 'blue',
+                        'color': 'darkblue',
+                        'weight': 3,
+                        'fillOpacity': 0.2,
+                        'opacity': 0.8
+                    }
+                ).add_to(m)
+            except Exception as e:
+                pass
+
+        # Paleta de colores para los sectores
+        color_palette = [
+            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+            "#9467bd", "#8c564b", "#e377c2", "#7f7f7f"
+        ]
+
+        # Mapeo fijo de sector a color
+        colores = {sector: color_palette[i % len(color_palette)] for i, sector in enumerate(sectores_objetivo)}
+
+        sectores_encontrados = []
+        
+        for sector in sectores_objetivo:
+            sector_path = os.path.join(base_path, sector)
+            
+            if not os.path.exists(sector_path):
+                continue
                 
-#             # MAPA MÁS GRANDE
-#             st_folium(m, width=1200, height=600)
+            sectores_encontrados.append(sector)
+
+            for file in os.listdir(sector_path):
+                # SOLO archivos edges_proj_net_final.shp
+                if file.endswith('edges_proj_net_final.shp'):
+                    file_path = os.path.join(sector_path, file)
+                    try:
+                        gdf = gpd.read_file(file_path)
+                        
+                        if gdf.empty or 'geometry' not in gdf.columns or gdf.geometry.isnull().all():
+                            continue
+                        
+                        # Convertir a sistema de coordenadas apropiado para buffer
+                        if gdf.crs is None or gdf.crs == 'EPSG:4326':
+                            # Usar UTM apropiado según la ciudad
+                            if ciudad == 'Guadalajara':
+                                gdf = gdf.to_crs('EPSG:32613')  # UTM Zone 13N para Guadalajara
+                            else:  # Medellín
+                                gdf = gdf.to_crs('EPSG:32618')  # UTM Zone 18N para Medellín
+                        
+                        # Crear buffer de 10 metros
+                        gdf_buffer = gdf.copy()
+                        gdf_buffer.geometry = gdf.geometry.buffer(10)
+                        
+                        # Convertir de vuelta a WGS84 para el mapa
+                        gdf_buffer = gdf_buffer.to_crs('EPSG:4326')
+
+                        # Añadir al mapa con control de capas (ahora como polígonos buffer)
+                        folium.GeoJson(
+                            gdf_buffer,
+                            name=f"{sector}",  # Nombre simplificado
+                            style_function=lambda feature, col=colores[sector]: {
+                                'color': col,
+                                'fillColor': col,
+                                'weight': 2,
+                                'opacity': 0.8,
+                                'fillOpacity': 0.3
+                            }
+                        ).add_to(m)
+
+                    except Exception as e:
+                        continue
+
+        # Añadir control de capas para encender/apagar
+        folium.LayerControl(collapsed=False).add_to(m)
         
-#         with col2:
-#             # BARRA DE LEYENDA
-#             st.markdown("### Leyenda")
+        # Crear layout en dos columnas
+        col1, col2 = st.columns([3, 1])  # 75% mapa, 25% leyenda
+        
+        with col1:
+            if sectores_encontrados:
+                sectores_str = ", ".join(sectores_encontrados)
+                st.subheader(f"Mapa de líneas - {ciudad} (Sectores: {sectores_str})")
+            else:
+                st.subheader(f"Mapa de líneas - {ciudad}")
+                
+            # MAPA MÁS GRANDE
+            st_folium(m, width=1200, height=600)
+        
+        with col2:
+            # BARRA DE LEYENDA
+            st.markdown("### Leyenda")
             
-#             # Leyenda de elementos básicos
-#             st.markdown(f"""
-                #<span style="display: inline-flex; align-items: center;">
-            #         <span style="background-color: rgba(227, 227, 227, 0.5); border: 1px solid rgba(0, 0, 0, 1); display: inline-block;
-            #         width: 20px; height: 20px;"></span>
-            #         <span style="padding-left: 5px; font-size: 12px;">Nueva Alameda</span>
-            #     </span>
-            #     """, unsafe_allow_html=True)
-            # st.markdown(f""" 
-            #     <span style="display: inline-flex; align-items: center;"> 
-            #         <span style="background-color: rgba(53, 202, 12, 0); border: 1px solid rgba(0, 0, 0, 1); display: inline-block;
-            #         width: 20px; height: 20px;"></span>
-            #         <span style="padding-left: 5px; font-size: 12px;">Unidades Vecinales</span>
-            #     </span>
-            #     """, unsafe_allow_html=True)
-            # st.markdown(f"""
-            #     <span style="display: inline-flex; align-items: center;">
-            #         <span style="background-color: rgba(0, 99, 194, 0); border: 3px solid rgba(0, 0, 0, 1); display: inline-block;
-            #         width: 20px; height: 20px;"></span>
-            #         <span style="padding-left: 5px; font-size: 12px;">Comunas</span>
-            #     </span>
-            #     """, unsafe_allow_html=True)
+            # Leyenda de elementos básicos
+            st.markdown(f"""
+                <span style="display: inline-flex; align-items: center;">
+                    <span style="background-color: rgba(227, 227, 227, 0.5); border: 1px solid rgba(0, 0, 0, 1); display: inline-block;
+                    width: 20px; height: 20px;"></span>
+                    <span style="padding-left: 5px; font-size: 12px;">Nueva Alameda</span>
+                </span>
+                """, unsafe_allow_html=True)
+            st.markdown(f""" 
+                <span style="display: inline-flex; align-items: center;"> 
+                    <span style="background-color: rgba(53, 202, 12, 0); border: 1px solid rgba(0, 0, 0, 1); display: inline-block;
+                    width: 20px; height: 20px;"></span>
+                    <span style="padding-left: 5px; font-size: 12px;">Unidades Vecinales</span>
+                </span>
+                """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <span style="display: inline-flex; align-items: center;">
+                    <span style="background-color: rgba(0, 99, 194, 0); border: 3px solid rgba(0, 0, 0, 1); display: inline-block;
+                    width: 20px; height: 20px;"></span>
+                    <span style="padding-left: 5px; font-size: 12px;">Comunas</span>
+                </span>
+                """, unsafe_allow_html=True)
             
-            # # Separador
-            # st.markdown("---")
+            # Separador
+            st.markdown("---")
             
-            # # HQSL Choropleth legend
-            # st.markdown("""
-            #     <div style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
-            #         Calidad de Vida Social (HQSL)
-            #     </div>
-            #     """, unsafe_allow_html=True)
+            # Cargar datos reales de escuelas
+            max_stats, min_stats, gdf_escuelas = cargar_datos_escuelas()
             
-            # st.markdown("""
-            #     <div style="display: flex; align-items: center;">
-            #         <span style="background: linear-gradient(0deg, rgba(254,235,226,1) 17%, 
-            #             rgba(252,197,192,1) 34%, rgba(250,159,181,1) 51%, 
-            #             rgba(247,104,161,1) 68%, 
-            #             rgba(197,27,138,1) 85%, rgba(122,1,119,1) 100%);
-            #             display: inline-block; width: 20px; height: 60px;">
-            #         </span>
-            #         <div style="margin-left: 10px; font-size: 12px;">
-            #             <div>Mayor</div>
-            #             <div style="margin-top: 20px;">Menor</div>
-            #         </div>
-            #     </div>
-            #     """, unsafe_allow_html=True)
-            
-            # st.markdown("---")
-            
-            # # Calidad del espacio público legend
-            # st.markdown("""
-            #     <div style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
-            #         Calidad del espacio público para la movilidad activa
-            #     </div>
-            #     """, unsafe_allow_html=True)
-            
-            # st.markdown("""
-            #     <div style="display: flex; align-items: center;">
-            #         <span style="background: linear-gradient(0deg, rgba(158,1,66,1) 10%, 
-            #             rgba(213,62,79,1) 20%, rgba(244,109,67,1) 30%, 
-            #             rgba(253,174,97,1) 40%, rgba(254,224,139,1) 50%, 
-            #             rgba(230,245,152,1) 60%, rgba(171,221,164,1) 70%, 
-            #             rgba(102,194,165,1) 80%, rgba(50,136,189,1) 90%, 
-            #             rgba(94,79,162,1) 100%);
-            #             display: inline-block; width: 20px; height: 60px;">
-            #         </span>
-            #         <div style="margin-left: 10px; font-size: 12px;">
-            #             <div>Mayor</div>
-            #             <div style="margin-top: 20px;">Menor</div>
-            #         </div>
-            #     </div>
-            #     """, unsafe_allow_html=True)
+            if max_stats is not None and min_stats is not None:
+                # Leyenda con datos reales de max_escuelas
+                st.markdown(f"""
+                    <div style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
+                        Acceso Máximo a Escuelas
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                    <div style="display: flex; align-items: center;">
+                        <span style="background: linear-gradient(0deg, rgba(254,235,226,1) 17%, 
+                            rgba(252,197,192,1) 34%, rgba(250,159,181,1) 51%, 
+                            rgba(247,104,161,1) 68%, 
+                            rgba(197,27,138,1) 85%, rgba(122,1,119,1) 100%);
+                            display: inline-block; width: 20px; height: 60px;">
+                        </span>
+                        <div style="margin-left: 10px; font-size: 10px;">
+                            <div>{:.1f}</div>
+                            <div style="margin-top: 5px;">{:.1f}</div>
+                            <div style="margin-top: 5px;">{:.1f}</div>
+                            <div style="margin-top: 5px;">{:.1f}</div>
+                        </div>
+                    </div>
+                    """.format(max_stats['max'], max_stats['mean'], max_stats['mean']/2, max_stats['min']), 
+                    unsafe_allow_html=True)
+                
+                st.markdown("---")
+                
+                # Leyenda con datos reales de min_escuelas
+                st.markdown(f"""
+                    <div style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
+                        Acceso Mínimo a Escuelas
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                    <div style="display: flex; align-items: center;">
+                        <span style="background: linear-gradient(0deg, rgba(158,1,66,1) 10%, 
+                            rgba(213,62,79,1) 20%, rgba(244,109,67,1) 30%, 
+                            rgba(253,174,97,1) 40%, rgba(254,224,139,1) 50%, 
+                            rgba(230,245,152,1) 60%, rgba(171,221,164,1) 70%, 
+                            rgba(102,194,165,1) 80%, rgba(50,136,189,1) 90%, 
+                            rgba(94,79,162,1) 100%);
+                            display: inline-block; width: 20px; height: 60px;">
+                        </span>
+                        <div style="margin-left: 10px; font-size: 10px;">
+                            <div>{:.1f}</div>
+                            <div style="margin-top: 5px;">{:.1f}</div>
+                            <div style="margin-top: 5px;">{:.1f}</div>
+                            <div style="margin-top: 5px;">{:.1f}</div>
+                        </div>
+                    </div>
+                    """.format(min_stats['max'], min_stats['mean'], min_stats['mean']/2, min_stats['min']), 
+                    unsafe_allow_html=True)
+                
+                # Mostrar estadísticas adicionales
+                st.markdown("---")
+                st.markdown("### Estadísticas")
+                st.markdown(f"""
+                    <div style="font-size: 10px;">
+                        <strong>Max Escuelas:</strong><br>
+                        Rango: {max_stats['min']:.1f} - {max_stats['max']:.1f}<br>
+                        Promedio: {max_stats['mean']:.1f}<br><br>
+                        <strong>Min Escuelas:</strong><br>
+                        Rango: {min_stats['min']:.1f} - {min_stats['max']:.1f}<br>
+                        Promedio: {min_stats['mean']:.1f}
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                # Fallback a leyendas estáticas si no se pueden cargar los datos
+                st.markdown("""
+                    <div style="text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
+                        Datos no disponibles - Mostrando leyenda estática
+                    </div>
+                    """, unsafe_allow_html=True)
             
             # Leyenda de sectores con colores
-    #         st.markdown("---")
-    #         st.markdown("### Sectores")
-    #         for sector in sectores_encontrados:
-    #             color = colores[sector]
-    #             st.markdown(f"""
-    #                 <div style="display: flex; align-items: center; margin: 5px 0;">
-    #                     <span style="background-color: {color}; width: 15px; height: 3px; display: inline-block;"></span>
-    #                     <span style="margin-left: 8px; font-size: 12px;">{sector}</span>
-    #                 </div>
-    #                 """, unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("### Sectores")
+            for sector in sectores_encontrados:
+                color = colores[sector]
+                st.markdown(f"""
+                    <div style="display: flex; align-items: center; margin: 5px 0;">
+                        <span style="background-color: {color}; width: 15px; height: 3px; display: inline-block;"></span>
+                        <span style="margin-left: 8px; font-size: 12px;">{sector}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-    # # Configuración de sectores por ciudad
-    # sectores_config = {
-    #     'Guadalajara': {
-    #         'sectores': ['colinas_HL', 'miramar_LH', 'providencia_HH'],
-    #         'centro': [20.6736, -103.344]
-    #     },
-    #     'Medellín': {
-    #         'sectores': ['aguacatala_HL', 'floresta_HH', 'moravia_LH'],
-    #         'centro': [6.2442, -75.5812]
-    #     }
-    # }
+    # Configuración de sectores por ciudad
+    sectores_config = {
+        'Guadalajara': {
+            'sectores': ['colinas_HL', 'miramar_LH', 'providencia_HH'],
+            'centro': [20.6736, -103.344]
+        },
+        'Medellín': {
+            'sectores': ['aguacatala_HL', 'floresta_HH', 'moravia_LH'],
+            'centro': [6.2442, -75.5812]
+        }
+    }
 
-    # # Mostrar mapa de la ciudad seleccionada
-    # st.sidebar.title("Opciones del mapa")
-    # ver_mapa = st.sidebar.checkbox("Mostrar mapas de líneas por sector", value=True)
+    # Mostrar mapa de la ciudad seleccionada
+    st.sidebar.title("Opciones del mapa")
+    ver_mapa = st.sidebar.checkbox("Mostrar mapas de líneas por sector", value=True)
 
-    # if ver_mapa:
-    #     base_path = "/home/jovyan/accesibilidad-urbana/data/external/WalkabilityIndex/"
-    #     config = sectores_config[ciudad_seleccionada]
-    #     edges_to_map_specific_sectors(
-    #         base_path, 
-    #         config['sectores'], 
-    #         ciudad_seleccionada, 
-    #         config['centro']
-    #     )
+    if ver_mapa:
+        base_path = "/home/jovyan/accesibilidad-urbana/data/external/WalkabilityIndex/"
+        config = sectores_config[ciudad_seleccionada]
+        edges_to_map_specific_sectors(
+            base_path, 
+            config['sectores'], 
+            ciudad_seleccionada, 
+            config['centro']
+        )
 
 
 # Configuración de estilo para matplotlib
@@ -405,65 +478,68 @@ def extraer_fila_por_concepto(df, concepto_buscar):
     
     return None
 
+def obtener_indice_zona(zona, colonias_gdl, colonias_mde, titulo_ciudad):
+    """Obtiene el índice de columna correspondiente a la zona seleccionada"""
+    if titulo_ciudad == "Guadalajara":
+        # Columnas 1, 2, 3 para Guadalajara (Colinas, Providencia, Miramar)
+        return colonias_gdl.index(zona) + 1
+    else:  # Medellín
+        # Columnas 5, 6, 7 para Medellín (Aguacatala, Floresta, Moravia)
+        return colonias_mde.index(zona) + 5
 
-def crear_grafico_genero(df, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráficos de pastel de distribución por género para cada colonia"""
+def crear_grafico_genero_dona(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
+    """Crea gráfico de dona de distribución por género para la zona seleccionada"""
     
     # Extraer datos de % Mujeres
     fila_mujeres = extraer_fila_por_concepto(df, "% Mujeres")
     
     if fila_mujeres is not None:
-        if titulo_ciudad == "Guadalajara":
-            # Columnas 1, 2, 3 para Guadalajara (Colinas, Providencia, Miramar)
-            mujeres = convertir_a_float_seguro(fila_mujeres.iloc[1:4])
-            colonias = colonias_gdl
-        else:  # Medellín
-            # Columnas 5, 6, 7 para Medellín (Aguacatala, Floresta, Moravia)
-            mujeres = convertir_a_float_seguro(fila_mujeres.iloc[5:8])
-            colonias = colonias_mde
+        # Obtener índice de la zona seleccionada
+        indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
         
-        # Crear subplots para cada colonia
-        fig, axes = plt.subplots(1, len(colonias), figsize=(15, 5))
+        # Obtener porcentaje de mujeres para la zona seleccionada
+        porcentaje_mujeres = convertir_a_float_seguro(pd.Series([fila_mujeres.iloc[indice_zona]])).iloc[0]
         
-        # Si solo hay una colonia, convertir axes a lista
-        if len(colonias) == 1:
-            axes = [axes]
+        # Asegurar que el valor no sea negativo y esté en rango válido
+        porcentaje_mujeres = max(0, min(100, porcentaje_mujeres))
+        porcentaje_hombres = 100 - porcentaje_mujeres
         
-        # Colores para el gráfico
+        # Verificar que tengamos datos válidos
+        if porcentaje_mujeres == 0 and porcentaje_hombres == 0:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.text(0.5, 0.5, 'Datos no válidos para género en esta zona', 
+                   transform=ax.transAxes, ha='center', va='center', fontsize=14)
+            ax.set_title(f'Distribución por Género - {zona_seleccionada}', fontsize=16)
+            ax.axis('off')
+            return fig
+        
+        # Crear gráfico de dona
+        fig, ax = plt.subplots(figsize=(8, 8))
+        
+        # Datos para el gráfico
+        datos = [porcentaje_mujeres, porcentaje_hombres]
+        etiquetas = ['Mujeres', 'Hombres']
         colores = ['#E91E63', '#2196F3']  # Rosa para mujeres, azul para hombres
         
-        for i, colonia in enumerate(colonias):
-            porcentaje_mujeres = mujeres.iloc[i]
-            porcentaje_hombres = 100 - porcentaje_mujeres
-            
-            # Datos para el gráfico de pastel
-            datos = [porcentaje_mujeres, porcentaje_hombres]
-            etiquetas = ['Mujeres', 'Hombres']
-            
-            # Crear gráfico de pastel
-            wedges, texts, autotexts = axes[i].pie(
-                datos, 
-                labels=etiquetas, 
-                colors=colores,
-                autopct='%1.1f%%',
-                startangle=90,
-                textprops={'fontsize': 10}
-            )
-            
-            # Mejorar el texto de los porcentajes
-            for autotext in autotexts:
-                autotext.set_color('white')
-                autotext.set_fontweight('bold')
-            
-            axes[i].set_title(f'{colonia}', fontsize=12, fontweight='bold', pad=20)
+        # Crear gráfico de dona (pie con hole)
+        wedges, texts, autotexts = ax.pie(
+            datos, 
+            labels=etiquetas, 
+            colors=colores,
+            autopct='%1.1f%%',
+            startangle=90,
+            textprops={'fontsize': 12},
+            wedgeprops={'width': 0.5}  # Esto crea el efecto de dona
+        )
         
-        # Título general
-        fig.suptitle(f'Distribución por Género - {titulo_ciudad}', 
-                    fontsize=16, fontweight='bold', y=1.02)
+        # Mejorar el texto de los porcentajes
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
+            autotext.set_fontsize(14)
         
-        # Leyenda compartida
-        fig.legend(wedges, etiquetas, loc='upper center', bbox_to_anchor=(0.5, 0.02), 
-                  ncol=2, fontsize=12)
+        ax.set_title(f'Distribución por Género - {zona_seleccionada}', 
+                    fontsize=16, fontweight='bold', pad=20)
         
         plt.tight_layout()
         
@@ -472,127 +548,194 @@ def crear_grafico_genero(df, colonias_gdl, colonias_mde, titulo_ciudad):
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.text(0.5, 0.5, 'Datos no encontrados para % Mujeres', 
                transform=ax.transAxes, ha='center', va='center', fontsize=14)
-        ax.set_title(f'Distribución por Género - {titulo_ciudad}', fontsize=16)
+        ax.set_title(f'Distribución por Género - {zona_seleccionada}', fontsize=16)
         ax.axis('off')
     
-    return fig    
+    return fig
 
-
-def crear_grafico_vehiculos(df, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de tenencia de vehículos"""
-    fig, ax = plt.subplots()
+def crear_grafico_vehiculos_dona(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
+    """Crea gráfico de dona de tenencia de vehículos para la zona seleccionada"""
     
     # Extraer datos de vehículos
     fila_auto = extraer_fila_por_concepto(df, "% con auto")
     fila_auto_moto = extraer_fila_por_concepto(df, "% con auto/moto")
     
     if fila_auto is not None and fila_auto_moto is not None:
-        if titulo_ciudad == "Guadalajara":
-            auto = convertir_a_float_seguro(fila_auto.iloc[1:4])
-            auto_moto = convertir_a_float_seguro(fila_auto_moto.iloc[1:4])
-            colonias = colonias_gdl
-        else:  # Medellín
-            auto = convertir_a_float_seguro(fila_auto.iloc[5:8])
-            auto_moto = convertir_a_float_seguro(fila_auto_moto.iloc[5:8])
-            colonias = colonias_mde
+        # Obtener índice de la zona seleccionada
+        indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
         
-        df_vehiculos = pd.DataFrame({'Solo Auto': auto, 'Auto+Moto': auto_moto}, index=colonias)
-        df_vehiculos.plot(kind='bar', ax=ax, color=['#4CAF50', '#FF9800'])
-        ax.set_title(f'Tenencia de Vehículos - {titulo_ciudad}')
-        ax.set_ylabel('Porcentaje (%)')
-        ax.legend()
-        plt.xticks(rotation=45)
+        # Obtener porcentajes para la zona seleccionada
+        porcentaje_auto = convertir_a_float_seguro(pd.Series([fila_auto.iloc[indice_zona]])).iloc[0]
+        porcentaje_auto_moto = convertir_a_float_seguro(pd.Series([fila_auto_moto.iloc[indice_zona]])).iloc[0]
+        
+        # Asegurar que los valores no sean negativos
+        porcentaje_auto = max(0, porcentaje_auto)
+        porcentaje_auto_moto = max(0, porcentaje_auto_moto)
+        
+        # Calcular total con vehículo y sin vehículo
+        total_con_vehiculo = porcentaje_auto + porcentaje_auto_moto
+        porcentaje_sin_vehiculo = max(0, 100 - total_con_vehiculo)
+        
+        # Verificar que tengamos datos válidos
+        if total_con_vehiculo + porcentaje_sin_vehiculo == 0:
+            # Si todos los valores son 0, mostrar mensaje de error
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.text(0.5, 0.5, 'Datos no válidos para vehículos en esta zona', 
+                   transform=ax.transAxes, ha='center', va='center', fontsize=14)
+            ax.set_title(f'Tenencia de Vehículos - {zona_seleccionada}', fontsize=16)
+            ax.axis('off')
+            return fig
+        
+        # Crear gráfico de dona
+        fig, ax = plt.subplots(figsize=(8, 8))
+        
+        # Datos para el gráfico (filtrar valores cero para mejor visualización)
+        datos = []
+        etiquetas = []
+        colores_usados = []
+        colores_disponibles = ['#4CAF50', '#FF9800', '#F44336']  # Verde, naranja, rojo
+        etiquetas_disponibles = ['Solo Auto', 'Auto + Moto', 'Sin Vehículo']
+        valores_disponibles = [porcentaje_auto, porcentaje_auto_moto, porcentaje_sin_vehiculo]
+        
+        for i, valor in enumerate(valores_disponibles):
+            if valor > 0:  # Solo incluir valores positivos
+                datos.append(valor)
+                etiquetas.append(etiquetas_disponibles[i])
+                colores_usados.append(colores_disponibles[i])
+        
+        # Crear gráfico de dona
+        wedges, texts, autotexts = ax.pie(
+            datos, 
+            labels=etiquetas, 
+            colors=colores_usados,
+            autopct='%1.1f%%',
+            startangle=90,
+            textprops={'fontsize': 12},
+            wedgeprops={'width': 0.5}  # Esto crea el efecto de dona
+        )
+        
+        # Mejorar el texto de los porcentajes
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
+            autotext.set_fontsize(14)
+        
+        ax.set_title(f'Tenencia de Vehículos - {zona_seleccionada}', 
+                    fontsize=16, fontweight='bold', pad=20)
+        
         plt.tight_layout()
+        
     else:
-        ax.text(0.5, 0.5, 'Datos no encontrados para vehículos', transform=ax.transAxes, ha='center')
-        ax.set_title(f'Tenencia de Vehículos - {titulo_ciudad}')
+        # Si no hay datos, crear un gráfico simple con mensaje
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.text(0.5, 0.5, 'Datos no encontrados para vehículos', 
+               transform=ax.transAxes, ha='center', va='center', fontsize=14)
+        ax.set_title(f'Tenencia de Vehículos - {zona_seleccionada}', fontsize=16)
+        ax.axis('off')
     
     return fig
 
-def crear_grafico_transporte(df, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de medios de transporte"""
-    fig, ax = plt.subplots()
+def crear_grafico_transporte_horizontal(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
+    """Crea gráfico de barras horizontales de medios de transporte para la zona seleccionada"""
     
     # Extraer datos de medios de transporte
     medios = ['Caminata', 'Auto', 'Bus / SITVA', 'Motocicleta']
     datos_transporte = []
-    colonias = colonias_gdl if titulo_ciudad == "Guadalajara" else colonias_mde
+    
+    # Obtener índice de la zona seleccionada
+    indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
     
     for medio in medios:
         fila = extraer_fila_por_concepto(df, medio)
         if fila is not None:
-            if titulo_ciudad == "Guadalajara":
-                valores = convertir_a_float_seguro(fila.iloc[1:4])
-            else:  # Medellín
-                valores = convertir_a_float_seguro(fila.iloc[5:8])
-            datos_transporte.append(valores)
+            valor = convertir_a_float_seguro(pd.Series([fila.iloc[indice_zona]])).iloc[0]
+            datos_transporte.append(valor)
         else:
-            # Si no encuentra el medio, agregar ceros
-            datos_transporte.append(pd.Series([0, 0, 0]))
+            datos_transporte.append(0)
     
     if len(datos_transporte) > 0:
-        df_transporte = pd.DataFrame(datos_transporte, index=medios, columns=colonias)
+        # Crear gráfico de barras horizontales
+        fig, ax = plt.subplots(figsize=(10, 6))
         
-        df_transporte.T.plot(kind='bar', stacked=True, ax=ax, colormap='Set3')
-        ax.set_title(f'Medios de Transporte Utilizados - {titulo_ciudad}')
-        ax.set_ylabel('Porcentaje (%)')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.xticks(rotation=45)
+        colores = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+        barras = ax.barh(medios, datos_transporte, color=colores)
+        
+        # Añadir valores en las barras
+        for i, (barra, valor) in enumerate(zip(barras, datos_transporte)):
+            ax.text(barra.get_width() + 1, barra.get_y() + barra.get_height()/2, 
+                   f'{valor:.1f}%', va='center', fontweight='bold')
+        
+        ax.set_xlabel('Porcentaje (%)', fontsize=12)
+        ax.set_title(f'Medios de Transporte Utilizados - {zona_seleccionada}', 
+                    fontsize=16, fontweight='bold')
+        ax.grid(axis='x', alpha=0.3)
+        
         plt.tight_layout()
+        
     else:
-        ax.text(0.5, 0.5, 'Datos no encontrados para transporte', transform=ax.transAxes, ha='center')
-        ax.set_title(f'Medios de Transporte Utilizados - {titulo_ciudad}')
+        # Si no hay datos, crear un gráfico simple con mensaje
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.text(0.5, 0.5, 'Datos no encontrados para transporte', 
+               transform=ax.transAxes, ha='center', va='center', fontsize=14)
+        ax.set_title(f'Medios de Transporte Utilizados - {zona_seleccionada}', fontsize=16)
+        ax.axis('off')
     
     return fig
 
-def crear_grafico_razones(df, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de razones para caminar"""
-    fig, ax = plt.subplots()
+def crear_grafico_razones_horizontal(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
+    """Crea gráfico de barras horizontales de razones para caminar para la zona seleccionada"""
     
     # Razones para caminar
     razones = ['Cercanía al lugar', 'Por salud', 'Única alternativa', 
                'Distracción /desestrés/ Gusto /Apreciación', 'Ahorrar tiempo', 'No tengo carro']
+    nombres_cortos = ['Cercanía', 'Salud', 'Única alternativa', 'Gusto', 'Ahorrar tiempo', 'No tengo carro']
+    
     datos_razones = []
-    colonias = colonias_gdl if titulo_ciudad == "Guadalajara" else colonias_mde
+    
+    # Obtener índice de la zona seleccionada
+    indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
     
     for razon in razones:
         fila = extraer_fila_por_concepto(df, razon)
         if fila is not None:
-            if titulo_ciudad == "Guadalajara":
-                valores = convertir_a_float_seguro(fila.iloc[1:4])
-            else:  # Medellín
-                valores = convertir_a_float_seguro(fila.iloc[5:8])
-            datos_razones.append(valores)
+            valor = convertir_a_float_seguro(pd.Series([fila.iloc[indice_zona]])).iloc[0]
+            datos_razones.append(valor)
+        else:
+            datos_razones.append(0)
     
     if len(datos_razones) > 0:
-        nombres_cortos = ['Cercanía', 'Salud', 'Única alternativa', 'Gusto', 'Ahorrar tiempo', 'No tengo carro']
+        # Crear gráfico de barras horizontales
+        fig, ax = plt.subplots(figsize=(10, 8))
+        
+        # Usar solo los nombres cortos que corresponden a los datos encontrados
         nombres_usados = nombres_cortos[:len(datos_razones)]
         
-        df_razones = pd.DataFrame(datos_razones, index=nombres_usados, columns=colonias)
+        colores = plt.cm.viridis(np.linspace(0, 1, len(datos_razones)))
+        barras = ax.barh(nombres_usados, datos_razones, color=colores)
         
-        df_razones.T.plot(kind='bar', stacked=True, ax=ax, colormap='viridis')
-        ax.set_title(f'Razones para Caminar - {titulo_ciudad}')
-        ax.set_ylabel('Porcentaje (%)')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.xticks(rotation=45)
+        # Añadir valores en las barras
+        for i, (barra, valor) in enumerate(zip(barras, datos_razones)):
+            ax.text(barra.get_width() + 0.5, barra.get_y() + barra.get_height()/2, 
+                   f'{valor:.1f}%', va='center', fontweight='bold')
+        
+        ax.set_xlabel('Porcentaje (%)', fontsize=12)
+        ax.set_title(f'Razones para Caminar - {zona_seleccionada}', 
+                    fontsize=16, fontweight='bold')
+        ax.grid(axis='x', alpha=0.3)
+        
         plt.tight_layout()
+        
     else:
-        ax.text(0.5, 0.5, 'Datos no encontrados para razones', transform=ax.transAxes, ha='center')
-        ax.set_title(f'Razones para Caminar - {titulo_ciudad}')
+        # Si no hay datos, crear un gráfico simple con mensaje
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.text(0.5, 0.5, 'Datos no encontrados para razones', 
+               transform=ax.transAxes, ha='center', va='center', fontsize=14)
+        ax.set_title(f'Razones para Caminar - {zona_seleccionada}', fontsize=16)
+        ax.axis('off')
     
     return fig
 
-def crear_grafico_betas_barras(betas_df, titulo_ciudad):
-    """Crea gráfico de barras para los coeficientes beta"""
-    fig, ax = plt.subplots(figsize=(12, 6))
-    betas_df.set_index('Variable').plot(kind='bar', ax=ax, colormap='Set1')
-    ax.axhline(0, color='black', linewidth=0.8)
-    ax.set_ylabel("Valor beta")
-    ax.set_title(f"Coeficientes beta por variable y zona - {titulo_ciudad}")
-    ax.legend(title="Zona")
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    return fig
+# No necesitamos esta función ya que se eliminó el gráfico de barras
 
 def crear_grafico_radar(betas_df, zona_seleccionada, colores_dict):
     """Crea gráfico radar para una zona específica"""
@@ -621,31 +764,34 @@ def crear_grafico_radar(betas_df, zona_seleccionada, colores_dict):
     return fig
 
 def mostrar_seccion_ciudad(df, betas_df, titulo_ciudad, colonias_gdl, colonias_mde, zonas, colores_dict):
-    """Muestra todos los gráficos para una ciudad específica"""
+    """Muestra todos los gráficos para una ciudad específica con selección de zona"""
     st.subheader(f"Hallazgos de la investigación en {titulo_ciudad}")
     st.markdown(f"""En esta sección se presentan los hallazgos más relevantes de la investigación, 
     basados en las encuestas realizadas para ciudad de {titulo_ciudad}. Estos hallazgos se centran 
     en la percepción de caminabilidad y la calidad del espacio público en diferentes colonias de la ciudad.""")
     
-    # Gráficos demográficos y de comportamiento
-    st.pyplot(crear_grafico_genero(df, colonias_gdl, colonias_mde, titulo_ciudad))
-    st.pyplot(crear_grafico_vehiculos(df, colonias_gdl, colonias_mde, titulo_ciudad))
-    st.pyplot(crear_grafico_transporte(df, colonias_gdl, colonias_mde, titulo_ciudad))
-    st.pyplot(crear_grafico_razones(df, colonias_gdl, colonias_mde, titulo_ciudad))
+    # Selector de zona para toda la ciudad
+    zona_key = f"zona_{titulo_ciudad.lower().replace(' ', '_')}"
+    zona_seleccionada = st.selectbox(f"Selecciona una zona de {titulo_ciudad}", zonas, key=zona_key)
     
-    # Sección de betas
-    st.subheader(f"Betas para {titulo_ciudad}")
+    # Gráficos demográficos y de comportamiento para la zona seleccionada
+    st.markdown("#### Distribución por Género")
+    st.pyplot(crear_grafico_genero_dona(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad))
+    
+    st.markdown("#### Tenencia de Vehículos")
+    st.pyplot(crear_grafico_vehiculos_dona(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad))
+    
+    st.markdown("#### Medios de Transporte Utilizados")
+    st.pyplot(crear_grafico_transporte_horizontal(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad))
+    
+    st.markdown("#### Razones para Caminar")
+    st.pyplot(crear_grafico_razones_horizontal(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad))
+    
+    # Sección de betas - solo gráfico radar
+    st.subheader(f"Perfil de Caminabilidad - {titulo_ciudad}")
     st.markdown("Los betas son coeficientes que indican la relación entre las variables y el índice de caminabilidad. Van de -2 a 2, donde valores negativos indican una relación inversa y positivos una relación directa.")
     
-    # Gráfico de barras
-    st.markdown("#### Gráfico de barras por variable")
-    st.pyplot(crear_grafico_betas_barras(betas_df, titulo_ciudad))
-    
-    # Gráfico radar
-    st.markdown("#### Gráfico radar por zona")
-    zona_key = f"zona_{titulo_ciudad.lower().replace(' ', '_')}"
-    zona_seleccionada = st.selectbox("Selecciona una zona", zonas, key=zona_key)
-    
+    # Gráfico radar (usa la misma zona seleccionada)
     fig_radar = crear_grafico_radar(betas_df, zona_seleccionada, colores_dict)
     st.plotly_chart(fig_radar, use_container_width=True)
 
