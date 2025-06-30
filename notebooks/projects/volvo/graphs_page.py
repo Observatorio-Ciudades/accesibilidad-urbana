@@ -68,9 +68,10 @@ def create_graphs(hallazgos_vref, betas_GDL, betas_MDE):
 def load_data():
     """Carga los datos necesarios para la visualización"""
     try:
-        betas_GDL = pd.read_excel("", sheet_name="GDL")
-        betas_MDE = pd.read_excel("", sheet_name="Medellin")
-        hallazgos_vref = pd.read_csv("", encoding='utf-8')
+        grl_dir = '../../../data/processed/vref/'
+        betas_GDL = pd.read_excel(grl_dir+'BETAS_GDL_MDE.xlsx', sheet_name="GDL")
+        betas_MDE = pd.read_excel(grl_dir+'BETAS_GDL_MDE.xlsx', sheet_name="Medellin")
+        hallazgos_vref = pd.read_csv(grl_dir+'hallazgos_vref_limpio.csv', encoding='iso-8859-1')
 
         # Limpiar datos de caracteres invisibles
         hallazgos_vref = limpiar_datos(hallazgos_vref)
@@ -79,6 +80,28 @@ def load_data():
     except Exception as e:
         st.error(f"Error while loading data: {e}")
         return None, None, None
+
+def convertir_a_float_seguro(serie):
+    """Convierte datos a float de manera segura, manejando errores"""
+    try:
+        # Limpiar la serie antes de convertir
+        serie_clean = serie.astype(str).str.replace('​', '', regex=False)
+        serie_clean = serie_clean.str.replace('\u200b', '', regex=False)
+        serie_clean = serie_clean.str.replace('\ufeff', '', regex=False)
+        serie_clean = serie_clean.str.replace('\xa0', '', regex=False)
+        serie_clean = serie_clean.str.replace('-', '0', regex=False)
+        serie_clean = serie_clean.str.replace('nan', '0', regex=False)
+        serie_clean = serie_clean.str.strip()
+
+        # Reemplazar strings vacíos con 0
+        serie_clean = serie_clean.replace('', '0')
+        serie_clean = serie_clean.replace('None', '0')
+
+        return pd.to_numeric(serie_clean, errors='coerce').fillna(0)
+    except Exception as e:
+        st.warning(f"Problema al convertir datos: {e}")
+        return pd.Series([0] * len(serie))
+
 
 def limpiar_datos(df):
     """Limpia los datos de caracteres invisibles y problemas de formato"""
@@ -197,6 +220,33 @@ def crear_grafico_transporte(df, colonias_gdl, colonias_mde, titulo_ciudad):
         ax.set_title(f'Medios de Transporte Utilizados - {titulo_ciudad}')
 
     return fig
+
+
+def extraer_fila_por_concepto(df, concepto_buscar):
+    """Extrae una fila específica basada en el concepto en la primera o segunda columna"""
+    # Limpiar el concepto que estamos buscando
+    concepto_limpio = concepto_buscar.replace('​', '').replace('\u200b', '').replace('\ufeff', '').replace('\xa0', ' ').strip()
+
+    # Buscar en primera columna
+    primera_col = df.iloc[:, 0].astype(str).str.replace('​', '', regex=False).str.strip()
+    mask_primera = primera_col.str.contains(concepto_limpio, case=False, na=False, regex=False)
+
+    if mask_primera.any():
+        fila_idx = mask_primera.idxmax()
+        st.markdown(f'Fila idx:{fila_idx}')
+        return df.iloc[fila_idx, :]
+
+    # Si no encuentra en primera columna, buscar en segunda columna
+    if df.shape[1] > 1:
+        segunda_col = df.iloc[:, 1].astype(str).str.replace('​', '', regex=False).str.strip()
+        mask_segunda = segunda_col.str.contains(concepto_limpio, case=False, na=False, regex=False)
+
+        if mask_segunda.any():
+            fila_idx = mask_segunda.idxmax()
+            print(fila_idx)
+            return df.iloc[fila_idx, :]
+
+    return None
 
 
 def crear_grafico_razones(df, colonias_gdl, colonias_mde, titulo_ciudad):
