@@ -11,7 +11,7 @@ def display_maps_page():
     # st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
     # Para mapas: selección individual de ciudad
     selected_city = st.selectbox(
-        "Seleccione la ciudad que desea visualizar:",
+        "Select the city you wish to analyze:",
         ('Guadalajara', 'Medellín'),
         key='ciudad_mapas'
     )
@@ -46,7 +46,7 @@ def mapas(city):
         col1, col2 = st.columns([0.88, 0.12])
         if st.session_state.map is None and st.session_state.selected_city is None:
             with col1:
-                m = create_map()
+                m = create_map(city)
                 st.session_state.map = m
                 st.components.v1.html(m.render(), height=750)
                 st.session_state.selected_city = city
@@ -62,7 +62,7 @@ def mapas(city):
                     create_legend()
             else:
                 with col1:
-                    m = create_map()
+                    m = create_map(city)
                     st.session_state.map = m
                     st.components.v1.html(m.render(), height=750)
                     st.session_state.selected_city = city
@@ -72,9 +72,9 @@ def mapas(city):
 
         st.markdown('</div></div>', unsafe_allow_html=True)
 
-def create_map():
+def create_map(city):
     (gdf_phyisical_var, gdf_proximity,
-        gdf_polygons, gdf_walkability_index)= load_geojson_files()
+        gdf_polygons, gdf_walkability_index)= load_geojson_files(city)
     # f = folium.Figure(width=1800, height=500)
     m = folium.Map(
         location=[gdf_proximity.geometry.centroid.y.mean(),
@@ -156,7 +156,8 @@ def add_walkability_index_map(m, gdf_walkability_index):
             pane = 'middle-pane',
         ).geojson.add_to(walkability_map)
 
-def add_physical_variables_map(m, gdf_phyisical_var, physical_var, phyisical_var_name, parent_group=None):
+def add_physical_variables_map(m, gdf_phyisical_var, physical_var,
+    phyisical_var_name, parent_group=None):
     # Add physical variables choropleth to map
     physical_var_map = folium.FeatureGroup(name=f'Physical Variables - {phyisical_var_name}', show=False)
     m.add_child(physical_var_map)
@@ -175,12 +176,16 @@ def add_physical_variables_map(m, gdf_phyisical_var, physical_var, phyisical_var
         ).geojson.add_to(physical_var_map)
 
 
-def load_geojson_files():
-    grl_dir = '../../../data/processed/vref/'
-    gdf_phyisical_var = gpd.read_file(grl_dir+'/tmp/bufferedges_physicalvar_poligonosestudio.gpkg')
-    gdf_proximity = gpd.read_file(grl_dir+'/tmp/volvo_wgtproximityanalysis_poligonosestudio.gpkg')
-    gdf_polygons = gpd.read_file(grl_dir+'PolígonosEstudio.gpkg')
-    gdf_walkability_index = gpd.read_file(grl_dir+'/tmp/bufferedges_diss_walkabilityindex_poligonosetudio.gpkg')
+def load_geojson_files(city):
+    grl_dir = '../../../data/processed/vref/streamlit_app/'
+    if city == 'Guadalajara':
+        city_abrv = 'AMG'
+    else:
+        city_abrv = 'MDE'
+    gdf_phyisical_var = gpd.read_file(grl_dir+f'PhysicalVariables_{city_abrv}.gpkg')
+    gdf_proximity = gpd.read_file(grl_dir+f'ProximityAnalysis_{city_abrv}.gpkg')
+    gdf_polygons = gpd.read_file(grl_dir+f'PoligonosEstudio_{city_abrv}.gpkg')
+    gdf_walkability_index = gpd.read_file(grl_dir+f'WalkabilityIndex_{city_abrv}.gpkg')
     return gdf_phyisical_var, gdf_proximity, gdf_polygons, gdf_walkability_index
 
 # Función para agregar un geodataframe como capa al mapa interactivo
@@ -283,52 +288,6 @@ def create_legend():
         </span>
         """, unsafe_allow_html=True)
 
-    # Proximity analysis legend
-
-    st.markdown(
-    """
-    <style>
-        .centered-text {
-            text-align: center; /* Center the text horizontally */
-            font-size: 12px; /* Set the text size */
-            width: 20%; /* Ensure the text spans the entire container width */
-            font-weight: bold; /* Make the text bold */
-        }
-    </style>
-
-    <div class="centered-text">
-        Proximity analysis
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-    st.markdown("""
-        <span style="display: inline-flex; align-items: center;">
-            <span style=" background: rgb(63,94,251);
-                background: linear-gradient(0deg, rgba(254,235,226,1) 17%,
-                rgba(252,197,192,1) 34%, rgba(250,159,181,1) 51%,
-                rgba(247,104,161,1) 68%,
-                rgba(197,27,138,1) 85%, rgba(122,1,119,1) 100%);
-                display: inline-block;
-            width: 20px; height: 60px;">
-        </span>
-                <style>
-        .multiline-span {
-            display: inline-block; /* Allows span to have block-like behavior while remaining inline */
-            width: 200px; /* Set a width to control where the text wraps */
-                margin-left: 10px; /* Add a left indent */
-                 font-size: 12px; /* Set the text size */
-        }
-    </style>
-</head>
-<body>
-    <span class="multiline-span">
-        Higher<br>
-                <br>
-                Lower
-    </span>
-        """, unsafe_allow_html=True)
-
     # Walkability index legend
     st.markdown(
     """
@@ -357,6 +316,52 @@ def create_legend():
                 rgba(230,245,152,1) 60%, rgba(171,221,164,1) 70%,
                 rgba(102,194,165,1) 80%, rgba(50,136,189,1) 90%,
                 rgba(94,79,162,1) 100%);
+                display: inline-block;
+            width: 20px; height: 60px;">
+        </span>
+                <style>
+        .multiline-span {
+            display: inline-block; /* Allows span to have block-like behavior while remaining inline */
+            width: 200px; /* Set a width to control where the text wraps */
+                margin-left: 10px; /* Add a left indent */
+                 font-size: 12px; /* Set the text size */
+        }
+    </style>
+</head>
+<body>
+    <span class="multiline-span">
+        Higher<br>
+                <br>
+                Lower
+    </span>
+        """, unsafe_allow_html=True)
+
+    # Proximity analysis legend
+
+    st.markdown(
+    """
+    <style>
+        .centered-text {
+            text-align: center; /* Center the text horizontally */
+            font-size: 12px; /* Set the text size */
+            width: 20%; /* Ensure the text spans the entire container width */
+            font-weight: bold; /* Make the text bold */
+        }
+    </style>
+
+    <div class="centered-text">
+        Proximity analysis
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+    st.markdown("""
+        <span style="display: inline-flex; align-items: center;">
+            <span style=" background: rgb(63,94,251);
+                background: linear-gradient(0deg, rgba(254,235,226,1) 17%,
+                rgba(252,197,192,1) 34%, rgba(250,159,181,1) 51%,
+                rgba(247,104,161,1) 68%,
+                rgba(197,27,138,1) 85%, rgba(122,1,119,1) 100%);
                 display: inline-block;
             width: 20px; height: 60px;">
         </span>
