@@ -1,9 +1,9 @@
 import streamlit as st
 
 def display_landing_page():
-    st.set_page_config(page_title="Proyecto Volvo - Caminabilidad", layout="wide")
+    st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
 
-    st.title("De la Accesibilidad a la Comprensión de la Caminabilidad 🚶‍♂️🌎")
+    # st.title("De la Accesibilidad a la Comprensión de la Caminabilidad 🚶‍♂️🌎")
 
     st.subheader("Aliados")
     st.write("**Universidad EAFIT** (Colombia) y **Tecnológico de Monterrey** (México)")
@@ -28,31 +28,31 @@ def display_landing_page():
     st.markdown("""
     - **Indicadores físicos:** Densidad de población, diseño de calles, disponibilidad de aceras, vegetación, entre otros.
     - **Percepción ciudadana:** Qué tan seguro, cómodo y agradable es caminar en los barrios.
-    
+
     Así, ofrecemos una medición más completa y adaptada al contexto social y urbano de nuestras ciudades.
     """)
 
     st.header("¿Cómo funciona?")
     st.markdown("""
-    ✔ Seleccionamos variables urbanas clave bajo el enfoque **3D**: _Densidad_, _Diversidad_ y _Diseño_.  
-    ✔ Recopilamos encuestas con la ciudadanía sobre su experiencia peatonal.  
-    ✔ Calculamos el **Índice de Caminabilidad** para cada segmento de calle, reflejando las diferencias dentro de cada ciudad.  
+    ✔ Seleccionamos variables urbanas clave bajo el enfoque **3D**: _Densidad_, _Diversidad_ y _Diseño_.
+    ✔ Recopilamos encuestas con la ciudadanía sobre su experiencia peatonal.
+    ✔ Calculamos el **Índice de Caminabilidad** para cada segmento de calle, reflejando las diferencias dentro de cada ciudad.
     ✔ Visualizamos los resultados mediante mapas y análisis comparativos entre barrios y ciudades.
     """)
 
     st.header("¿Para quién es útil este trabajo?")
     st.markdown("""
-    👩‍💻 Urbanistas y planificadores  
-    🏛️ Gobiernos locales  
-    🎓 Investigadores y estudiantes de movilidad, equidad urbana y sistemas de información geográfica (GIS)  
-    🚶‍♂️ Ciudadanía interesada en mejorar los entornos peatonales  
+    👩‍💻 Urbanistas y planificadores
+    🏛️ Gobiernos locales
+    🎓 Investigadores y estudiantes de movilidad, equidad urbana y sistemas de información geográfica (GIS)
+    🚶‍♂️ Ciudadanía interesada en mejorar los entornos peatonales
     """)
 
     st.header("Impacto esperado")
     st.markdown("""
-    Promover ciudades más equitativas, seguras y caminables  
-    Apoyar la toma de decisiones basadas en evidencia  
-    Comprender mejor cómo las personas experimentan sus trayectos cotidianos  
+    Promover ciudades más equitativas, seguras y caminables
+    Apoyar la toma de decisiones basadas en evidencia
+    Comprender mejor cómo las personas experimentan sus trayectos cotidianos
     """)
 
 # Llamada de prueba (comenta esta línea si estás importando la función en otra parte de tu app)
