@@ -1,7 +1,7 @@
 import streamlit as st
 
 def display_landing_page():
-    st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
+    # st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
 
     # st.title("De la Accesibilidad a la Comprensión de la Caminabilidad 🚶‍♂️🌎")
 

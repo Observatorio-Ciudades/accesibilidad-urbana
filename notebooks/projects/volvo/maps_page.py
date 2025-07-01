@@ -8,7 +8,7 @@ from folium import GeoJson
 
 def display_maps_page():
     # Configuración de la página
-    st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
+    # st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
     # Para mapas: selección individual de ciudad
     selected_city = st.selectbox(
         "Seleccione la ciudad que desea visualizar:",

@@ -9,7 +9,7 @@ import plotly.express as px
 
 def display_graphs_page():
     # Configuración de la página
-    st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
+    # st.set_page_config(page_title="Proximity vs Walkability", layout="wide")
     # Cargar datos con cache
     betas_GDL, betas_MDE, hallazgos_vref = load_data()
 
