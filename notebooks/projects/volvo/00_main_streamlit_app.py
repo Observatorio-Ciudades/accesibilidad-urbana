@@ -9,12 +9,12 @@ import maps_page
 import graphs_page
 
 # Título de la aplicación
-st.title("Comparación de Datos: Guadalajara vs Medellín")
+st.title("From accesibility to walkability 🚶‍♂️🌎")
 
 # Descripción de la página
-st.markdown("""
-    Insertar la descripción del proyecto aquí.
-""")
+# st.markdown("""
+#     Insertar la descripción del proyecto aquí.
+#   """)
 
 # Selección en la barra lateral
 visualizacion = st.sidebar.selectbox(
