@@ -1,4 +1,5 @@
 import streamlit as st
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
@@ -161,114 +162,115 @@ def obtener_valor_seguro(fila, indice_zona):
         return 0
 
 def limpiar_datos(df):
-    """Limpia los datos de caracteres invisibles y problemas de formato"""
-    df_clean = df.copy()
+    """Limpia caracteres invisibles de todo el DataFrame"""
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].astype(str).str.replace('​', '', regex=False).str.replace('\u200b', '').str.replace('\ufeff', '').str.replace('\xa0', ' ').str.strip()
+    return df
 
-    # Limpiar todas las columnas
-    for col in df_clean.columns:
-        if df_clean[col].dtype == 'object':
-            # Remover caracteres invisibles específicos
-            df_clean[col] = df_clean[col].astype(str).str.replace('​', '', regex=False)  # Carácter invisible específico
-            df_clean[col] = df_clean[col].str.replace('\u200b', '', regex=False)  # Zero-width space
-            df_clean[col] = df_clean[col].str.replace('\ufeff', '', regex=False)  # BOM
-            df_clean[col] = df_clean[col].str.replace('\xa0', ' ', regex=False)   # Non-breaking space
-            df_clean[col] = df_clean[col].str.replace('-', '0', regex=False)      # Reemplazar guiones por 0
-            df_clean[col] = df_clean[col].str.strip()  # Espacios al inicio/final
+def extraer_fila_por_concepto(df, concepto_buscar):
+    """Extrae una fila específica basada en el concepto en la primera o segunda columna"""
+    concepto_limpio = concepto_buscar.replace('​', '').replace('\u200b', '').replace('\ufeff', '').replace('\xa0', ' ').strip()
+    
+    # Buscar en la primera columna (índice 0) o segunda columna (índice 1)
+    for col_idx in [0, 1]:
+        if col_idx < df.shape[1]:
+            col_data = df.iloc[:, col_idx].astype(str).str.replace('​', '', regex=False).str.strip()
+            mask = col_data.str.contains(concepto_limpio, case=False, na=False, regex=False)
+            
+            if mask.any():
+                fila_idx = mask.idxmax()
+                return df.iloc[fila_idx, :]
+    
+    return None
 
-    return df_clean
+def obtener_indice_zona(zona, colonias_gdl, colonias_mde, titulo_ciudad):
+    """Obtiene el índice de columna correspondiente a la zona seleccionada"""
+    if titulo_ciudad == "Guadalajara":
+        # Columnas 1, 2, 3 para Guadalajara (Colinas, Providencia, Miramar)
+        return colonias_gdl.index(zona) + 1
+    else:  # Medellín
+        # Columnas 4, 5, 6 para Medellín (Aguacatala, Floresta, Moravia)
+        return colonias_mde.index(zona) + 4
+
+def convertir_a_float_seguro(serie):
+    """Convierte valores a float de manera segura"""
+    def convertir_valor(val):
+        if pd.isna(val) or val == '' or val == 'nan':
+            return 0.0
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return 0.0
+    
+    return serie.apply(convertir_valor)
+
+def obtener_valor_seguro(fila, indice_zona):
+    """Obtiene un valor de manera segura manejando diferentes tipos de índices"""
+    try:
+        if fila is None or indice_zona >= len(fila):
+            return 0
+            
+        valor_raw = fila.iloc[indice_zona]
+        return convertir_a_float_seguro(pd.Series([valor_raw])).iloc[0]
+        
+    except (IndexError, ValueError, TypeError):
+        return 0
 
 def grafico_genero(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de dona doble con distribución por género y movilidad"""
+    """Crea gráfico de dona con distribución por género y movilidad"""
     
-    # Obtener índice de la zona seleccionada
     indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
     
-    # --- Datos para el anillo exterior (Género) ---
-    fila_mujeres = extraer_fila_por_concepto(df, "% Mujeres")
-    porcentaje_mujeres = obtener_valor_seguro(fila_mujeres, indice_zona)
-    porcentaje_mujeres = max(0, min(100, porcentaje_mujeres))
-    porcentaje_hombres = 100 - porcentaje_mujeres
-    
-    # --- Datos para el anillo interior (Movilidad) ---
+    # Buscar datos específicos del CSV
+    fila_mujeres_caminan = extraer_fila_por_concepto(df, "Mujeres que caminan")
     fila_caminata = extraer_fila_por_concepto(df, "Caminata")
-    fila_auto_moto = extraer_fila_por_concepto(df, "% con auto/moto")
+    fila_auto_moto = extraer_fila_por_concepto(df, "Cuentan con auto/moto")
     
-    # Obtener valores usando la función segura
+    # Obtener valores
+    porcentaje_mujeres_caminan = obtener_valor_seguro(fila_mujeres_caminan, indice_zona)
     porcentaje_caminata = obtener_valor_seguro(fila_caminata, indice_zona)
     porcentaje_auto_moto = obtener_valor_seguro(fila_auto_moto, indice_zona)
     
-    # Calcular complementos
-    porcentaje_no_caminata = max(0, 100 - porcentaje_caminata)
-    porcentaje_no_auto_moto = max(0, 100 - porcentaje_auto_moto)
-    
     # Verificar si hay datos válidos
-    datos_validos = (porcentaje_mujeres + porcentaje_hombres > 0) or (porcentaje_caminata + porcentaje_auto_moto > 0)
-    
-    if not datos_validos:
+    if porcentaje_caminata == 0 and porcentaje_auto_moto == 0:
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.text(0.5, 0.5, 'Datos no válidos para esta zona', 
+        ax.text(0.5, 0.5, 'Datos no disponibles para esta zona', 
                transform=ax.transAxes, ha='center', va='center', fontsize=14)
-        ax.set_title(f'Distribución por Género y Movilidad - {zona_seleccionada}', fontsize=16)
         ax.axis('off')
         return fig
     
-    # --- Crear el gráfico de dona doble ---
-    fig, ax = plt.subplots(figsize=(10, 10))
+    # Crear gráfico de dona
+    fig, ax = plt.subplots(figsize=(10, 8))
     
-    # Colores
-    colores_genero = ['#E91E63', '#2196F3']  # Rosa: Mujeres, Azul: Hombres
-    colores_movilidad = ['#4CAF50', '#FFC107']  # Verde: Camina, Amarillo: Auto/Moto
+    # Datos para el gráfico
+    datos = [porcentaje_caminata, 100 - porcentaje_caminata]
+    etiquetas = ['Camina', 'No camina']
+    colores = ['#4CAF50', '#FF5722']
     
-    # Grosor de los anillos
-    grosor_anillo = 0.3
+    wedges, texts, autotexts = ax.pie(
+        datos, 
+        labels=etiquetas, 
+        colors=colores,
+        autopct='%1.1f%%',
+        startangle=90,
+        textprops={'fontsize': 12, 'fontweight': 'bold'},
+        wedgeprops={'width': 0.5}
+    )
     
-    # 1. Anillo exterior (Género)
-    if porcentaje_mujeres + porcentaje_hombres > 0:
-        ax.pie(
-            [porcentaje_mujeres, porcentaje_hombres],
-            radius=1,
-            colors=colores_genero,
-            labels=['Mujeres', 'Hombres'],
-            labeldistance=1.1,
-            wedgeprops=dict(width=grosor_anillo, edgecolor='w'),
-            autopct=lambda p: f'{p:.1f}%' if p > 5 else '',
-            pctdistance=0.85,
-            textprops={'fontsize': 12, 'fontweight': 'bold'},
-            startangle=90
-        )
+    # Mejorar el texto de los porcentajes
+    for autotext in autotexts:
+        autotext.set_color('white')
+        autotext.set_fontweight('bold')
+        autotext.set_fontsize(14)
     
-    # 2. Anillo interior (Movilidad)
-    if porcentaje_caminata + porcentaje_auto_moto > 0:
-        ax.pie(
-            [porcentaje_caminata, porcentaje_no_caminata, porcentaje_auto_moto, porcentaje_no_auto_moto],
-            radius=1-grosor_anillo-0.05,  # Un poco más pequeño que el exterior
-            colors=['#4CAF50', '#F44336', '#FFC107', '#9E9E9E'],
-            labels=['Camina', 'No camina', 'Tiene auto/moto', 'No tiene'],
-            labeldistance=0.75,
-            wedgeprops=dict(width=grosor_anillo, edgecolor='w'),
-            autopct=lambda p: f'{p:.1f}%' if p > 5 else '',
-            pctdistance=0.7,
-            textprops={'fontsize': 10, 'fontweight': 'bold'},
-            startangle=90
-        )
+    # Añadir información adicional en el centro
+    if porcentaje_mujeres_caminan > 0:
+        ax.text(0, 0, f'Mujeres que caminan:\n{porcentaje_mujeres_caminan:.1f}%', 
+               ha='center', va='center', fontsize=12, fontweight='bold')
     
-    # Añadir título y leyenda
-    ax.set_title(f'Distribución por Género y Movilidad\n{zona_seleccionada}', 
-                fontsize=18, fontweight='bold', pad=30)
-    
-    # Añadir un círculo blanco en el centro para mejor legibilidad
-    centro_circulo = plt.Circle((0, 0), 0.4, color='white')
-    ax.add_artist(centro_circulo)
-    
-    # Añadir texto explicativo en el centro
-    texto_centro = ""
-    if porcentaje_caminata > 0:
-        texto_centro += f"Camina: {porcentaje_caminata:.1f}%\n"
-    if porcentaje_auto_moto > 0:
-        texto_centro += f"Auto/Moto: {porcentaje_auto_moto:.1f}%"
-    
-    ax.text(0, 0, texto_centro, ha='center', va='center', 
-           fontsize=12, fontweight='bold')
+    ax.set_title(f'Distribución de Movilidad - {zona_seleccionada}', 
+                fontsize=16, fontweight='bold', pad=20)
     
     plt.tight_layout()
     return fig
@@ -276,61 +278,56 @@ def grafico_genero(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciu
 def grafico_vehiculos(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
     """Crea gráfico de dona de tenencia de vehículos para la zona seleccionada"""
     
+    indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
+    
     # Extraer datos de vehículos
-    fila_auto = extraer_fila_por_concepto(df, "% con auto")
-    fila_auto_moto = extraer_fila_por_concepto(df, "% con auto/moto")
+    fila_auto = extraer_fila_por_concepto(df, "Cuentan con auto")
+    fila_auto_moto = extraer_fila_por_concepto(df, "Cuentan con auto/moto")
     
     if fila_auto is not None and fila_auto_moto is not None:
-        # Obtener índice de la zona seleccionada
-        indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
-        
-        # Obtener porcentajes para la zona seleccionada usando la función segura
         porcentaje_auto = obtener_valor_seguro(fila_auto, indice_zona)
         porcentaje_auto_moto = obtener_valor_seguro(fila_auto_moto, indice_zona)
         
-        # Calcular total con vehículo y sin vehículo
-        total_con_vehiculo = porcentaje_auto + porcentaje_auto_moto
-        porcentaje_sin_vehiculo = max(0, 100 - total_con_vehiculo)
+        # Calcular porcentaje solo moto (auto/moto - auto)
+        porcentaje_solo_moto = max(0, porcentaje_auto_moto - porcentaje_auto)
+        porcentaje_sin_vehiculo = max(0, 100 - porcentaje_auto_moto)
         
-        # Verificar que tengamos datos válidos
-        if total_con_vehiculo + porcentaje_sin_vehiculo == 0:
-            # Si todos los valores son 0, mostrar mensaje de error
+        # Verificar datos válidos
+        if porcentaje_auto + porcentaje_solo_moto + porcentaje_sin_vehiculo == 0:
             fig, ax = plt.subplots(figsize=(8, 6))
-            ax.text(0.5, 0.5, 'Datos no válidos para vehículos en esta zona', 
+            ax.text(0.5, 0.5, 'Datos no disponibles para vehículos', 
                    transform=ax.transAxes, ha='center', va='center', fontsize=14)
-            ax.set_title(f'Tenencia de Vehículos - {zona_seleccionada}', fontsize=16)
             ax.axis('off')
             return fig
         
-        # Crear gráfico de dona
+        # Crear gráfico
         fig, ax = plt.subplots(figsize=(8, 8))
         
-        # Datos para el gráfico (filtrar valores cero para mejor visualización)
-        datos = []
-        etiquetas = []
-        colores_usados = []
-        colores_disponibles = ['#4CAF50', '#FF9800', '#F44336']  # Verde, naranja, rojo
-        etiquetas_disponibles = ['Solo Auto', 'Auto + Moto', 'Sin Vehículo']
-        valores_disponibles = [porcentaje_auto, porcentaje_auto_moto, porcentaje_sin_vehiculo]
+        datos = [porcentaje_auto, porcentaje_solo_moto, porcentaje_sin_vehiculo]
+        etiquetas = ['Solo Auto', 'Solo Moto', 'Sin Vehículo']
+        colores = ['#2196F3', '#FF9800', '#F44336']
         
-        for i, valor in enumerate(valores_disponibles):
-            if valor > 0:  # Solo incluir valores positivos
-                datos.append(valor)
-                etiquetas.append(etiquetas_disponibles[i])
-                colores_usados.append(colores_disponibles[i])
+        # Filtrar valores cero
+        datos_filtrados = []
+        etiquetas_filtradas = []
+        colores_filtrados = []
         
-        # Crear gráfico de dona
+        for d, e, c in zip(datos, etiquetas, colores):
+            if d > 0:
+                datos_filtrados.append(d)
+                etiquetas_filtradas.append(e)
+                colores_filtrados.append(c)
+        
         wedges, texts, autotexts = ax.pie(
-            datos, 
-            labels=etiquetas, 
-            colors=colores_usados,
+            datos_filtrados, 
+            labels=etiquetas_filtradas, 
+            colors=colores_filtrados,
             autopct='%1.1f%%',
             startangle=90,
-            textprops={'fontsize': 12},
-            wedgeprops={'width': 0.5}  # Esto crea el efecto de dona
+            textprops={'fontsize': 12, 'fontweight': 'bold'},
+            wedgeprops={'width': 0.5}
         )
         
-        # Mejorar el texto de los porcentajes
         for autotext in autotexts:
             autotext.set_color('white')
             autotext.set_fontweight('bold')
@@ -342,23 +339,20 @@ def grafico_vehiculos(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_
         plt.tight_layout()
         
     else:
-        # Si no hay datos, crear un gráfico simple con mensaje
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.text(0.5, 0.5, 'Datos no encontrados para vehículos', 
                transform=ax.transAxes, ha='center', va='center', fontsize=14)
-        ax.set_title(f'Tenencia de Vehículos - {zona_seleccionada}', fontsize=16)
         ax.axis('off')
     
     return fig
 
 def grafico_transporte(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de barras horizontales de medios de transporte para la zona seleccionada"""
+    """Crea gráfico de barras horizontales de medios de transporte"""
     
-    # Extraer datos de medios de transporte
-    medios = ['Caminata', 'Auto', 'Bus / SITVA', 'Motocicleta']
+    # Medios de transporte según el CSV
+    medios = ['Caminata', 'Auto', 'Bus / SITVA']
     datos_transporte = []
     
-    # Obtener índice de la zona seleccionada
     indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
     
     for medio in medios:
@@ -366,46 +360,44 @@ def grafico_transporte(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo
         valor = obtener_valor_seguro(fila, indice_zona)
         datos_transporte.append(valor)
     
-    if len(datos_transporte) > 0:
-        # Crear gráfico de barras horizontales
+    if sum(datos_transporte) > 0:
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        colores = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+        colores = ['#1f77b4', '#ff7f0e', '#2ca02c']
         barras = ax.barh(medios, datos_transporte, color=colores)
         
         # Añadir valores en las barras
-        for i, (barra, valor) in enumerate(zip(barras, datos_transporte)):
-            ax.text(barra.get_width() + 1, barra.get_y() + barra.get_height()/2, 
-                   f'{valor:.1f}%', va='center', fontweight='bold')
+        for barra, valor in zip(barras, datos_transporte):
+            if valor > 0:  # Solo mostrar valores mayores a 0
+                ax.text(barra.get_width() + max(datos_transporte) * 0.01, 
+                       barra.get_y() + barra.get_height()/2, 
+                       f'{valor:.1f}%', va='center', fontweight='bold')
         
         ax.set_xlabel('Porcentaje (%)', fontsize=12)
-        ax.set_title(f'Medios de Transporte Utilizados - {zona_seleccionada}', 
+        ax.set_title(f'Medios de Transporte - {zona_seleccionada}', 
                     fontsize=16, fontweight='bold')
         ax.grid(axis='x', alpha=0.3)
+        ax.set_xlim(0, max(datos_transporte) * 1.15)
         
         plt.tight_layout()
         
     else:
-        # Si no hay datos, crear un gráfico simple con mensaje
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.text(0.5, 0.5, 'Datos no encontrados para transporte', 
+        ax.text(0.5, 0.5, 'Datos no disponibles para transporte', 
                transform=ax.transAxes, ha='center', va='center', fontsize=14)
-        ax.set_title(f'Medios de Transporte Utilizados - {zona_seleccionada}', fontsize=16)
         ax.axis('off')
     
     return fig
 
 def grafico_razones(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad):
-    """Crea gráfico de barra horizontal apilada de razones para caminar para la zona seleccionada"""
+    """Crea gráfico de barra horizontal apilada de razones para caminar"""
     
-    # Razones para caminar
-    razones = ['Cercanía al lugar', 'Por salud', 'Única alternativa', 
-               'Distracción /desestrés/ Gusto /Apreciación', 'Ahorrar tiempo', 'No tengo carro']
+    # Razones según el CSV
+    razones = ['Cercania al lugar', 'Por salud', 'Unica alternativa', 
+               'Distraccion /desestres/ Gusto /Apreciacion', 'Ahorrar tiempo', 'No tengo carro']
     nombres_cortos = ['Cercanía', 'Salud', 'Única alternativa', 'Gusto', 'Ahorrar tiempo', 'No tengo carro']
     
     datos_razones = []
-    
-    # Obtener índice de la zona seleccionada
     indice_zona = obtener_indice_zona(zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad)
     
     for razon in razones:
@@ -414,41 +406,50 @@ def grafico_razones(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ci
         datos_razones.append(valor)
     
     if sum(datos_razones) > 0:
-        # Crear gráfico de barra apilada horizontal
-        fig, ax = plt.subplots(figsize=(12, 4))
+        # Filtrar datos y nombres para valores > 0
+        datos_filtrados = []
+        nombres_filtrados = []
         
-        # Usar solo los nombres cortos que corresponden a datos positivos
-        nombres_usados = [n for n, d in zip(nombres_cortos, datos_razones) if d > 0]
-        datos_usados = [d for d in datos_razones if d > 0]
+        for dato, nombre in zip(datos_razones, nombres_cortos):
+            if dato > 0:
+                datos_filtrados.append(dato)
+                nombres_filtrados.append(nombre)
         
-        # Crear colores
-        colores = plt.cm.viridis(np.linspace(0, 1, len(datos_usados)))
-        
-        # Barra apilada horizontal
-        left = 0
-        for valor, nombre, color in zip(datos_usados, nombres_usados, colores):
-            ax.barh(0, valor, left=left, color=color, label=f'{nombre}: {valor:.1f}%', height=0.6)
-            # Mostrar el valor dentro de cada segmento
-            ax.text(left + valor/2, 0, f'{valor:.1f}%', 
-                   ha='center', va='center', color='white', fontweight='bold')
-            left += valor
-        
-        ax.set_xlim(0, 100)
-        ax.set_yticks([])
-        ax.set_xlabel('Porcentaje (%)', fontsize=12)
-        ax.set_title(f'Razones para Caminar - {zona_seleccionada}', 
-                    fontsize=16, fontweight='bold')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        ax.grid(axis='x', alpha=0.3)
-        
-        plt.tight_layout()
-        
+        if len(datos_filtrados) > 0:
+            fig, ax = plt.subplots(figsize=(12, 4))
+            
+            colores = plt.cm.viridis(np.linspace(0, 1, len(datos_filtrados)))
+            
+            left = 0
+            for valor, nombre, color in zip(datos_filtrados, nombres_filtrados, colores):
+                ax.barh(0, valor, left=left, color=color, height=0.6)
+                # Mostrar porcentaje solo si hay espacio suficiente
+                if valor > 5:
+                    ax.text(left + valor/2, 0, f'{valor:.1f}%', 
+                           ha='center', va='center', color='white', fontweight='bold', fontsize=10)
+                left += valor
+            
+            ax.set_xlim(0, sum(datos_filtrados))
+            ax.set_yticks([])
+            ax.set_xlabel('Porcentaje (%)', fontsize=12)
+            ax.set_title(f'Razones para Caminar - {zona_seleccionada}', 
+                        fontsize=16, fontweight='bold')
+            
+            # Crear leyenda personalizada sin repetir información
+            leyenda_items = [f'{nombre}: {valor:.1f}%' for nombre, valor in zip(nombres_filtrados, datos_filtrados)]
+            ax.legend(leyenda_items, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+            ax.grid(axis='x', alpha=0.3)
+            
+            plt.tight_layout()
+        else:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.text(0.5, 0.5, 'Sin datos válidos para razones', 
+                   transform=ax.transAxes, ha='center', va='center', fontsize=14)
+            ax.axis('off')
     else:
-        # Si no hay datos, crear un gráfico simple con mensaje
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.text(0.5, 0.5, 'Datos no encontrados para razones', 
+        ax.text(0.5, 0.5, 'Datos no disponibles para razones', 
                transform=ax.transAxes, ha='center', va='center', fontsize=14)
-        ax.set_title(f'Razones para Caminar - {zona_seleccionada}', fontsize=16)
         ax.axis('off')
     
     return fig
@@ -482,16 +483,15 @@ def grafico_radar(betas_df, zona_seleccionada, colores_dict):
 def mostrar_seccion_ciudad(df, betas_df, titulo_ciudad, colonias_gdl, colonias_mde, zonas, colores_dict):
     """Muestra todos los gráficos para una ciudad específica con selección de zona"""
     st.subheader(f"Hallazgos de la investigación en {titulo_ciudad}")
-    st.markdown(f"""En esta sección se presentan los hallazgos más relevantes de la investigación, 
-    basados en las encuestas realizadas para ciudad de {titulo_ciudad}. Estos hallazgos se centran 
-    en la percepción de caminabilidad y la calidad del espacio público en diferentes colonias de la ciudad.""")
+    st.markdown(f"""Hallazgos basados en las encuestas realizadas en {titulo_ciudad}, 
+    centrados en la percepción de caminabilidad y la calidad del espacio público.""")
     
-    # Selector de zona para toda la ciudad
+    # Selector de zona
     zona_key = f"zona_{titulo_ciudad.lower().replace(' ', '_')}"
     zona_seleccionada = st.selectbox(f"Selecciona una zona de {titulo_ciudad}", zonas, key=zona_key)
     
-    # Gráficos demográficos y de comportamiento para la zona seleccionada
-    st.markdown("#### Distribución por Género")
+    # Gráficos
+    st.markdown("#### Distribución de Movilidad")
     st.pyplot(grafico_genero(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad))
     
     st.markdown("#### Tenencia de Vehículos")
@@ -503,66 +503,19 @@ def mostrar_seccion_ciudad(df, betas_df, titulo_ciudad, colonias_gdl, colonias_m
     st.markdown("#### Razones para Caminar")
     st.pyplot(grafico_razones(df, zona_seleccionada, colonias_gdl, colonias_mde, titulo_ciudad))
     
-    # Sección de betas - solo gráfico radar
+    # Perfil de caminabilidad
     st.subheader(f"Perfil de Caminabilidad - {titulo_ciudad}")
-    st.markdown("Los betas son coeficientes que indican la relación entre las variables y el índice de caminabilidad. Van de -2 a 2, donde valores negativos indican una relación inversa y positivos una relación directa.")
+    st.markdown("Coeficientes que indican la relación entre variables y el índice de caminabilidad (rango: -2 a 2).")
     
-    # Gráfico radar (usa la misma zona seleccionada)
     fig_radar = grafico_radar(betas_df, zona_seleccionada, colores_dict)
     st.plotly_chart(fig_radar, use_container_width=True)
-
-def crear_graficos(hallazgos_vref, betas_GDL, betas_MDE):
-    """Función principal que organiza toda la visualización"""
     
-    # Nombres de las zonas
-    colonias_guadalajara = ["Colinas", "Providencia", "Miramar"]
-    colonias_medellin = ["Aguacatala", "Floresta", "Moravia"]
-    
-    # Diccionarios de colores para gráficos radar
-    colores_gdl = {
-        "Colinas": '#E9AEFA',
-        "Providencia": '#b18fbb',
-        "Miramar": '#9769a4'
-    }
-    
-    colores_mde = {
-        "Aguacatala": '#E9AEFA',
-        "Floresta": '#b18fbb',  
-        "Moravia": '#9769a4'
-    }
-    
-    # Layout de dos columnas
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        mostrar_seccion_ciudad(
-            hallazgos_vref,
-            betas_GDL, 
-            "Guadalajara",
-            colonias_guadalajara,
-            colonias_medellin,
-            colonias_guadalajara,
-            colores_gdl
-        )
-    
-    with col2:
-        mostrar_seccion_ciudad(
-            hallazgos_vref,
-            betas_MDE, 
-            "Medellín",
-            colonias_guadalajara,
-            colonias_medellin,
-            colonias_medellin,
-            colores_mde
-        )
-
-# Función principal para el flujo de la aplicación
 def main_hallazgos(visualizacion):
+    """Función principal para el flujo de la aplicación"""
     if visualizacion == "Hallazgos":
-        # Cargar datos con cache
-        betas_GDL, betas_MDE, hallazgos_vref = cargar_datos()
+        betas_GDL, betas_MDE, hallazgos_vref = load_data()
         
         if all([betas_GDL is not None, betas_MDE is not None, hallazgos_vref is not None]):
-            crear_graficos(hallazgos_vref, betas_GDL, betas_MDE)
+            create_graphs(hallazgos_vref, betas_GDL, betas_MDE)
         else:
             st.error("No se pudieron cargar los datos necesarios para la visualización.")
