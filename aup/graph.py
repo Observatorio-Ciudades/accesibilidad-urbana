@@ -11,11 +11,11 @@ import numpy as np
 
 EARTH_RADIUS_M = 6_371_009
 
-def is_projected(crs):
+def is_projected(crs): # various
     """
     Determine if a coordinate reference system is projected or not.
     This is a convenience wrapper around the pyproj.CRS.is_projected function.
-    
+
     Arguments:
     crs (string or pyproj.CRS): the coordinate reference system
 
@@ -24,7 +24,7 @@ def is_projected(crs):
     """
     return CRS.from_user_input(crs).is_projected
 
-def nearest_nodes(G, nodes, X, Y, return_dist=False):
+def nearest_nodes(G, nodes, X, Y, return_dist=False): # proximity
     """
     Find the nearest node to a point or to each of several points.
     If `X` and `Y` are single coordinate values, this will return the nearest
@@ -41,7 +41,7 @@ def nearest_nodes(G, nodes, X, Y, return_dist=False):
         Y (float or list): Points' y (latitude) coordinates, in same CRS/units as graph and containing no nulls
         return_dist (bool): Optionally also return distance between points and nearest nodes
     Returns:
-        nn (int/list or tuple): Nearest node IDs or optionally a tuple where `dist` contains distances 
+        nn (int/list or tuple): Nearest node IDs or optionally a tuple where `dist` contains distances
         between the points and their nearest nodes
     """
     is_scalar = False

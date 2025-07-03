@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 
 
-def voronoi_cpu(g, weights, seeds):
+def voronoi_cpu(g, weights, seeds): # proximity
 	"""
 	Voronoi diagram calculator for undirected graphs
 	Optimized for computational efficiency
@@ -33,7 +33,7 @@ def voronoi_cpu(g, weights, seeds):
 	"""
 	return seeds[np.array(g.shortest_paths_dijkstra(seeds, weights=weights)).argmin(axis=0)]
 
-def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, count_pois=(False,0)):
+def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, count_pois=(False,0)): # proximity
 	"""
 	Distance for the shortest path for each node to the closest seed using Dijkstra's algorithm.
 	Arguments:
@@ -42,9 +42,9 @@ def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, 
 		weights (numpy.array): Specify the weights of each edge, which is used to calculate the shortest path
 		voronoi_assignment (numpy.array): Assign the nodes to their respective seeds
 		get_nearest_poi (bool, optional): Returns idx of nearest point of interest. Defaults to False.
-		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0) 
+		count_pois (tuple, optional): tuple containing boolean to find number of pois within given time proximity. Defaults to (False, 0)
 
-	Returns: 
+	Returns:
 		The distance for the shortest path for each node to the closest seed
 	"""
 	shortest_paths = np.array(g.shortest_paths_dijkstra(seeds,weights=weights))
@@ -53,7 +53,7 @@ def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, 
 		nearest_poi_idx = [np.argmin(shortest_paths[:,i]) for i in range(len(voronoi_assignment))]
 	if count_pois[0]:
 		near_count = [len(np.where(shortest_paths[:,i] <= count_pois[1])[0]) for i in range(len(voronoi_assignment))]
-	
+
 	# Function output options
 	if get_nearest_poi and count_pois[0]:
 		return distances, nearest_poi_idx, near_count
@@ -64,8 +64,8 @@ def get_distances(g, seeds, weights, voronoi_assignment, get_nearest_poi=False, 
 	else:
 		return distances
 
-def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name, 
-wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), max_distance=(0,'distance_node')):
+def calculate_distance_nearest_poi(gdf_f, nodes, edges, amenity_name, column_name,
+wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), max_distance=(0,'distance_node')): # proximity
 	"""
 	Calculate the distance to the shortest path to the nearest POI (in gdf_f) for all the nodes in the network G
 
@@ -73,7 +73,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 		gdf_f (geopandas.GeoDataFrame): GeoDataFrame with the Points of Interest the geometry type has to be shapely.Point
 		nodes (geopandas.GeoDataFrame): GeoDataFrame with nodes for network analysis
 		edges (geopandas.GeoDataFrame): GeoDataFrame with edges for network analysis
-		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.) 
+		amenity_name (str): string with the name of the amenity that is used as seed (pharmacy, hospital, shop, etc.)
 		column_name (str): column name where the nearest distance index is stored
 		wght (str): weights column in edges. Defaults to length
 		get_nearest_poi (tuple, optional): tuple containing boolean to get the nearest POI and column name that contains that value. Defaults to (False, 'poi_id_column')
@@ -83,7 +83,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with geometry and distance to the nearest POI
 	"""
-	
+
 	# --- Required processing
 	nodes = nodes.copy()
 	edges = edges.copy()
@@ -96,7 +96,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	# --- Analysis options
 	if get_nearest_poi[0] and (count_pois[0]): # Return distances, nearest poi idx and near count
 		distances, nearest_poi_idx, near_count = get_distances(g,seeds,weights,voronoi_assignment,
-                                                               get_nearest_poi=True, 
+                                                               get_nearest_poi=True,
                                                                count_pois=count_pois)
 		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
 		nodes[f'dist_{amenity_name}'] = distances
@@ -109,7 +109,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 		nearest_poi = [gdf_f.iloc[i][get_nearest_poi[1]] for i in nearest_poi_idx]
 		nodes[f'dist_{amenity_name}'] = distances
 		nodes[f'nearest_{amenity_name}'] = nearest_poi
-    
+
 	elif (count_pois[0]): # Return distances and near count
 		distances, near_count = get_distances(g,seeds,weights,voronoi_assignment,
                                               count_pois=count_pois)
@@ -128,7 +128,7 @@ wght='length', get_nearest_poi=(False, 'poi_id_column'), count_pois=(False,0), m
 	return nodes
 
 
-def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=True):
+def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=True): # various
 	"""
 	Group by hexbin the nodes and calculate the mean distance from the hexbin to the closest amenity
 
@@ -142,7 +142,7 @@ def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=Tru
 	Returns:
 		geopandas.GeoDataFrame:  GeoDataFrame with hex_id_col, geometry and average distance to each amenity for each hexbin
 	"""
-	
+
 	# Copy data to avoid editing originals
 	substitute_cols = group_column_names
 	nodes = nodes.copy()
@@ -164,7 +164,7 @@ def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=Tru
 		hex_new[substitute_cols].apply(lambda x: x+1 if x==0 else x)
 	# Fill NaN values
 	hex_new.fillna(0, inplace=True)
-	
+
 	return hex_new
 
 def socio_polygon_to_points(
@@ -174,7 +174,7 @@ def socio_polygon_to_points(
 	column_end=-1,
 	cve_column="CVEGEO",
 	no_distr_cols=None,
-):
+): # census
 	"""
 	Assign the proportion of sociodemographic data from polygons to points
 	Arguments:
@@ -195,7 +195,7 @@ def socio_polygon_to_points(
 
 	if no_distr_cols is None:
 		no_distr_cols = []
-	
+
 	# Count the number of nodes in each polygon
 	totals = (gpd.sjoin(nodes, gdf_socio) # <-- Creates a gdf where each node has every gdf_socio col (including cve_column)
 		   .groupby(cve_column) # <-- Groups all data by cve_column
@@ -227,7 +227,7 @@ def socio_points_to_polygon(
 	wgt_dict=None,
 	avg_column=None,
 	include_nearest=(False, '_'),
-	projected_crs="EPSG:6372"):
+	projected_crs="EPSG:6372"): # census
 
 	"""Group sociodemographic point data in polygons
     Arguments:
@@ -250,7 +250,7 @@ def socio_points_to_polygon(
 	dictionary_list = []
 	# Adds census data from points to polygon
 	gdf_tmp_1 = gpd.sjoin(gdf_socio, gdf_polygon)  # joins points to polygons
-	
+
 	# Consider (or not) points that fall outside the polys in gdf_polygon
 	if include_nearest[0]:
 		points_id =  include_nearest[1]
@@ -285,7 +285,7 @@ def socio_points_to_polygon(
 		# Groups data
 		dict_tmp = group_sociodemographic_data(socio_filter,
 										 numeric_columns,
-										 avg_column=avg_column, 
+										 avg_column=avg_column,
 										 avg_dict=wgt_dict
 										 )
 		# Indicates polygon id
@@ -298,8 +298,8 @@ def socio_points_to_polygon(
 	return data
 
 
-def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None):
-	
+def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dict=None): # census
+
 	"""
     Aggregate sociodemographic variables from DataFrame.
     Arguments:
@@ -341,14 +341,14 @@ def group_sociodemographic_data(df_socio, numeric_cols, avg_column=None, avg_dic
 
 	return group_dict
 
-def walk_speed(edges_elevation):
+def walk_speed(edges_elevation): # proximity
 
 	"""
 	Calculates the Walking speed Using Tobler's Hiking Function and the slope in edges
 
 	Arguments:
 		edges_elevation (geopandas.GeoDataFrame): GeoDataFrame with the street edges with slope data
-		
+
 
 	Returns:
 		geopandas.GeoDataFrame: edges_speed GeoDataFrame with the edges with an added column for speed
@@ -360,7 +360,7 @@ def walk_speed(edges_elevation):
 	return edges_speed
 
 
-def create_network(nodes, edges, projected_crs="EPSG:6372"):
+def create_network(nodes, edges, projected_crs="EPSG:6372"): # various
 
 	"""
 	Create a network based on nodes and edges without unique ids and to - from attributes.
@@ -395,7 +395,7 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 
 	##Extract start and end coordinates for [u,v] columns
 	for index, row in edges.iterrows():
-		
+
 		edges.at[index,'u'] = str(int(list(row.geometry.coords)[0][0]))+str(int(list(row.geometry.coords)[0][1]))
 		edges.at[index,'v'] = str(int(list(row.geometry.coords)[-1][0]))+str(int(list(row.geometry.coords)[-1][1]))
 
@@ -407,7 +407,7 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 	edges['v'] = edges.v.astype(int)
 	#Calculate edges lentgh
 	edges['length'] = edges.to_crs(projected_crs).length
-	
+
 	#Change osmid to integer
 	nodes['osmid'] = nodes.osmid.astype(int)
 
@@ -417,8 +417,8 @@ def create_network(nodes, edges, projected_crs="EPSG:6372"):
 
 	return nodes, edges
 
-	
-def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
+
+def gdf_in_hex(grid, gdf, resolution = 10, contain= True): # various
 
 	"""
 	Finds the hexagons that have or do not have a point within
@@ -429,7 +429,7 @@ def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
 		gdf (geopandas.GeoDataFrame): GeoDataFrame of figures to be overlaid with hexes
 		contain (str): True == hexes that have at least a point / False == hexes that DO NOT contain at least a point
 
-		
+
 	Returns:
 		geopandas.GeoDataFrame: gdf_in_hex: hexes that contain or do not contain a gdf within
 	"""
@@ -458,7 +458,7 @@ def gdf_in_hex(grid, gdf, resolution = 10, contain= True):
 	return point_hex
 
 
-def fill_hex(missing_hex, data_hex, resolution, data_column):
+def fill_hex(missing_hex, data_hex, resolution, data_column): # various
 
 	"""
 	Fills hexagons with no data with the average data of neighbors (note: hex id must be a column not index)
@@ -469,7 +469,7 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 		resolution (int): resolution of the hexbins, used when doing the group by and to save the column
 		data_column (str): Name of the column with the data to be filled with (ex. distance)
 
-		
+
 	Returns:
 		geopandas.GeoDataFrame - full_hex: hexgrid filled with relevant data
 	"""
@@ -502,7 +502,7 @@ def fill_hex(missing_hex, data_hex, resolution, data_column):
 
 	return full_hex
 
-def calculate_isochrone(G, center_node, trip_time, dist_column, undirected=True, subgraph=False):
+def calculate_isochrone(G, center_node, trip_time, dist_column, undirected=True, subgraph=False): # proximity
     """
 		Function that that creates a isochrone from a center_node in graph G,
 		 and uses parameters like distance and time to plot the result.
@@ -525,7 +525,7 @@ def calculate_isochrone(G, center_node, trip_time, dist_column, undirected=True,
         return geometry
 
 
-def sigmoidal_function(x, di, d0):
+def sigmoidal_function(x, di, d0): # various
 	"""
 	The sigmoidal_function function takes in two parameters, x and di.
 	It is used to calculate the equilibrium index for each node.
@@ -536,17 +536,17 @@ def sigmoidal_function(x, di, d0):
 	Returns:
 		idx_eq (int): Calculations of the index
 	"""
-	
+
 	idx_eq = 1 / (1 + math.exp(x * (di - d0)))
 	return idx_eq
 
 
-def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
+def sigmoidal_function_constant(positive_limit_value, mid_limit_value): # various
 	"""
-	The sigmoidal_function_constant function calculates the constant average decay 
-	for a sigmoidal funcition with 2 quarter values at 0.25 and 0.75 of the distance 
-	between positive_limit_value and mid_limit_value and an input constant at x. 
-	All values collected will be stored inside an index 
+	The sigmoidal_function_constant function calculates the constant average decay
+	for a sigmoidal funcition with 2 quarter values at 0.25 and 0.75 of the distance
+	between positive_limit_value and mid_limit_value and an input constant at x.
+	All values collected will be stored inside an index
 	Arguments:
 		positive_limit_value: (int) Define the upper limit of the sigmoidal function
 		mid_limit_value: (int) Define the midpoint of the sigmoidal function
@@ -561,22 +561,22 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 	quarter_limit = mid_limit_value - ((mid_limit_value-positive_limit_value)/2)
 	idx_objective = 0.75
 
-	
-	def sigmoidal_function(x, di=quarter_limit, d0=mid_limit_value):
+
+	def sigmoidal_function(x, di=quarter_limit, d0=mid_limit_value): # various
 		"""
 		The sigmoidal_function function calculates the value at x,
-		taking the 2 predefined values quarter_limit and mid_limit_value calculated earlier 
+		taking the 2 predefined values quarter_limit and mid_limit_value calculated earlier
 			Arguments:
 				x (int):  Defaults to quarter_limit.
 				di (int):  Defaults to quarter_limit_value.
-				d0 (int):  Defaults to mid_limit_value. 
+				d0 (int):  Defaults to mid_limit_value.
 			Returns:
 		idx_eq (int):  The sigmoidal function of the independent variable x.
 		"""
 		idx_eq = 1 / (1 + math.exp(x * (di - d0)))
 		return idx_eq
 
-	def sigmoidal_function_condition(x, di=quarter_limit, d0=mid_limit_value, idx_0=idx_objective):
+	def sigmoidal_function_condition(x, di=quarter_limit, d0=mid_limit_value, idx_0=idx_objective): # various
 		"""
 		The sigmoidal_function_condition takes in the following parameters:
 			x - The value of x to be evaluated.
@@ -591,7 +591,7 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 		Returns:
 		The value of the sigmoidal function at a given point x
 		"""
-		
+
 
 		return (1 / (1 + math.exp(x * (di - d0)))) - idx_0
 
@@ -614,7 +614,7 @@ def sigmoidal_function_constant(positive_limit_value, mid_limit_value):
 
 	return constant_value_average
 
-def interpolate_to_gdf(gdf, x, y, z, power=2, search_radius=None):
+def interpolate_to_gdf(gdf, x, y, z, power=2, search_radius=None): # various
 	"""
 	Interpolate z values at x, y coordinates for a GeoDataFrame using inverse distance weighting (IDW).
 
@@ -629,7 +629,7 @@ def interpolate_to_gdf(gdf, x, y, z, power=2, search_radius=None):
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with interpolated values in interpolated_value column
 	"""
-	
+
 	gdf_int = gdf.copy()
 	xi = np.array(gdf_int.geometry.x)
 	yi = np.array(gdf_int.geometry.y)
@@ -637,7 +637,7 @@ def interpolate_to_gdf(gdf, x, y, z, power=2, search_radius=None):
 	return gdf_int
 
 
-def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
+def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None): # various
 	"""Calculate inverse distance weighted (IDW) interpolation at a single point.
 
 	Args:
@@ -693,7 +693,7 @@ def idw_at_point(x0, y0 ,z0, xi, yi, power=2, search_radius=None):
 	int_value = np.dot(weights.T, z0)
 	return int_value
 
-def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
+def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None): # various
 	"""Interpolate z values at a set of xi, yi coordinates using inverse distance weighting (IDW).
 
 	Args:
@@ -717,10 +717,10 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 	# calculate linear distance in x and y
 	d0 = np.subtract.outer(obs[:,0], interp[:,0])
 	d1 = np.subtract.outer(obs[:,1], interp[:,1])
-	
+
 	# calculate linear distance from observations to interpolation points
 	dist = np.hypot(d0, d1)
-	
+
 	# filter data by search radius
 	if search_radius:
 		idx = dist<=search_radius
@@ -728,7 +728,7 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 		idx_num = idx_num.astype('float32')
 		idx_num[idx_num == 0] = np.nan
 		dist = dist*idx_num
-	
+
 	# calculate weights
 	weights = 1.0/(dist+1e-12)**power
 	weights /= np.nansum(weights, axis=0)
@@ -738,7 +738,7 @@ def interpolate_at_points(x0, y0, z0, xi, yi, power=2, search_radius=None):
 
 	return int_value
 
-def weighted_average(df, weight_column, value_column):
+def weighted_average(df, weight_column, value_column): # various
 	"""
 	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
 	Arguments:
@@ -751,14 +751,14 @@ def weighted_average(df, weight_column, value_column):
 	weighted_average = (df[weight_column] * df[value_column]).sum() / df[weight_column].sum()
 	return weighted_average
 
-def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, projected_crs="EPSG:6372"):
-	""" Function originally designed for proximity analysis in Latinamerica. It takes an area of interest, a population directory, 
+def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, projected_crs="EPSG:6372"): # census
+	""" Function originally designed for proximity analysis in Latinamerica. It takes an area of interest, a population directory,
 		index and pop columns and a list of desired hex res outputs and groups sociodemographic data by hex.
 	Args:
 		aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
 		pop_dir (str): Directory (location) of the population file.
 		index_column (str): Name of the unique index column within the population file.
-		pop_columns (list): List of names of columns to be added by hexagon. 
+		pop_columns (list): List of names of columns to be added by hexagon.
 							First item of list must be name of total population column in order to calculate density.
 		res_list (list): List of integers containing hex resolutions for output.
 		projected_crs (str, optional): string containing projected crs to be used depending on area of interest. Defaults to "EPSG:6372".
@@ -793,7 +793,7 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 	# Format centroids with pop data
 	# Add census data to points
-	centroid_block_pop = point_within_polygon.merge(block_pop, right_index=True, left_index=True) 
+	centroid_block_pop = point_within_polygon.merge(block_pop, right_index=True, left_index=True)
 	# Format geometry column
 	centroid_block_pop.drop(columns=['geometry_y'], inplace=True)
 	centroid_block_pop.rename(columns={'geometry_x':'geometry'}, inplace=True)
@@ -827,26 +827,26 @@ def create_popdata_hexgrid(aoi, pop_dir, index_column, pop_columns, res_list, pr
 
 		# Group pop data
 		string_columns = [index_column]
-		hex_socio_df = socio_points_to_polygon(hex_gdf, centroid_block_pop,'hex_id', string_columns, projected_crs=projected_crs) 
+		hex_socio_df = socio_points_to_polygon(hex_gdf, centroid_block_pop,'hex_id', string_columns, projected_crs=projected_crs)
 		print(f"Agregated socio data to hex with a total of {hex_socio_df.pobtot.sum()} population for resolution {res}.")
 
 		# Hexagons data to hex_gdf GeoDataFrame
 		hex_socio_gdf_tmp = hex_gdf.merge(hex_socio_df, on='hex_id')
-		
+
 		# Calculate population density
 		hectares = hex_socio_gdf_tmp.to_crs(projected_crs).area / 10000
-		hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
+		hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares
 		print(f"Calculated an average density of {hex_socio_gdf_tmp.dens_pob_ha.mean()}")
-		
+
 		# Concatenate in hex_socio_gdf, where (if more resolutions) next resolution will also be stored.
-		hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])    
+		hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])
 
 	print(f"Finished calculating population by hexgrid for res {res_list}.")
 
 	return hex_socio_gdf
 
 def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, count_pois=(False,0), projected_crs="EPSG:6372",
-			  preprocessed_nearest=(False,'dir')):
+			  preprocessed_nearest=(False,'dir')): # proximity
 	""" Finds time from each node to nearest poi (point of interest).
 	Args:
 		G (networkx.MultiDiGraph): Graph with edge bearing attributes
@@ -874,9 +874,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 	test_save_dir = "../data/debugging/pois_time/"
 
     ##########################################################################################
-    # STEP 1: NEAREST. 
+    # STEP 1: NEAREST.
 	# Finds and assigns nearest node OSMID to each point of interest.
-	   
+
     # Defines projection for downloaded data
 	pois = pois.set_crs("EPSG:4326")
 	nodes = nodes.set_crs("EPSG:4326")
@@ -893,7 +893,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 		# As no amenities were found, time columns are set to nan, while count columns are set to 0.
 		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
 		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
-		if count_pois[0]: 
+		if count_pois[0]:
 			nodes_time[f'{poi_name}_{count_pois[1]}min'] = 0 # If requested pois_count, value is set to 0.
 			print(f"0 {poi_name} found. Pois count set to 0 for all nodes.")
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
@@ -901,7 +901,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 		else:
 			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
 			return nodes_time
-	
+
 	else:
 		if preprocessed_nearest[0]:
 			# Load precalculated (with entire network) nearest gdf.
@@ -918,9 +918,9 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 			print(f"Found and assigned {len(nearest)} nearest node osmid to each {poi_name}.")
 
 		##########################################################################################
-		# STEP 2: DISTANCE NEAREST POI. 
+		# STEP 2: DISTANCE NEAREST POI.
 		# Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
-		
+
 		# 2.1 --------------- FORMAT NETWORK DATA
 		# Fill NANs in length with calculated length (prevents crash)
 		no_length = len(edges.loc[edges['length'].isna()])
@@ -940,7 +940,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 
 		# 2.2 --------------- ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
 		# The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
-		
+
 		# -----
 		if test_save:
 			nodes.to_file(test_save_dir + f"01_nodes_{poi_name}.geojson", driver='GeoJSON')
@@ -969,7 +969,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 		# List of columns with output data by batch
 		time_cols = []
 		poiscount_cols = []
-	
+
 		# If possible, analyses by batches of 200 pois.
 		if (len(nearest) % 250)==0:
 			batch_size = len(nearest)/200
@@ -981,7 +981,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 				# Set osmid as column, not index
 				nodes_distance_prep.drop(columns=['index'],inplace=True)
 				nodes_distance_prep.reset_index(inplace=True)
-				
+
 				# -----
 				if test_save:
 					nodes_distance_prep.to_file(test_save_dir + f"04_nodes_distance_prep_{poi_name}_200batch{k}.gpkg", driver='GPKG')
@@ -1001,7 +1001,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 					nodes_time.rename(columns={f'{poi_name}_{count_pois[1]}min':batch_poiscount_col},inplace=True)
 					# Turn count column to integer (Sometimes it got converted to float, which caused problems when uploading to database)
 					nodes_time[batch_poiscount_col] = nodes_time[batch_poiscount_col].fillna(0).astype(int)
-					
+
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
 			nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
@@ -1009,7 +1009,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 			if count_pois[0]:
 				# Sum pois count
 				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[poiscount_cols].sum(axis=1)
-		
+
 		# Else, analyses by batches of 250 pois.
 		else:
 			batch_size = len(nearest)/250
@@ -1045,7 +1045,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 			# After batch processing is over, find final output values for all batches.
 			# For time data, apply the min function to time columns.
 			nodes_time['time_'+poi_name] = nodes_time[time_cols].min(axis=1)
-			# Apply the sum function to pois_count columns. (If requested) 
+			# Apply the sum function to pois_count columns. (If requested)
 			if count_pois[0]:
 				# Sum pois count
 				nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[poiscount_cols].sum(axis=1)
@@ -1058,7 +1058,7 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 		# -----
 
 		##########################################################################################
-		# STEP 3: FINAL FORMAT. 
+		# STEP 3: FINAL FORMAT.
   		# Organices and filters output data.
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 
@@ -1066,11 +1066,11 @@ def pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed=4, co
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
 			return nodes_time
 		else:
-			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]		
+			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
 			return nodes_time
 
 
-def weighted_average(df, weight_column, value_column):
+def weighted_average(df, weight_column, value_column): # various
 	"""
 	Weighted average function that takes a DataFrame, weight column name and value column name as inputs
 	Arguments:
@@ -1084,14 +1084,14 @@ def weighted_average(df, weight_column, value_column):
 	return weighted_average
 
 
-def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False,main_folder_path='../'):
+def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=False,main_folder_path='../'): # census
 	""" Calculates (and/or distributes, work in progress) values to NaN cells in population columns of INEGI's censo blocks gdf.
 		As of this version, applies only to columns located in columns_of_interest list.
 		As of this version, if couldn't find all values, distributes data of AGEB to blocks taking POBTOT in those blocks as distributing method.
 	Args:
 		pop_ageb_gdf (geopandas.GeoDataFrame): GeoDataFrame with AGEB polygons containing pop data.
 		pop_mza_gdf (geopandas.GeoDataFrame): GeoDataFrame with block polygons containing pop data.
-		year (str): String that contains the year of the AGEBs and blocks population data. 
+		year (str): String that contains the year of the AGEBs and blocks population data.
 					Function has additional steps for year="2020".
 		extended_logs (bool, optional): Boolean - if true prints statistical logs while processing for each AGEB.
 		main_folder_path (str, optional): String containing the main folder path for the project. Defaults to '../'.
@@ -1102,7 +1102,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 								(All population columns except for: P_5YMAS, P_5YMAS_F, P_5YMAS_M,
 								P_8A14, P_8A14_F, P_8A14_M) Added PCON_DISC(2020) / PCON_LIM(2010), has no equations.
 	"""
-	
+
 	##########################################################################################
 	# STEP 1: CHECK FOR DIFFERENCES IN AVAILABLE AGEBs (PREVENTS CRASH)
 	print("INSPECTING AGEBs.")
@@ -1123,8 +1123,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	agebs_in_mza_gdf = list(pop_mza_gdf['CVEGEO_AGEB'].unique()) #Previously 'CVE_AGEB'
 	if (len(agebs_in_ageb_gdf) == 0) and (len(agebs_in_mza_gdf) == 0):
 		raise ValueError("Error: Zero AGEBs found. Area of interest has no urban population data.")
-	
-	# ADDITIONAL STEP - BLOCKS_800 
+
+	# ADDITIONAL STEP - BLOCKS_800
 	# (Could be removed in future versions by considering geometries from Marco Geoestadístico's '_pem' layers)
 	if year == '2020':
 		# EXPLANATION - BLOCKS_800
@@ -1162,14 +1162,14 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			print(f"Blocks800 - Found zero blocks_800 in current municipalities.")
 	else:
 		blocks_800_present = False #Checker (There are no blocks 800 in 2010)
-	
+
 	# Test for AGEBs present in mza_gdf but not in AGEB_gdf (could crash if unchecked)
 	missing_agebs = list(set(agebs_in_mza_gdf) - set(agebs_in_ageb_gdf))
 	if len(missing_agebs) > 0:
 		print(f'WARNING: {len(missing_agebs)} AGEBs present in mza_gdf but missing from ageb_gdf.')
 		print(f'WARNING: {len(missing_agebs)} AGEBs will not be part of AGEBs analysis. Printing missing AGEBs.')
 		print(missing_agebs)
-	
+
 	##########################################################################################
 	# STEP 2: CALCULATE NAN VALUES
 	print("STARTING NANs CALCULATION.")
@@ -1187,7 +1187,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		if extended_logs:
 			print('--'*20)
 			print(f'Calculating NaNs for AGEB {cvegeo_ageb} ({i}/{len(agebs_in_mza_gdf)}.)')
-		
+
 		# LOG CODE - Progress logs
 		# Measures current progress, prints if passed a checkpoint of progress_logs list.
 		#current_progress = (i / len(agebs_in_mza_gdf))*100
@@ -1219,7 +1219,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			columns_of_interest.append('PCON_LIM')
 		elif year == "2020":
 			columns_of_interest.append('PCON_DISC')
-		
+
 		# Why keep two dfs with pop_mza_gdf data from the current AGEB:
 		# --> 'mza_ageb_gdf' stores all data from pop_mza_gdf for the current AGEB.
 		# --> 'blocks' will store pop data only and will get split into blocks_values and blocks_nans ahead, which get edited during the process.
@@ -1231,7 +1231,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			mza800_ageb_df = complementary_blocks800.loc[complementary_blocks800['CVEGEO_AGEB'] == cvegeo_ageb].copy()
 			mza800_ageb_df = mza800_ageb_df[['CVEGEO_MZA'] + columns_of_interest].copy()
 			blocks = pd.concat([blocks,mza800_ageb_df])
-		
+
 		# 2.2b) Find rows with nan values and total amount of values available per row (found_values)
 		blocks['found_values'] = 0
 		checker_cols = []
@@ -1250,14 +1250,14 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		blocks['found_values'] = blocks[checker_cols].sum(axis=1)
 		# Drop checker columns
 		blocks.drop(columns=checker_cols, inplace=True)
-		
-		# 2.2c) Loc rows with values in columns_of_interest 
+
+		# 2.2c) Loc rows with values in columns_of_interest
 		# (In these rows, NaNs calculation is possible)
 		blocks_values = blocks.loc[blocks['found_values'] > 0].copy()
 		blocks_values.drop(columns=['found_values'],inplace=True)
 		blocks_values.reset_index(inplace=True,drop=True) #Reset index before NaN calculation to make sure there are no duplicated indexes.
-		
-		# 2.2d) Save rows with 0 values for later. 
+
+		# 2.2d) Save rows with 0 values for later.
 		# (In these rows, can't calculate NaNs since everything is NaN. Will be returned to output as it is)
 		blocks_nans = blocks.loc[blocks['found_values'] == 0].copy()
 		blocks_nans.drop(columns=['found_values'],inplace=True)
@@ -1268,7 +1268,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 		# --------------- 2.3 FILL MISSING NaN VALUES USING KNOWN RELATIONS (Fills when the equation is missing one value only).
 		"""
 		This is the first important sub-step towards filling missing values. It works by filling NaNs using known relations.
-		e.g. It is known that within a block the Total population (POBTOT) = total fem. population (POBFEM) + total masc. population (POBMAS). 
+		e.g. It is known that within a block the Total population (POBTOT) = total fem. population (POBFEM) + total masc. population (POBMAS).
 		Therefore it is possible to stablish the following relations:
 
 			POBTOT = POBFEM + POBMAS
@@ -1304,7 +1304,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 
 		# 2.3 prep) Count current (original) nan values
 		original_nan_values = int(blocks_values.isna().sum().sum())
-		
+
 		# 2.3 prep) Set a start and finish nan value for while loop and run (Loop stops when no more NaNs are found)
 		start_nan_values = original_nan_values
 		finish_nan_values = start_nan_values - 1 #To kick start while loop, actual value will be calculated within loop
@@ -1355,7 +1355,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			blocks_values.P_60YMAS_F.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_M, inplace=True)
 			blocks_values.P_60YMAS_M.fillna(blocks_values.P_60YMAS - blocks_values.P_60YMAS_F, inplace=True)
 			# <><><><><><><><><><>
-			
+
 			# 2.3b) Set of equation with structure [TOTAL] = (Age_group + Age_group + ... + Age_group) + [Specific age and beyond]
 			# POBTOT_ages = (P_0A2) + P_3YMAS
 			blocks_values.POBTOT_ages.fillna(blocks_values.P_0A2 + blocks_values.P_3YMAS, inplace=True)
@@ -1470,7 +1470,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			# --> P_3A5 = POB0_14 - P_0A2 - P_6A11 - P_12A14
 			blocks_values.P_3A5.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_6A11 - blocks_values.P_12A14, inplace=True)
 			# --> P_6A11 = POB0_14 - P_0A2 - P_3A5 - P_12A14
-			blocks_values.P_6A11.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)				
+			blocks_values.P_6A11.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_12A14, inplace=True)
 			# --> P_12A14 = POB0_14 - P_0A2 - P_3A5 - P_6A11
 			blocks_values.P_12A14.fillna(blocks_values.POB0_14 - blocks_values.P_0A2 - blocks_values.P_3A5 - blocks_values.P_6A11, inplace=True)
 			# <><><><><><><><><><>
@@ -1495,30 +1495,30 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 						missing_value = ageb_col_value - current_block_sum # Difference (missing value)
 						# Add missing value to NaN cell in column
 						blocks_values[col].fillna(missing_value,inplace=True)
-			
+
 			# Amount of nans finishing while loop round
 			finish_nan_values = blocks_values.isna().sum().sum()
 
 			if extended_logs:
 				print(f'Round {loop_count} Starting with {start_nan_values} nan values. Finishing with {finish_nan_values} nan values.')
-			
+
 			loop_count += 1
-		
+
 		# LOG CODE - Statistics
 		nan_reduction = round(((1-(finish_nan_values/original_nan_values))*100),2) # for log statistics
 		if extended_logs:
 			print(f'Originally had {original_nan_values} nan values, now there are {finish_nan_values}. A {nan_reduction}% reduction.')
-		
+
 		# --------------- 2.4 CALCULATE NaN values distributing AGEB's data.
   		# For the nan values that couldn't be solved, distributes AGEB data.
 		"""
-		This is the second important sub-step towards filling missing values. 
+		This is the second important sub-step towards filling missing values.
 		It's meant to be a temporary solution while a more accurate solution is built.
-		
-		It fills the remaining NaNs by distributing the known AGEB data into each of the blocks inside each AGEB, using POBTOT as an indicator 
+
+		It fills the remaining NaNs by distributing the known AGEB data into each of the blocks inside each AGEB, using POBTOT as an indicator
 		to the amount of each age group to be distributed. Blocks which originaly had no data on POBTOT remain empty.
 		"""
-		
+
 		# 2.4 prep) Prepare for second loop
 		# Masc/fem relation helped find NaN values in blocks but it complicates this and further processes
 		# Remove masc/fem relation from analysis [If and when needed, calculate using (REL_H_M = (POBMAS/POBFEM)*100)]
@@ -1545,7 +1545,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 				print(f"Note: Replaced {pobtot_ages_nans}/{len(blocks_values)} ({pct_pobtot_ages_nans}%) NaN values in POBTOT_ages using POBTOT data in AGEB {cvegeo_ageb}.")
 			if pct_pobtot_ages_nans>25:
 				print(f"NOTE: More than 25% ({pct_pobtot_ages_nans}%) of POBTOT_ages NaN values were replaced using POBTOT data in AGEB {cvegeo_ageb}.")
-			
+
 			# 2.4b) Fill by distributing AGEB values.
 			for col in columns_of_interest:
 				# Find number of nan values in current col
@@ -1554,8 +1554,8 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 				# If there are no nan values left in col, does nothing.
 				if col_nan_values == 0:
 					solved_using_relations += 1 # for log statistics
-				
-				# Elif there is only one value left, assign missing value directly to cell 
+
+				# Elif there is only one value left, assign missing value directly to cell
 				# (Should've been solved in step 2.3. This is a safety net, in case the previous step didn't solve it.)
 				elif col_nan_values == 1:
 					# Calculate missing value
@@ -1565,7 +1565,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 					# Add missing value to na cell in column
 					blocks_values[col].fillna(missing_value,inplace=True)
 					solved_using_relations += 1 # for log statistics
-				
+
 				# Elif there are more than one nan in col, distribute using POBTOT_ages of those blocks as distributing indicator.
 				elif col_nan_values > 1:
 					try:
@@ -1594,7 +1594,7 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 				pct_col_bydistribution = (solved_using_distribution / len(columns_of_interest))*100 # for log statistics
 				print(f'{pct_col_byrelations}% of columns solved using known relations only.')
 				print(f'{pct_col_bydistribution}% of columns required distributing AGEB data.')
-		
+
 			# Logs Statistics
 			acc_statistics.loc[i,'ageb'] = cvegeo_ageb # Currently examined AGEB statistics to log df.
 			acc_statistics.loc[i,'nans_calculated'] = nan_reduction # Percentage of NaNs found using known relations gdf.
@@ -1602,14 +1602,14 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 			acc_statistics.loc[i,'cols_bydistribution'] = solved_using_distribution # Columns which required AGEB data distribution.
 			acc_statistics.loc[i,'unable_to_solve'] = 0 # All should be solved if distributed AGEB data.
 
-		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf) 
+		else: #current AGEB is in missing_agebs list (Present in mza_gdf, but not in ageb_gdf)
 			# EVERYTHING here is for log statistics ONLY
 			print(f'Distributing AGEB values to NaNs for AGEB {cvegeo_ageb} not possible since AGEB does not exist.')
 
 			# Solving method used to solve column
 			solved_using_relations = 0
 			unable_tosolve = 0
-			
+
 			# LOG CODE - Statistics - Register how columns where solved.
 			for col in columns_of_interest:
 				# Find number of nan values in current col
@@ -1681,10 +1681,10 @@ def calculate_censo_nan_values_v1(pop_ageb_gdf,pop_mza_gdf,year,extended_logs=Fa
 	print(f"Columns which could be solved entirely using known relations: {cols_byrelations} ({pct_cols_byrelations}%).")
 	print(f"Columns which required distributing AGEB data: {cols_bydistribution} ({pct_cols_bydistribution}%).")
 	print(f"Columns which couldn't be solved: {unable_to_solve} ({pct_unable_to_solve}%).")
-	
+
 	return mza_calc
 
-def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissible_error=0.01, projected_crs="EPSG:6372"):
+def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissible_error=0.01, projected_crs="EPSG:6372"): # various
 	""" Creates voronoi polygons within a given area of interest (aoi) from n given points.
 	Args:
 		area_of_interest (geopandas.GeoDataFrame): GeoDataFrame with area of interest (Determines output extents).
@@ -1701,7 +1701,7 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 	pois = points.to_crs(projected_crs)
 
     # Distance is a number used to create a buffer around the polygon and coordinates along a bounding box of that buffer.
-    # Starts at 100 (works for smaller polygons) but will increase itself automatically until the diference between the area of 
+    # Starts at 100 (works for smaller polygons) but will increase itself automatically until the diference between the area of
     # the voronoi polygons created and the area of the aoi is less than the admissible_error.
 	distance = 100
 
@@ -1710,24 +1710,24 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 	goal_area_gdf = aoi.copy()
 	goal_area_gdf['area'] = goal_area_gdf.geometry.area
 	goal_area = goal_area_gdf['area'].sum()
-	
-	# Kick start while loop by creating area_diff 
-	area_diff = admissible_error + 1 
+
+	# Kick start while loop by creating area_diff
+	area_diff = admissible_error + 1
 	while area_diff > admissible_error:
 		# Create a rectangular bound for the area of interest with a {distance} buffer.
 		polygon = aoi['geometry'].unique()[0]
 		bound = polygon.buffer(distance).envelope.boundary
-		
+
 		# Create points along the rectangular boundary every {distance} meters.
 		boundarypoints = [bound.interpolate(distance=d) for d in range(0, np.ceil(bound.length).astype(int), distance)]
 		boundarycoords = np.array([[p.x, p.y] for p in boundarypoints])
-		
+
 		# Load the points inside the polygon
 		coords = np.array(pois.get_coordinates())
-		
+
 		# Create an array of all points on the boundary and inside the polygon
 		all_coords = np.concatenate((boundarycoords, coords))
-		
+
 		# Calculate voronoi to all coords and create voronois gdf (No boundary)
 		vor = Voronoi(points=all_coords)
 		lines = [shapely.geometry.LineString(vor.vertices[line]) for line in vor.ridge_vertices if -1 not in line]
@@ -1736,7 +1736,7 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 
 		# Add nodes ID data to voronoi polygons
 		unbounded_voronois = gpd.sjoin(unbounded_voronois,pois[[points_id_col,'geometry']])
-		
+
 		# Clip voronoi with boundary
 		bounded_voronois = gpd.overlay(df1=unbounded_voronois, df2=aoi, how='intersection')
 
@@ -1758,11 +1758,11 @@ def voronoi_points_within_aoi(area_of_interest, points, points_id_col, admissibl
 	return voronois_gdf
 
 
-def proximity_isochrone(G, nodes, edges, point_of_interest, trip_time, prox_measure="length", projected_crs="EPSG:6372"):
-	
+def proximity_isochrone(G, nodes, edges, point_of_interest, trip_time, prox_measure="length", projected_crs="EPSG:6372"): # proximity
+
 	""" This should be a TEMPORARY FUNCTION. It was developed on the idea that isochrones can be created using the code from proximity analysis,
-		particularly, count_pois functionality. 
-		
+		particularly, count_pois functionality.
+
 		The function analyses proximity to a point of interest, filters for nodes located at a trip_time or less minutes
 		from the point of interest (count_pois functionality) and returns a convex hull geometry around those nodes.
 
@@ -1781,7 +1781,7 @@ def proximity_isochrone(G, nodes, edges, point_of_interest, trip_time, prox_meas
 	Returns:
 		geometry (geometry): with the covered area.
 	"""
-	
+
     # Define projection for downloaded data
 	nodes = nodes.set_crs("EPSG:4326")
 	edges = edges.set_crs("EPSG:4326")
@@ -1826,21 +1826,21 @@ def proximity_isochrone(G, nodes, edges, point_of_interest, trip_time, prox_meas
 	nodes_time.reset_index(inplace=True)
 	nodes_time = nodes_time.set_crs("EPSG:4326")
 	nodes_time = nodes_time[['osmid',f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
-    
-    # 4.0 --------------- GET ISOCHRONE FOR CURRENT CENTER NODE    
+
+    # 4.0 --------------- GET ISOCHRONE FOR CURRENT CENTER NODE
     # Keep only nodes where nearest was found at an _x_ time distance
 	nodes_at_15min = nodes_time.loc[nodes_time[f"{poi_name}_{count_pois[1]}min"]>0]
-    
+
     # Create isochrone using convex hull to those nodes and add osmid from which this isochrone formed
 	hull_geometry = nodes_at_15min.unary_union.convex_hull
-	
+
 	return hull_geometry
 
-def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, prox_measure="length", projected_crs="EPSG:6372"):
-	
+def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, prox_measure="length", projected_crs="EPSG:6372"): # proximity
+
 	""" This should be a TEMPORARY FUNCTION. It was developed on the idea that isochrones can be created using the code from proximity analysis,
-		particularly, count_pois functionality. 
-		
+		particularly, count_pois functionality.
+
 		The function analyses proximity to a point of interest, filters for nodes located at a trip_time or less minutes
 		from the point of interest (count_pois functionality) and returns a convex hull geometry around those nodes.
 
@@ -1859,7 +1859,7 @@ def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, pro
 	Returns:
 		geometry (geometry): with the covered area.
 	"""
-	
+
     # Define projection for downloaded data
 	nodes = nodes.set_crs("EPSG:4326")
 	edges = edges.set_crs("EPSG:4326")
@@ -1904,18 +1904,18 @@ def proximity_isochrone_from_osmid(G, nodes, edges, center_osmid, trip_time, pro
 	nodes_time.reset_index(inplace=True)
 	nodes_time = nodes_time.set_crs("EPSG:4326")
 	nodes_time = nodes_time[['osmid',f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
-    
-    # 4.0 --------------- GET ISOCHRONE FOR CURRENT CENTER NODE    
+
+    # 4.0 --------------- GET ISOCHRONE FOR CURRENT CENTER NODE
     # Keep only nodes where nearest was found at an _x_ time distance
 	nodes_at_15min = nodes_time.loc[nodes_time[f"{poi_name}_{count_pois[1]}min"]>0]
-    
+
     # Create isochrone using convex hull to those nodes and add osmid from which this isochrone formed
 	hull_geometry = nodes_at_15min.unary_union.convex_hull
-	
+
 	return hull_geometry
 
 def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, goi_id, count_pois=(False,0), projected_crs="EPSG:6372",
-				 preprocessed_nearest=(False,'dir')):
+				 preprocessed_nearest=(False,'dir')): # proximity
 	""" Finds time from each node to nearest poi (point of interest). Function to be used when pois came from another geometry.
 		Function id_pois_time takes into account an ID column that contains information of origin of each poi.
         The original geometry of interest (goi)'s unique ID is called goi_id.
@@ -1937,7 +1937,7 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 		preprocessed_nearest (tuple, optional): tuple containing boolean to use a previously calculated nearest file located in a local directory.
 										Used when calculating proximity in a non-continous network while keeping actual nearest nodes to each poi
 										from an original continous network. Defaults to (False, 'dir).
-										
+
 	Returns:
 		geopandas.GeoDataFrame: GeoDataFrame with nodes containing time to nearest source (s).
 	"""
@@ -1945,40 +1945,40 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
     # DIFFERENCES WITH POIS_TIME() EXPLANATION:
     # Whenever pois are extracted from other types of geometries or interest (goi)s (e.g. lines, polygons), a unique ID could be assigned.
     # That's because when wanting to find access to one geometry of interest (goi) (e.g. one bike lane or one park), we tend to consider that geometry as one poi,
-    # and do not want to measure access to ALL pois created from that one geometry of interest. 
+    # and do not want to measure access to ALL pois created from that one geometry of interest.
     # (e.g. all the vertexes of a park or a every point every 100 meters for a bike lane)
     # Without this ADAPTATION of function pois_time(), when using count_pois we would be counting every vertex, every subdivision.
-    
+
     # Since one geometry of interest (goi) has several pois (e.g. extracted parks vertices or divided a bike lane in several points),
     # any OSMnx node would get assigned (STEP 1: NEAREST) to several pois even if they all belong to the same geometry of interest (goi).
-    # The **first main ADAPTATION** works so that after nearest function, a given node gets assigned to the **closest** poi of 
+    # The **first main ADAPTATION** works so that after nearest function, a given node gets assigned to the **closest** poi of
     # the geometry of interest (goi) only (Considers a given geometry of interest (goi) once and discard the rest).
     # The **second main ADAPTATION** (STEP 2: DISTANCE NEAREST POI) works so that proximity is measured for each geometry of interest (goi) and data is not repeated.
-    
+
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
-    
+
     ##########################################################################################
     # STEP 1: NEAREST.
     # Finds and assigns nearest node OSMID to each point of interest.
-     
+
     # Defines projection for downloaded data
 	pois = pois.set_crs("EPSG:4326")
 	nodes = nodes.set_crs("EPSG:4326")
 	edges = edges.set_crs("EPSG:4326")
-    
+
     # In case there are no amenities of the type in the city, prevents it from crashing if len = 0
 	if len(pois) == 0:
 		nodes_time = nodes.copy()
-    
+
         # Format
 		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
-    
+
         # As no amenities were found, output columns are set to nan.
 		nodes_time['time_'+poi_name] = np.nan # Time is set to np.nan.
 		print(f"0 {poi_name} found. Time set to np.nan for all nodes.")
-		if count_pois[0]: 
+		if count_pois[0]:
 			nodes_time[f'{poi_name}_{count_pois[1]}min'] = np.nan # If requested pois_count, value is set to np.nan.
 			print(f"0 {poi_name} found. Pois count set to nan for all nodes.")
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
@@ -2002,34 +2002,34 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # ADAPTATION - FOLLOWING CODE DOES NOT EXIST IN POIS_TIME()
 
-			# Up to this point 'nearest' has all osmnx nodes closest to a given poi (Originated from a given geometry of interest (goi)), 
-			# one osmnx node might be assigned to 2 or more poi of the SAME geometry of interest (goi). 
+			# Up to this point 'nearest' has all osmnx nodes closest to a given poi (Originated from a given geometry of interest (goi)),
+			# one osmnx node might be assigned to 2 or more poi of the SAME geometry of interest (goi).
 			# (For example, node 54 is closest to poi 12 and poi 13, both vertexes from the same park).
-			
+
 			# If we leave it like that, that nearest will be repeted (e.g. the same park assigned twice to the same node) even if it is just close to 1 goi.
-			# This step keeps the minimum distance (distance_node) from node osmid to each poi when originating from the same geometry of interest (goi), 
+			# This step keeps the minimum distance (distance_node) from node osmid to each poi when originating from the same geometry of interest (goi),
 			# so that if one node is close to 5 pois of the same goi, it keeps only 1 node assigned to 1 poi, not 5.
 
 			# Group by node (osmid) and polygon (green space) considering only the closest vertex (min)
 			groupby = nearest.groupby(['osmid',goi_id]).agg({'distance_node':np.min})
-			
+
 			# Turns back into gdf merging back with nodes geometry
 			geom_gdf = nodes.reset_index()[['osmid','geometry']]
 			groupby.reset_index(inplace=True)
 			nearest = pd.merge(groupby,geom_gdf,on='osmid',how='left')
 			nearest = gpd.GeoDataFrame(nearest, geometry="geometry")
-			
+
 			# Filters for pois assigned to nodes at a maximum distance of 80 meters (aprox. 1 minute)
 			# That is to consider a 1 minute additional walk as acceptable (if goi is inside a park, e.g. a bike lane).
 			nearest = nearest.loc[nearest.distance_node <= 80]
-        
+
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
 
         ##########################################################################################
-        # STEP 2: DISTANCE NEAREST POI. 
+        # STEP 2: DISTANCE NEAREST POI.
         # Calculates distance from each node to its nearest point of interest using previously assigned nearest node.
-        
+
         # 2.1 --------------- FORMAT NETWORK DATA
         # Fill NANs in length with calculated length (prevents crash)
 		no_length = len(edges.loc[edges['length'].isna()])
@@ -2037,7 +2037,7 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 		edges['length'].fillna(edges.length,inplace=True)
 		edges = edges.to_crs("EPSG:4326")
 		print(f"Calculated length for {no_length} edges that had no length data.")
-        
+
         # If prox_measure = 'length', calculates time_min using walking_speed
 		if prox_measure == 'length':
 			edges['time_min'] = (edges['length']*60)/(walking_speed*1000)
@@ -2046,29 +2046,29 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 			no_time = len(edges.loc[edges['time_min'].isna()])
 			edges['time_min'].fillna((edges['length']*60)/(walking_speed*1000),inplace=True)
 			print(f"Calculated time for {no_time} edges that had no time data.")
-        
+
         # --------------- 2.2 ELEMENTS NEEDED OUTSIDE THE ANALYSIS LOOP
         # The pois are divided by batches of 200 or 250 pois and analysed using the function calculate_distance_nearest_poi.
         # nodes_analysis is a nodes gdf (index reseted) used in the function aup.calculate_distance_nearest_poi.
 		nodes_analysis = nodes.reset_index().copy()
         # nodes_time: int_gdf stores, processes time data within the loop and returns final gdf. (df_int, df_temp, df_min and nodes_distance in previous code versions)
 		nodes_time = nodes.copy()
-        
+
         # --------------- 2.3 PROCESSING DISTANCE
 		print (f"Starting time analysis for {poi_name}.")
-        
+
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # ADAPTATION - FOLLOWING CODE IS DIFFERENT IN POIS_TIME()
-    
+
     # At this point pois are in the network, pois are located in nearest.
     # But without ADAPTATION, for each node being analysed we might find in OSMnx Network many (e.g. 5) pois (nearest nodes) belonging to the same geometry of interest (goi).
     # For example, a node close to a park might find different 5 nodes where the park is near. But it is the same park!
     # We need to know, for each node, closest proximity to geometry of interest (goi).
-    
-    # This modified step iterates over goi_id so that when a node finds n close pois of the same geometry of interest (goi) (using pois_count), 
+
+    # This modified step iterates over goi_id so that when a node finds n close pois of the same geometry of interest (goi) (using pois_count),
     # it only gets assigned '1' (As we iterate over goi_id, no matter how many times we calculate proximity to nearest, it is the same geometry of interest
     # (goi), it is the same park).
-	
+
 		# ///
 		# LOG CODE - Progress logs
 		# Will create progress logs when progress reaches these percentages:
@@ -2078,7 +2078,7 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 		gois_list = list(nearest[goi_id].unique())
 		g = 1
 		for goi in gois_list:
-			
+
 			# ///
 			# LOG CODE - Progress logs
 			# Measures current progress, prints if passed a checkpoint of progress_logs list.
@@ -2090,32 +2090,32 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 					progress_logs.remove(checkpoint)
 					break
 			# ///
-        
+
             # Calculate
             # ADAPTATION - Dividing by batches of n pois is not necessary, since we will be examining batches of a small number of pois
-            # (The pois belonging to a specific geometry of interest (goi)). 
+            # (The pois belonging to a specific geometry of interest (goi)).
             # (e.g. all source_process will be the nodes closest to the vertexes of 1 park)
 			source_process = nearest.loc[nearest[goi_id] == goi]
 			nodes_distance_prep = calculate_distance_nearest_poi(source_process, nodes_analysis, edges, poi_name, 'osmid', wght='time_min',count_pois=count_pois)
-        
+
             # Extract from nodes_distance_prep the calculated time data
             # ADAPTATION - Since no batches are used, we don't have 'batch_time_col', just current process.
 			process_time_col = 'time_process_'+poi_name
 			nodes_time[process_time_col] = nodes_distance_prep['dist_'+poi_name]
-        
+
             # If requested, extract from nodes_distance_prep the calculated pois count
             # ADAPTATION - Since no batches are used, we don't have 'batch_poiscount_col', just current process.
 			if count_pois[0]:
 				process_poiscount_col = f'{poi_name}_process_{count_pois[1]}min'
 				nodes_time[process_poiscount_col] = nodes_distance_prep[f'{poi_name}_{count_pois[1]}min']
-                
+
                 # ADAPTATION - Since we are only analysing one geometry of interest (goi), no node should have more than one pois count.
                 # This is easly fixed if count>0, set to 1.
 				tmp_poiscount_col = f'{poi_name}_tmp_{count_pois[1]}min'
 				nodes_time[tmp_poiscount_col] = nodes_time[process_poiscount_col].apply(lambda x: 1 if x > 0 else 0)
 				nodes_time[process_poiscount_col] = nodes_time[tmp_poiscount_col]
 				nodes_time.drop(columns=[tmp_poiscount_col],inplace=True)
-            
+
             # ADAPTATION - After this geometry of interest (goi)'s processing is over, find final output values for all currently examined gois.
             # ADAPTATION FOR TIME DATA:
             # If it is the first goi, assign first goi time
@@ -2136,23 +2136,23 @@ def id_pois_time(G, nodes, edges, pois, poi_name, prox_measure, walking_speed, g
 				else:
 					count_cols = [f'{poi_name}_{count_pois[1]}min', process_poiscount_col]
 					nodes_time[f'{poi_name}_{count_pois[1]}min'] = nodes_time[count_cols].sum(axis=1)
-			
+
 			g = g+1
-		
+
 		print(f"Finished time analysis for {poi_name}.")
-        
+
     # /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     # FOLLOWING CODE IS THE SAME IN FUNCTION POIS_TIME()
-        
+
         ##########################################################################################
-        # STEP 3: FINAL FORMAT. 
+        # STEP 3: FINAL FORMAT.
         # Organices and filters output data.
-		
+
 		nodes_time.reset_index(inplace=True)
 		nodes_time = nodes_time.set_crs("EPSG:4326")
 		if count_pois[0]:
 			nodes_time = nodes_time[['osmid','time_'+poi_name,f'{poi_name}_{count_pois[1]}min','x','y','geometry']]
 			return nodes_time
 		else:
-			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]		
+			nodes_time = nodes_time[['osmid','time_'+poi_name,'x','y','geometry']]
 			return nodes_time
