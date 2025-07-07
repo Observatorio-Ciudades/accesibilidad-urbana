@@ -54,22 +54,23 @@ def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
         raise AvailableData('Multiple missing months together')
     del df_rol
 
-def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date,
-                            tmp_dir, band_name_dict, query={}, satellite="sentinel-2-l2a",
+def download_raster_from_pc(gdf, index_analysis, area_name, start_date, end_date,
+                            tmp_dir, band_name_dict, query={},
+                            freq='MS', satellite="sentinel-2-l2a",
                             projection_crs="EPSG:6372", compute_unavailable_dates=True):
     """
     Function that returns a raster with the data provided.
     Arguments:
-        gdf (geopandas.GeoDataFrame): Area of interest
-        index_analysis (str): Index of analysis
-        city (str): City name
-        freq (str): Frequency of raster analysis
-        start_date (date): First date of raster data
-        end_date (date): Last date of raster data
-        tmp_dir (str): address of temporary directory where downloaded and processed
-        raster for a specific city will be saved.
-        band_name_list (list): List with multispectral band names for raster analysis
-        satellite (str): satellite used to download imagery
+        gdf (geopandas.GeoDataFrame): geodataframe with area of interest
+        index_analysis (str): index name
+        area_name (str): name for the area of analysis
+        freq (str): frequency of raster analysis, for example MS for Month Start. Defaults to MS.
+        start_date (date): First date for raster data in format YYYY-MM-DD
+        end_date (date): Last date for raster data in format YYYY-MM-DD
+        tmp_dir (str): temporary directory address to save downloaded and processed raster data
+        band_name_dict (dict): dictionary with the band names and
+        index equation in format {band_common_name:[boolean resolution resampling to 0.5 of original], 'eq':[index equation]}
+        satellite (str): satellite used to download imagery. Defaults to sentinel-2-l2a.
         projection_crs (str): projection to be used when needed. Defaults to "EPSG:6372".
         compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). Defaults to True.
 
@@ -78,7 +79,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
 
     Returns:
         df_len (pandas.DataFrame): Dataframe containing a summary of available and
-        processed data for city and the specified time range.
+        processed data for the specified area of analysis and time range.
     """
     # Create area of interest coordinates from hexagons to download raster data
     log('Extracting bounding coordinates from hexagons')
@@ -117,9 +118,8 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     log(f'Fetched {len(items)} items')
 
     log('Checking available tiles for area of interest')
-    # df_clouds, date_list = arrange_items(items, satellite=satellite)
+
     date_list = available_datasets(items, satellite, query)
-    # log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # Create dictionary from links (assets_hrefs is a dict. of dates and links with structure {available_date:{band_n:[link]}})
     band_name_list = list(band_name_dict.keys())[:-1]
@@ -146,8 +146,8 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
 
     # Raster creation - Download raster data by month
     log('Starting raster creation for specified time')
-    df_len = create_raster_by_month(
-        df_len, index_analysis, city, tmp_dir,
+    df_len = raster_download_processing(
+        df_len, index_analysis, area_name, tmp_dir,
         band_name_dict,date_list, gdf_raster_test,
         gdf_bb, area_of_interest, satellite, query=query,
         compute_unavailable_dates=compute_unavailable_dates)
@@ -536,9 +536,9 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
     return date_list
 
 
-def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
+def download_mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     """
-    The mosaic_raster function takes a list of raster assets and merges them together.
+    Takes a list of raster assets and merges them together.
 
         Arguments:
             raster_asset_list (list): A list of raster asset paths to be appended together.
@@ -629,7 +629,7 @@ def mosaic_process(links_band_1, links_band_2, band_name_dict, gdf_bb, tmp_dir='
         out_meta (object): The metadata for the output file.
     """
     log(f'Starting mosaic for {list(band_name_dict.keys())[0]}')
-    mosaic_band_1, out_trans_band_1, out_meta_1= mosaic_raster(links_band_1, tmp_dir,
+    mosaic_band_1, out_trans_band_1, out_meta_1= download_mosaic_raster(links_band_1, tmp_dir,
                                                                upscale=band_name_dict[list(band_name_dict.keys())[0]][0])
     mosaic_band_1 = mosaic_band_1.astype('float16')
 
@@ -745,7 +745,7 @@ def raster_nan_test(gdf, raster_file):
     if gdf['test'].isna().sum() > 0:
         raise NanValues('NaN values are still present after processing')
 
-def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
+def download_mosaic_process(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
     raster_array = {}
 
@@ -754,7 +754,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
     for b in band_names_list:
 
         log(f'Starting mosaic for {b}')
-        raster_array[b]= [mosaic_raster(raster_bands[b], tmp_dir,
+        raster_array[b]= [download_mosaic_raster(raster_bands[b], tmp_dir,
                                        upscale=band_name_dict[b][0])]
         # mosaic_raster creates a tuple which has to be unpacked
         raster_array[b] = [raster_array[b][0][0],
@@ -808,23 +808,23 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
     return raster_array
 
 
-def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
+def raster_download_processing(df_len, index_analysis, name, tmp_dir,
                            band_name_dict, date_list, gdf_raster_test, gdf_bb,
                            aoi, sat, query={}, time_exc_limit=1500,
                            compute_unavailable_dates=True):
     """
-    The function is used to create a raster for each month of the year within the time range
-    The function takes in a dataframe with the length of years and months, an index analysis, city name,
+    The function is used to create a raster for each time step of the year within the time range
+    The function takes in a dataframe with the length of time steps, an index analysis, city name,
     temporary directory path (tmp_dir), band name list (band_name_list), date list (date_list),
     geodataframe bounding box(gdf_bb) and area of interest(aoi).
     the function also performs raster analysis for each row of the DataFrame, downloads and processes
-    the raster data, calculates an index, crops the raster, performs interpolation, and
+    the raster data, calculates an index, crops the raster, performs missing value interpolation, and
     saves the processed rasters and corresponding metadata in the specified directory.
 
     Arguments:
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month
         index_analysis (str): Define the index analysis
-        city (str): Save the raster files based on the city name
+        name (str): Save the raster files based on the area of analysis name
         tmp_dir (str): Save the raster files in a temporary directory
         band_name_list (list): Define the bands that will be used in the analysis
         date_list (list): Define the dates that are used to download the images
@@ -843,7 +843,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     log('\n Starting raster analysis')
 
     # check if file exists, for example in case of code crash
-    df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
+    df_file_dir = tmp_dir+index_analysis+f'_{name}_dataframe.csv'
     if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
         df_len.to_csv(df_file_dir, index=False)
     # create folder to store temporary raster files by iteration
@@ -858,12 +858,12 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         # binary id - checks if month could be processed
         checker = 0
 
-	# gather month and year from df to save raster
+	    # gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
 
         # check if raster already exists
-        if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
+        if f'{name}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
             df_raster.loc[i,'data_id'] = 11
             df_raster.to_csv(df_file_dir, index=False)
             continue
@@ -883,9 +883,6 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
 
-        # create dataframe
-        #df_links = pd.DataFrame.from_dict(assets_hrefs,
-        #                                orient='Index').reset_index().rename(columns={'index':'date'})
 
         # dates according to cloud coverage
         date_order = [True if (d.month == month_) and (d.year == year_) else False for d in date_list]
@@ -913,7 +910,6 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     log(f'Skipped {dates_ordered[data_link]} - iteration:{iter_count} because it did not pass null test.')
                     continue
 
-                # log(data_link)
                 log(f'Skip list:{skip_date_list}')
                 log(dates_ordered[data_link])
                 log(f'Mosaic date {dates_ordered[data_link].day}'+
@@ -921,24 +917,25 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                             f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
 
                 # check if date contains null values within study area
-                #if df_links.iloc[data_link]['date'] in skip_date_list:
 
                 try:
-                    #links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
-                    #links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
                     bands_links = assets_hrefs[dates_ordered[data_link]]
 
-                    rasters_arrays = func_timeout(time_exc_limit, mosaic_process_v2,
-                                                                                args=(bands_links,
-                                                                                      band_name_dict, gdf_bb, tmp_raster_dir))
+                    # download and mosaic raster using a function time limit
+                    rasters_arrays = func_timeout(time_exc_limit,
+                        download_mosaic_process,
+                        args=(bands_links,
+                            band_name_dict, gdf_bb, tmp_raster_dir))
+                    # extract metadata for raster arrays
                     out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
 
                     # calculate raster index
                     raster_idx = calculate_raster_index(band_name_dict, rasters_arrays)
                     log(f'Calculated {index_analysis}')
-                    del rasters_arrays
+                    del rasters_arrays # delete array to free up memory
 
                     log(f'Starting interpolation')
+                    # missing value interpolation
 
                     raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
                     # only for temperature
