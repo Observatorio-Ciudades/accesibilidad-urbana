@@ -7,10 +7,6 @@ load_dotenv(script_directory /'.env')
 
 #load_dotenv('../../../')
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 1a332bbab5f5c27d0639afbd859c4ec088640fe3
 """Global settings, can be configured by user with utils.config()."""
 
 import logging as lg
@@ -26,7 +22,7 @@ log_name = "ObsCd"
 log_filename = "ObsCd"
 
 # Database settings
-url = "hippocampus.cswst4rid7eb.us-east-2.rds.amazonaws.com"
-user = "odc_writer"
-pw = "writejacobs1918"
-db = "postgres"
+url = os.getenv('url')
+user = os.getenv('user')
+pw = os.getenv('pw')
+db = os.getenv('db')
