@@ -18,10 +18,18 @@ else:
     For each city in Mexico's metropolis list, this script loads from the database each city's pop data (AGEB, block), 
     calculates block's nan values using calculate_censo_nan_values() function,
     distributes the resulting blocks pop data to OSMnx nodes using voronoi polygons to assign a pct of the blocks data to each node, and
-    distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks, nodes and hexs pop data to the database.
+    distributes the resulting nodes pop data to hexagons of different resolutions, saving blocks (nans values calculated), nodes and hexs pop data to the database.
+
+    This updated script produced the following tables:
+    sociodemografico/pobvoronoi_inegi_10_mzaageb_mza
+    sociodemografico/pobvoronoi_inegi_10_mzaageb_node
+    sociodemografico/pobvoronoi_inegi_10_mzaageb_hex (res 8, 9 and 10)
+    sociodemografico/pobvoronoi_inegi_20_mzaageb_mza
+    sociodemografico/pobvoronoi_inegi_20_mzaageb_node
+    sociodemografico/pobvoronoi_inegi_20_mzaageb_hex (res 8, 9 and 10)
 """
 
-def main(city,save=False,local_save=True):
+def main(city, save_blocks=False, save_nodes=False, save_hexs=False, local_save=True):
 
 	##########################################################################################
 	# STEP 1: LOAD DATA
@@ -39,7 +47,7 @@ def main(city,save=False,local_save=True):
     city_gdf['cvegeo_mun'] = city_gdf['CVE_ENT']+city_gdf['CVE_MUN']
     cvegeo_mun_lst = list(city_gdf.cvegeo_mun.unique())
     # To avoid error that happens when there's only one MUN in State: 
-    # e.g.: <<< SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
+    # e.g.: <<< SELECT * FROM sociodemografico.censo_inegi_{year[2:]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) >>>
     # Duplicate mun inside tupple if there's only one MUN.
     if len(cvegeo_mun_lst) >= 2:
         cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
@@ -48,9 +56,9 @@ def main(city,save=False,local_save=True):
         cvegeo_mun_tpl = str(tuple(cvegeo_mun_lst))
     aup.log(f"--- Area of interest muns: {cvegeo_mun_tpl}.")
     # Load AGEBs and blocks
-    ageb_query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
+    ageb_query = f"SELECT * FROM sociodemografico.censo_inegi_{year[2:]}_ageb WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
     pop_ageb_gdf = aup.gdf_from_query(ageb_query, geometry_col='geometry')
-    mza_query = f"SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
+    mza_query = f"SELECT * FROM sociodemografico.censo_inegi_{year[2:]}_mza WHERE \"cvegeo_mun\" IN {cvegeo_mun_tpl}"
     pop_mza_gdf = aup.gdf_from_query(mza_query, geometry_col='geometry')
     # Set CRS
     pop_ageb_gdf = pop_ageb_gdf.set_crs("EPSG:4326")
@@ -89,7 +97,7 @@ def main(city,save=False,local_save=True):
     pop_mza_gdf_calc_save = pop_mza_gdf_calc.copy()
     pop_mza_gdf_calc_save['city'] = city
     # Save calculated blocks to database
-    if save:
+    if save_blocks:
         aup.log(f"--- Saving {city}'s blocks pop data to database.")
         
         # Save blocks
@@ -134,14 +142,31 @@ def main(city,save=False,local_save=True):
     # Format data
     nodes.reset_index(inplace=True)
     nodes = nodes.to_crs("EPSG:4326")
+    # Save disk space ---
+    del aoi
+    # -------------------
     
     # 3.1 --------------- CREATE VORONOI POLYGONS USING NODES
     aup.log("--- Creating voronois with nodes osmid data.")
+    # Create a more contained area of interest (Helps avoid bigger than necessary voronoi polygons on the edges of the city)
+    # Turn all blocks into a single buffered geometry
+    blocks_buffer = pop_mza_gdf_calc.copy()
+    if blocks_buffer.crs != projected_crs:
+        blocks_buffer = blocks_buffer.to_crs(projected_crs)
+    blocks_buffer = blocks_buffer.buffer(100).reset_index().dissolve()
+    # Rename geom col
+    blocks_buffer.rename(columns={0:'geometry'},inplace=True)
+    # Turn into GeoDataFrame
+    blocks_buffer = blocks_buffer.set_geometry('geometry')
+    blocks_buffer = blocks_buffer.set_crs(projected_crs)
     # Create voronois
-    voronois_gdf = aup.voronoi_points_within_aoi(aoi,nodes,'osmid')
+    voronois_gdf = aup.voronoi_points_within_aoi(area_of_interest=blocks_buffer,
+                                                 points=nodes,
+                                                 points_id_col='osmid',
+                                                 projected_crs=projected_crs)
     voronois_gdf = voronois_gdf[['osmid','geometry']]
     # Save disk space ---
-    del aoi
+    del blocks_buffer
     # -------------------
 
     # 3.2 --------------- SPATIAL INTERSECTION OF VORONOI POLYGONS WITH BLOCKS
@@ -183,8 +208,12 @@ def main(city,save=False,local_save=True):
                            'p_12ymas','p_12ymas_f','p_12ymas_m',
                            'p_15ymas','p_15ymas_f','p_15ymas_m',
                            'p_18ymas','p_18ymas_f','p_18ymas_m',
-                           'pob0_14','pob15_64','pob65_mas',
-                           'pcon_disc']
+                           'pob0_14','pob15_64','pob65_mas']
+    if year == "2010":
+        columns_of_interest.append('pcon_lim')
+    elif year == "2020":
+        columns_of_interest.append('pcon_disc')
+
     # Create pop_nodes_gdf (Will store nodes pop output by node) from nodes gdf.
     pop_nodes_gdf = nodes.copy()
     if year == '2010':
@@ -231,10 +260,10 @@ def main(city,save=False,local_save=True):
     pop_nodes_gdf_save = pop_nodes_gdf.copy()
     pop_nodes_gdf_save['city'] = city
     # Save nodes to database
-    if save:
+    if save_nodes:
         aup.log(f"--- Saving {city}'s nodes pop data to database.")
         # Saving nodes to database
-        limit_len = 10000
+        limit_len = 20000
         if len(pop_nodes_gdf_save)>limit_len:
             c_upload = len(pop_nodes_gdf_save)/limit_len
             for k in range(int(c_upload)+1):
@@ -288,17 +317,17 @@ def main(city,save=False,local_save=True):
             hex_socio_df = aup.socio_points_to_polygon(hex_res_gdf, pop_nodes_gdf, 'hex_id', string_columns, include_nearest=(True,'osmid')) 
             aup.log(f"--- Agregated socio data to hex with a total of {hex_socio_df['pobtot'].sum()} population for resolution {res}.")
             # Hexagons data to hex_gdf GeoDataFrame
-            hex_socio_gdf_tmp = hex_res_gdf.merge(hex_socio_df, on='hex_id')
+            hex_socio_gdf = hex_res_gdf.merge(hex_socio_df, on='hex_id')
 
             # 4.3 --------------- CALCULATE POP DENSITY IN HEXS
             # Calculate population density (Considering tot pop and tot area of hex instead of average of nodes)
-            hectares = hex_socio_gdf_tmp.to_crs("EPSG:6372").area / 10000
-            hex_socio_gdf_tmp['dens_pob_ha'] = hex_socio_gdf_tmp['pobtot'] / hectares 
-            aup.log(f"--- Calculated an average density of {hex_socio_gdf_tmp['dens_pob_ha'].mean()}")
+            hectares = hex_socio_gdf.to_crs("EPSG:6372").area / 10000
+            hex_socio_gdf['dens_pob_ha'] = hex_socio_gdf['pobtot'] / hectares 
+            aup.log(f"--- Calculated an average density of {hex_socio_gdf['dens_pob_ha'].mean()}")
             
 
-            # 4.4 --------------- ADD MISSING HEXS
-            # EXPLANATION: 
+            # 4.4 --------------- ADD MISSING URBAN HEXS WITH A POBTOT AND DENSITY OF 0
+            # EXPLANATION:
             # The spatial intersection in step 3.2 creates split blocks containing data from the original BLOCK and each voronoi polygons it falls in.
             # After that, the data is grouped by osmid, and the data is distributed to nodes.
             # That means that not all nodes are added, just those whose voronoi polygon intersected any block. The rest are dropped.
@@ -307,7 +336,7 @@ def main(city,save=False,local_save=True):
             # This step adds those missing urban hexs with pop data = 0.
 
             # List all currently added hex_ids
-            current_res_hex_ids = list(hex_socio_gdf_tmp.hex_id.unique())
+            current_res_hex_ids = list(hex_socio_gdf.hex_id.unique())
             # Identify all current res's urban hex_ids
             urban_res_hexs = hex_res_gdf.loc[hex_res_gdf['type']=='urban'].copy()
             aup.log(f"--- Found {len(urban_res_hexs)} urban hexs.")
@@ -321,41 +350,40 @@ def main(city,save=False,local_save=True):
                 missing_hexs_gdf[col] = 0
             missing_hexs_gdf['dens_pob_ha'] = 0
             # Concatenate missing hexs to hex_socio_gdf
-            hex_socio_gdf_tmp = pd.concat([hex_socio_gdf_tmp,missing_hexs_gdf])
+            hex_socio_gdf = pd.concat([hex_socio_gdf,missing_hexs_gdf])
             aup.log(f"--- Added {len(missing_hexs_gdf)} missing urban hexs to hex_socio_gdf.")
-
-            # 4.5 --------------- CONCATENATE ALL RESOLUTIONS
-            # Concatenate in hex_socio_gdf (if more resolutions, next resolution will also be stored here)
-            hex_socio_gdf = pd.concat([hex_socio_gdf,hex_socio_gdf_tmp])
             
-        # 4.4 --------------- SAVE
-        # Final format
-        hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
-        # Save to database
-        if save:
-            aup.log(f"--- Saving {city}'s hexs pop data to database.")
-            # Saving hexs to database
-            limit_len = 10000
-            if len(hex_socio_gdf)>limit_len:
-                c_upload = len(hex_socio_gdf)/limit_len
-                for k in range(int(c_upload)+1):
-                    aup.log(f"--- Uploading pop hexs - Starting range k = {k} of {int(c_upload)}")
-                    gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
-                    aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
-                aup.log(f"--- Uploaded pop hexs for {city}.")
-            else:
-                aup.gdf_to_db_slow(hex_socio_gdf, hexs_save_table, save_schema, if_exists='append')
-                aup.log(f"--- Uploaded pop hexs for {city}.")
-        # Saving hexs locally
-        if local_save:
-            aup.log(f"--- Saving {city}'s hexs pop data locally.")
-            hex_socio_gdf.to_file(local_save_dir + f"script22_{year}{city}_hex.gpkg", driver='GPKG')
-        # Save disk space
+            # 4.5 --------------- SAVE CURRENT RES HEXS
+            # Final format
+            hex_socio_gdf.columns = hex_socio_gdf.columns.str.lower()
+            # Save to database
+            if save_hexs:
+                aup.log(f"--- Saving {city}'s hexs res {res} pop data to database.")
+                # Saving hexs to database
+                limit_len = 10000
+                if len(hex_socio_gdf)>limit_len:
+                    c_upload = len(hex_socio_gdf)/limit_len
+                    for k in range(int(c_upload)+1):
+                        aup.log(f"--- Uploading pop hexs res {res} - Starting range k = {k} of {int(c_upload)}")
+                        gdf_inter_upload = hex_socio_gdf.iloc[int(limit_len*k):int(limit_len*(1+k))].copy()
+                        aup.gdf_to_db_slow(gdf_inter_upload, hexs_save_table, save_schema, if_exists='append')
+                    aup.log(f"--- Uploaded pop hexs res {res} for {city}.")
+                else:
+                    aup.gdf_to_db_slow(hex_socio_gdf, hexs_save_table, save_schema, if_exists='append')
+                    aup.log(f"--- Uploaded pop hexs res {res} for {city}.")
+            # Saving hexs locally
+            if local_save:
+                aup.log(f"--- Saving {city}'s hexs res {res} pop data locally.")
+                hex_socio_gdf.to_file(local_save_dir + f"script22_{year}{city}_hex_res{res}.gpkg", driver='GPKG')
+            
+            # 4.6 --------------- SAVE DISK SPACE AFTER EACH ITERATION
+            # Save disk space (Gets created again in next iteration)
+            del hex_res_gdf
+            del hex_socio_df
+            del hex_socio_gdf
+        
+        # Save disk space (After all iterations)
         del pop_nodes_gdf
-        del hex_res_gdf
-        del hex_socio_df
-        del hex_socio_gdf_tmp
-        del hex_socio_gdf
 
     else:
         aup.log(f"--- Skipped nodes to hexs processing and saving for {city}.")
@@ -367,7 +395,7 @@ if __name__ == "__main__":
     aup.log('--'*50)
     aup.log('--- STARTING SCRIPT 22.')
 
-    # ------------------------------ BASE DATA REQUIRED ------------------------------    
+    # ------------------------------ SCRIPT CONFIGURATION - BASE DATA REQUIRED ------------------------------
     # Year of analysis
     year = '2020' # '2010' or '2020'. ('2010' still WIP, not tested)
     # Hexgrid res of output
@@ -375,32 +403,41 @@ if __name__ == "__main__":
     
     # List of skip cities (If failed / want to skip city)
     # NOTE: The following cities's output have population differences between input (Blocks) and output (Nodes, hexs)
-    # due to blocks/agebs being outside of the municipality boundaries (attributed to INEGI)
+    # due to blocks/agebs being outside of the municipality boundaries (attributed to INEGI, 2020)
     #pop_diff_cities = ['ZMVM','Celaya','Acapulco','Pachuca','Oaxaca','Queretaro','Los Mochis','Mazatlan']
+
+    # NOTE: The following cities are big heavy metro areas, process can be lengthy.
+    #['ZMVM','CDMX','Monterrey','Guadalajara','Puebla','Toluca','Tijuana','León','Querétaro','Juarez','Laguna']
+
     skip_city_list = []
 
-    # ------------------------------ SCRIPT STEPS ------------------------------
+    # Projected CRS to be used when necessary
+    projected_crs = "EPSG:6372"
+
+    # ------------------------------ SCRIPT CONFIGURATION - SCRIPT STEPS ------------------------------
     # (Used to divide process during Dev.)
     process_nodes_to_hexs = True
 
-    # ------------------------------ SAVING ------------------------------
+    # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
     
     # Save output to database?
-    save = False
-    save_schema = 'censo'
-    blocks_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_mza'
-    nodes_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_node'
-    hexs_save_table = f'pobcenso_inegi_{year[:2]}_mzaageb_hex'
+    save_schema = 'sociodemografico'
+    save_blocks = False
+    blocks_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_mza'
+    save_nodes = False
+    nodes_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_node'
+    save_hexs = False
+    hexs_save_table = f'pobvoronoi_inegi_{year[2:]}_mzaageb_hex'
 
     # Save outputs to local? (Make sure directory exists)
-    local_save = True
+    local_save = False
     local_save_dir = f"../data/scripts_output/script_22/"
     
     # Test - (If testing, Script runs res 8 for one city ONLY and saves it locally ONLY)
-    test = True
-    city_list = ['Aguascalientes']
+    test = False
+    city_list = ['Guadalajara']
 
-    # ------------------------------ SCRIPT ------------------------------
+    # ------------------------------ SCRIPT START - NOT CONFIGURATION ------------------------------
     # Cities (database) [Always 2020]
     metro_schema = 'metropolis'
     metro_table = 'metro_gdf_2020'
@@ -476,7 +513,7 @@ if __name__ == "__main__":
             aup.log("--"*40)
             i+=1
             aup.log(f"--- Starting city {i}/{k}: {city}")
-            main(city, save, local_save)
+            main(city, save_blocks, save_nodes, save_hexs, local_save)
             # Register city that was ran
             script_run_lst.append(city)
     
@@ -497,7 +534,7 @@ if __name__ == "__main__":
         #Load muns in each city state
         cve_mun_list = list(city_gdf.loc[city_gdf.CVE_ENT == cve_ent].CVE_MUN.unique())
 
-        # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo.censo_inegi_{year[:2]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) ]
+        # To avoid error that happens when there's only one MUN in State: [SQL: SELECT * FROM censo.censo_inegi_{year[2:]}_mza WHERE ("entidad" = '02') AND "mun" IN ('001',) ]
         # Duplicate mun inside tupple if there's only one MUN.
         if len(cve_mun_list) >= 2:
             cve_mun_tpl = str(tuple(cve_mun_list))
