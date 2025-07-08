@@ -22,14 +22,6 @@ import shutil
 
 from . import utils
 
- 
-'''ox.config(
-    data_folder="../data",
-    cache_folder="../data/raw/cache",
-    use_cache=True,
-    log_console=True,
-)
-'''
 
 def create_polygon(bbox, city, save=True):
     """Create a polygon from a bounding box and save it to a file
@@ -108,7 +100,7 @@ def df_to_geodf(df, x, y, crs):
     return gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
 
 
-def load_study_areas():
+def load_study_areas(): #delete
     """
     Load the study areas json as dict
     Returns:
@@ -141,7 +133,7 @@ def convert_type(df, data_dict):
 
     return df
 
-def create_schema(schema):
+def create_schema(schema): #odc_database
     """
     Create schema in the database if it does not exists already,
     otherwise log if the schema already in the DB.
@@ -155,10 +147,10 @@ def create_schema(schema):
     except Exception as e:
         utils.log(e)
         pass
-    
 
 
-def df_to_db(df, table, schema, if_exists="fail"):
+
+def df_to_db(df, table, schema, if_exists="fail"): #odc_database
     """
     Save a dataframe into the database as a table
     Arguments:
@@ -173,7 +165,7 @@ def df_to_db(df, table, schema, if_exists="fail"):
     buffer = StringIO()
     df.to_csv(buffer, index=False, header=False)
     buffer.seek(0)
-    
+
     conn = utils.connect()
     cursor = conn.cursor()
     try:
@@ -190,7 +182,7 @@ def df_to_db(df, table, schema, if_exists="fail"):
         return 1
     cursor.close()
 
-def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
+def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000): #odc_database
      """
      Upload a Pandas.DataFrame to the database
      Arguments:
@@ -210,7 +202,7 @@ def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      engine.dispose()
 
 
-def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
+def gdf_to_db_slow(gdf, name, schema, if_exists="fail"): #odc_database
     """
     Upload a geoPandas.GeoDataFrame to the database
 
@@ -247,7 +239,7 @@ def gdf_to_df_geo(gdf):
     Returns:
         gdf(pandas.DataFrame): DataFrame with the geometry as text
     """
-    
+
     utils.log("Converting GeoDataFrame to DF with wkt")
     gdf["geom"] = gdf["geometry"].apply(lambda x: WKTElement(x.wkt, srid=4326))
     # drop the geometry column as it is now duplicative
@@ -256,7 +248,7 @@ def gdf_to_df_geo(gdf):
     return gdf
 
 
-def gdf_to_db(gdf, name, schema, if_exists="fail"):
+def gdf_to_db(gdf, name, schema, if_exists="fail"): #odc_database
     """
     Upload a geoPandas.GeoDataFrame to the database
 
@@ -275,7 +267,7 @@ def gdf_to_db(gdf, name, schema, if_exists="fail"):
     utils.log(f"Table {schema}.{name} in DB")
 
 
-def df_from_db(name, schema):
+def df_from_db(name, schema): #odc_database
     """
     Load a table from the database into a DataFrame
 
@@ -296,7 +288,7 @@ def df_from_db(name, schema):
     return df
 
 
-def df_from_query(query, index_col=None):
+def df_from_query(query, index_col=None): #odc_database
     """
     Load a table from the database into a DataFrame
 
@@ -313,7 +305,7 @@ def df_from_query(query, index_col=None):
     return df
 
 
-def gdf_from_query(query, geometry_col="geometry", index_col=None):
+def gdf_from_query(query, geometry_col="geometry", index_col=None): #odc_database
     """
     Load a table from the database into a GeoDataFrame
 
@@ -334,7 +326,7 @@ def gdf_from_query(query, geometry_col="geometry", index_col=None):
 
     return df
 
-def gdf_from_polygon(gdf, schema, table, geom_col="geometry"):
+def gdf_from_polygon(gdf, schema, table, geom_col="geometry"): #odc_database
     """
     Load a table from the database into a GeoDataFrame
 
@@ -357,7 +349,7 @@ def gdf_from_polygon(gdf, schema, table, geom_col="geometry"):
 
     return gdf_download
 
-def gdf_from_db(name, schema, geom_col="geometry"):    
+def gdf_from_db(name, schema, geom_col="geometry"): #odc_database
     """
     Load a table from the database into a GeoDataFrame
 
@@ -386,7 +378,7 @@ def delete_files_from_folder(delete_dir):
     Arguments:
     delete_dir (str): Specify the directory where the files are to be deleted
     """
-    
+
     for filename in os.listdir(delete_dir):
         file_path = os.path.join(delete_dir, filename)
         try:
@@ -401,53 +393,72 @@ def delete_files_from_folder(delete_dir):
 def resolve_duplicates_indexes(gdf, crs):
     """
     Resolves duplicates in a GeoDataFrame based on the multi-level index ('u', 'v', 'key') and a 'length' column.
-    
+
     Parameters:
     gdf (geopandas.GeoDataFrame): The input GeoDataFrame with a multi-level index ('u', 'v', 'key') and a 'length' column.
-        
+
     Returns:
     geopandas.GeoDataFrame: A GeoDataFrame where duplicates based on the index are resolved according to the rules above.
     """
-    
+
     # First, sort by index to ensure consistent grouping
+    gdf.reset_index(inplace=True)
+    if 'index' in gdf.columns:
+        gdf.drop(columns=['index'],inplace=True)
     gdf = gdf.sort_index()
-    
+
+    # Set all keys to 0 (Whenever two OSMnx downloads overlap in an area, different keys could be set for the same edge. This is a safe net.)
+    gdf['key'] = 0
+
     # Group by the multi-level index ('u', 'v', 'key')
     grouped = gdf.groupby(['u', 'v', 'key'])
-    
+
     # Lists to track rows to drop and new rows with modified keys
     rows_to_drop = []
     new_rows = []
-    
+
     for (u, v, key), group in grouped:
         if len(group) > 1:
             # Check if 'length' values are the same for all rows in this group
+
+            # NOTE:
+            # To adecuately solve the duplicates it would be necessary to verify that group['length'].nunique() == length of group, not '1'.
+            # e.g.
+            # --> u 4325294017 v 7164228101 key 0 length 321.210
+            # --> u 4325294017 v 7164228101 key 0 length 188.481
+            # --> u 4325294017 v 7164228101 key 0 length 188.481
+            # --> u 4325294017 v 7164228101 key 0 length 321.210
+            # In this (real) case, since .nunique() is not 1, it would assign a different key (0, 1, 2, 3) to each row instead of dropping the ones with the same length and assigning keys 0 and 1 to the remaining rows.
+
             if group['length'].nunique() == 1:
                 # If the 'length' is the same for all rows, drop the duplicates, keeping the first
                 rows_to_drop.append(group.index[1:])  # Keep the first, drop the rest
             else:
-                # If 'length' is different, increment the 'key' of the second row
-                new_row = group.iloc[1].copy()  # Copy the second row
-                new_row['key'] += 1  # Increment the key
-                new_rows.append(new_row)
-                rows_to_drop.append(group.index[1:])  # Drop the second row
-    
+                # If 'length' is different, increment the 'key' of each of the following rows by 1
+                change_key=0
+                for i in range(1, len(group)):
+                    change_key+=1
+                    new_row = group.iloc[i].copy() # Copy the row
+                    new_row['key'] = change_key # Increment the key
+                    new_rows.append(new_row) # Append the new row
+                    rows_to_drop.append([group.index[i]]) # Drop the original row
+
     # Drop the identified duplicate rows
     gdf = gdf.drop(pd.Index([index for sublist in rows_to_drop for index in sublist]))
-    
+
     # Add the new rows with the incremented 'key'
     # gdf = pd.DataFrame(gdf) # set as DataFrame for concat
     gdf = pd.concat([gdf, pd.DataFrame(new_rows)], ignore_index=False)
 
     # Set geometry
     gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs=crs)
-    
+
     # Return the modified DataFrame sorted by the index
     return gdf.sort_index()
 
 
 
-def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', projected_crs="EPSG:6372"):
+def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', projected_crs="EPSG:6372"): #odc_database
     """
     Download OSMnx edges and nodes from DataBase according to GeoDataFrame boundary
 
@@ -480,10 +491,9 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     nodes_query = f"SELECT * FROM {schema}.{nodes_folder} WHERE osmid IN {str(tuple(nodes_id))}"
     nodes = gdf_from_query(nodes_query, geometry_col="geometry", index_col="osmid")
 
+    # remove duplicates and set key index counter
     nodes.drop_duplicates(inplace=True)
     edges.drop_duplicates(inplace=True)
-
-    # remove duplicates and set key index counter
     edges = resolve_duplicates_indexes(edges, "EPSG:4326")
 
     edges = edges.set_index(["u", "v", "key"])
@@ -503,27 +513,27 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
         row = edges_tmp.loc[(edges_tmp.u==i)].iloc[0]
         coords = [(coords) for coords in list(row['geometry'].coords)]
         first_coord, last_coord = [ coords[i] for i in (0, -1) ]
-        
+
         nodes_dict['osmid'][len(nodes_dict['osmid'])] = i
         nodes_dict['x'][len(nodes_dict['x'])] = first_coord[0]
         nodes_dict['y'][len(nodes_dict['y'])] = first_coord[1]
         nodes_dict['street_count'][len(nodes_dict['street_count'])] = np.nan
         nodes_dict['geometry'][len(nodes_dict['geometry'])] = Point(first_coord)
-            
-        
+
+
     to_osmid = list(set(edges_tmp['v'].to_list()).difference(set(list(nodes_dict['osmid'].values()))))
 
     for i in to_osmid:
         row = edges_tmp.loc[(edges_tmp.v==i)].iloc[0]
         coords = [(coords) for coords in list(row['geometry'].coords)]
         first_coord, last_coord = [ coords[i] for i in (0, -1) ]
-        
+
         nodes_dict['osmid'][len(nodes_dict['osmid'])] = i
         nodes_dict['x'][len(nodes_dict['x'])] = last_coord[0]
         nodes_dict['y'][len(nodes_dict['y'])] = last_coord[1]
         nodes_dict['street_count'][len(nodes_dict['street_count'])] = np.nan
         nodes_dict['geometry'][len(nodes_dict['geometry'])] = Point(last_coord)
-        
+
     nodes_tmp = pd.DataFrame.from_dict(nodes_dict)
     nodes_tmp = gpd.GeoDataFrame(nodes_tmp, crs="EPSG:4326", geometry='geometry')
     nodes = nodes_tmp.copy()
@@ -541,10 +551,10 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',spe
 
     Args:
         aoi (geopandas.GeoDataFrame): GeoDataFrame polygon boundary for the area of interest.
-        how (str, optional): Defines the OSMnx function to be used. "from_polygon" will call osmnx.graph.graph_from_polygon, 
-                                 while "from_bbox" will call osmnx.features.features_from_bbox. No other choices are accepted in this function, 
+        how (str, optional): Defines the OSMnx function to be used. "from_polygon" will call osmnx.graph.graph_from_polygon,
+                                 while "from_bbox" will call osmnx.features.features_from_bbox. No other choices are accepted in this function,
                                  for more details see OSMnx documentation.
-        network_type (str, optional): String with the type of network to download (drive, walk, bike, all_private, all) for more details see OSMnx documentation. 
+        network_type (str, optional): String with the type of network to download (drive, walk, bike, all_private, all) for more details see OSMnx documentation.
                                         Defaults to 'all_private'.
         specific_date(tupple,optional): Tupple with a boolean and a string. If the boolean is True, the string will be used as the date for the overpass query.
                                         The string's date must be in the format yyyy-mm-ddThh:mm:ssZ and start with [out:json][timeout:90].
@@ -559,7 +569,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',spe
 
     # Set crs of area of interest
     aoi = aoi.to_crs("EPSG:4326")
-    
+
     if how == 'from_bbox':
         # Read area of interest as a polygon geometry
         poly = aoi.geometry
@@ -584,7 +594,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',spe
                                truncate_by_edge=False)
         print("Created OSMnx graph from bounding box.")
 
-    elif how == 'from_polygon':        
+    elif how == 'from_polygon':
         # Downloads OSMnx graph from bounding box
         G = ox.graph_from_polygon(aoi.unary_union,
                                   network_type=network_type,

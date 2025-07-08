@@ -1392,6 +1392,15 @@ def raster_to_hex_analysis(hex_gdf, df_len, index_analysis, tmp_dir, city, res):
     hex_raster_analysis[index_analysis+'_tend'] = hex_raster_analysis[f'{index_analysis}_sens_slope'].apply(lambda x: x[0])
     hex_raster_analysis = hex_raster_analysis.drop(columns=[f'{index_analysis}_sens_slope'])
 
+    # create yearly data column
+    for y in hex_raster['year'].unique():
+        # hex_raster_analysis[f'{index_analysis}_{y}'] = hex_raster_analysis['hex_id'].apply(lambda x: hex_raster.loc[(hex_raster.hex_id==x)&(hex_raster.year==y)][index_analysis].mean())
+        hex_tmp = hex_raster.loc[hex_raster.year==y].groupby('hex_id').agg({index_analysis:'mean'}).reset_index()
+        hex_tmp = hex_tmp.rename(columns={index_analysis:f'{index_analysis}_{y}'})
+        hex_tmp = hex_tmp[['hex_id',f'{index_analysis}_{y}']]
+        hex_raster_analysis = hex_raster_analysis.merge(hex_tmp, on='hex_id', how='left')
+        del hex_tmp
+    
     # remove geometry information
     hex_raster_df = hex_raster.drop(columns=['geometry'])
 

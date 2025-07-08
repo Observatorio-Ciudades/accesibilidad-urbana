@@ -129,7 +129,7 @@ def _get_logger(level=None, name=None, filename=None):
     return logger
 
 
-def db_engine():
+def db_engine(): # odc_database
     """
     Function to create an engine with Ada
 
@@ -144,7 +144,7 @@ def db_engine():
     )
 
 
-def connect():
+def connect(): # odc_database
     """
     Get data base connection
 
@@ -166,7 +166,7 @@ def connect():
     return conn
 
 
-def get_cursor():
+def get_cursor(): # odc_database
     """
     Creates a SQL cursor
 
@@ -183,7 +183,7 @@ def get_cursor():
     return pg_conn, cur
 
 
-def find_nearest(G, nodes, gdf, return_distance=False):
+def find_nearest(G, nodes, gdf, return_distance=False): # proximity
     """
 	Find the nearest graph nodes to the points in a GeoDataFrame
 
@@ -200,7 +200,7 @@ def find_nearest(G, nodes, gdf, return_distance=False):
     gdf = gdf.copy()
 
     osmnx_tuple = graph.nearest_nodes(G, nodes, list(gdf.geometry.x),list(gdf.geometry.y), return_dist=return_distance)
-    
+
     if return_distance:
         gdf['osmid'] = osmnx_tuple[0]
         gdf['distance_node'] = osmnx_tuple[1]
@@ -208,7 +208,7 @@ def find_nearest(G, nodes, gdf, return_distance=False):
         gdf['osmid'] = osmnx_tuple
     return gdf
 
-def to_igraph(nodes, edges, wght='lenght'):
+def to_igraph(nodes, edges, wght='lenght'): # proximity
     """
     Convert a graph from networkx to igraph
 
@@ -232,11 +232,11 @@ def to_igraph(nodes, edges, wght='lenght'):
     node_mapping = dict(zip(nodes.index.values,range(len(nodes))))
     g = ig.Graph(len(nodes), [(node_mapping[i[0]],node_mapping[i[1]]) for i in edges.index.values])
     weights=np.array([float(e) for e in edges[wght]])
-    
+
     return g, weights, node_mapping
 
 
-def get_seeds(gdf, node_mapping, column_name):
+def get_seeds(gdf, node_mapping, column_name): # proximity
 	"""
 	Generate the seed to be used to calculate shortest paths for the Voronoi's
 
@@ -250,11 +250,11 @@ def get_seeds(gdf, node_mapping, column_name):
 	"""
 	# Get the seed to calculate shortest paths
 	return np.array(list([node_mapping[i] for i in gdf[column_name]]))
-    
+
     # Old return: We used to only calculate time. When count became relevant, set() was removed.
     #return np.array(list(set([node_mapping[i] for i in gdf[column_name]])))
 
-def haversine(coord1, coord2):
+def haversine(coord1, coord2): # various
 	"""
 	Calculate distance between two coordinates in meters with the Haversine formula
 
@@ -270,16 +270,16 @@ def haversine(coord1, coord2):
 	lon2, lat2 = coord2
 	R = 6371000  # radius of Earth in meters
 	phi_1 = np.radians(lat1)
-	phi_2 = np.radians(lat2)    
+	phi_2 = np.radians(lat2)
 	delta_phi = np.radians(lat2 - lat1)
-	delta_lambda = np.radians(lon2 - lon1)    
-	a = np.sin(delta_phi / 2.0) ** 2 + np.cos(phi_1) * np.cos(phi_2) * np.sin(delta_lambda / 2.0) ** 2    
-	c = 2 * np.arctan2(np.sqrt(a),np.sqrt(1 - a))    
+	delta_lambda = np.radians(lon2 - lon1)
+	a = np.sin(delta_phi / 2.0) ** 2 + np.cos(phi_1) * np.cos(phi_2) * np.sin(delta_lambda / 2.0) ** 2
+	c = 2 * np.arctan2(np.sqrt(a),np.sqrt(1 - a))
 	meters = R * c  # output distance in meters
-	km = meters / 1000.0  # output distance in kilometers    
+	km = meters / 1000.0  # output distance in kilometers
 	return meters
 
-def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
+def create_hexgrid(polygon, hex_res, geometry_col='geometry'): # various
     """
 	Takes in a geopandas geodataframe, the desired resolution, the specified geometry column and some map parameters to create a hexagon grid (and potentially plot the hexgrid
 
@@ -293,16 +293,16 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
 	Returns:
 		all_polys (geopandas.GeoDataFrame): geoDataFrame with the hexbins according to resolution and EPSG:4326
 	"""
-	
+
     #multiploygon to polygon
     polygons = polygon[geometry_col].explode(index_parts=True)
 
     polygons = polygons.reset_index(drop=True)
-    
+
     all_polys = gpd.GeoDataFrame()
-    
+
     for p in range(len(polygons)):
-    
+
         #create hex grid from GeoDataFrame
         #for i in range(len(polygons[p])):
         dict_poly = polygons[p].__geo_interface__
@@ -318,11 +318,11 @@ def create_hexgrid(polygon, hex_res, geometry_col='geometry'):
                                                 )
         gdf_tmp = gpd.GeoDataFrame(poly_tmp.reset_index()).rename(columns={'index':f'hex_id_{hex_res}',0:geometry_col})
 
-        all_polys = pd.concat([all_polys, gdf_tmp], 
+        all_polys = pd.concat([all_polys, gdf_tmp],
         ignore_index = True, axis = 0)
 
     all_polys = all_polys.drop_duplicates()
     all_polys = all_polys.set_geometry('geometry')
     all_polys.set_crs("EPSG:4326")
-    
+
     return all_polys
