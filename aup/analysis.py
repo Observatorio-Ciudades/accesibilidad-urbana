@@ -146,7 +146,7 @@ def group_by_hex_mean(nodes, hex_bins, group_column_names, hex_id_col, osmid=Tru
 	# Copy data to avoid editing originals
 	substitute_cols = group_column_names
 	nodes = nodes.copy()
-	nodes_in_hex = gpd.sjoin(nodes, hex_bins)
+	nodes_in_hex = gpd.sjoin(nodes, hex_bins[[hex_id_col,'geometry']])
 	# Group data by hex_id
 	nodes_in_hex = nodes_in_hex.drop(columns=['geometry']) #Added this because it tried to calculate mean of geom
 	nodes_hex = nodes_in_hex.groupby([hex_id_col]).mean()
