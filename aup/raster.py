@@ -157,7 +157,8 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # Create GeoDataFrame to test nan values in raster
     gdf_raster_test = gdf.to_crs(projection_crs).buffer(1)
     gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
-    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test).dissolve()
+    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test)#.dissolve() #Ignore to tests nans in each hex since ignoring available_datasets() filter
+    gdf_raster_test.to_file(tmp_dir+f'{city}_gdf_raster_test.gpkg')
 
     # Raster creation - Download raster data by month
     log('Starting raster creation for specified time')
@@ -541,8 +542,9 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
     df_tile = df_tile.sort_values(by='avg_cloud')
     log(f'Updated average cloud coverage: {df_tile.avg_cloud.mean()}')
 
-    # create list of dates within normal distribution and without missing values
-    date_list = df_tile.dropna().index.to_list()
+    # create list of dates within normal distribution and without missing values --- IGNORED: SOMETIMES NOT ALL TILES NECESARY TO COVER AREA OF INTEREST, WOULD FAIL BY NULL VALUES ANYWAY ---
+    # date_list = df_tile.dropna().index.to_list() 
+    date_list = df_tile.index.to_list()
 
     log(f'Available dates: {len(date_list)}')
     log(f'Raster tiles per date: {len(df_tile.columns.to_list())}')
@@ -570,12 +572,24 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     for assets in raster_asset_list:
         src = rasterio.open(assets)
         src_files_to_mosaic.append(src)
+    
+    # Merge raster tiles
+    log(f"mosaic_raster() - Merging {len(src_files_to_mosaic)} tiles.")
+    mosaic, out_trans = merge(src_files_to_mosaic, method='first') # Taking first valid pixel value when overlapping (EASIER)
 
-    mosaic, out_trans = merge(src_files_to_mosaic) # mosaic raster
-
+    # Calculating average pixel value when overlapping (NOT WORKING)
+    #mosaic_sum, out_trans = merge(src_files_to_mosaic, method='sum')
+    #mosaic_count, _ = merge(src_files_to_mosaic, method='count')
+    #mosaic = np.divide(mosaic_sum,
+    #                       mosaic_count,
+    #                       out=np.zeros_like(mosaic_sum, dtype=float),
+    #                       where=mosaic_count != 0 # Only divides when data available
+    #                       )
+    log(f"mosaic_raster() - Merged {len(src_files_to_mosaic)} tiles.")
     meta = src.meta
 
     if upscale:
+        log(f"mosaic_raster() - Upscaling.")
         # save raster
         out_meta = src.meta
 
@@ -752,7 +766,7 @@ def raster_nan_test(gdf, raster_file):
         An exception if needed.
     """
 
-    gdf['test'] = gdf.geometry.apply(lambda geom: clean_mask(geom, raster_file)).apply(np.ma.mean)
+    gdf['test'] = gdf.geometry.apply(lambda geom: clean_mask(geom, raster_file, outside_value=np.nan)).apply(np.ma.mean)
 
     log(f'There are {gdf.test.isna().sum()} null data values')
 
@@ -820,6 +834,113 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
         log(f'Finished processing {b}')
 
     return raster_array
+
+def links_iteration(bands_links,
+                    specific_date,
+                    common_args_dct,
+                    ):
+    """
+    Documentation
+    """
+
+    # Recover common arguments
+    skip_date_list = common_args_dct['skip_date_list']
+    iter_count = common_args_dct['iter_count']
+    time_exc_limit = common_args_dct['time_exc_limit']
+    band_name_dict = common_args_dct['band_name_dict']
+    gdf_bb = common_args_dct['gdf_bb']
+    tmp_raster_dir = common_args_dct['tmp_raster_dir']
+    index_analysis = common_args_dct['index_analysis']
+    gdf_raster_test = common_args_dct['gdf_raster_test']
+    tmp_dir = common_args_dct['tmp_dir']
+    city = common_args_dct['city']
+    month_ = common_args_dct['month_']
+    year_ = common_args_dct['year_']
+    checker = common_args_dct['checker']         
+
+    # If attempting a specific date
+    if specific_date[0]:
+        # Retrieve specified date from tupple
+        date_attempt = specific_date[1]
+        # Skip date if date in skip_date_list
+        if date_attempt in skip_date_list:
+            log(f"{date_attempt} - ITERATION {iter_count} - Skipped date because previously it did not pass null test.")
+            return skip_date_list, checker, iter_count
+        # Else, log current date attempt
+        log(f'Skip list:{skip_date_list}')
+        log(f'Mosaic date {date_attempt.day}'+
+                    f'/{date_attempt.month}'+
+                    f'/{date_attempt.year} - iteration:{iter_count}')
+
+    try:
+        # Mosaic process
+        rasters_arrays = func_timeout(time_exc_limit, 
+                                      mosaic_process_v2,
+                                      args=(bands_links,
+                                            band_name_dict, 
+                                            gdf_bb, 
+                                            tmp_raster_dir
+                                            )
+                                    )
+        out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
+        # Calculate raster index
+        raster_idx = calculate_raster_index(band_name_dict, rasters_arrays)
+        log(f'Calculated {index_analysis}')
+        del rasters_arrays
+
+        # Interpolation process
+        log(f'Starting interpolation')
+        raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
+        # only for temperature
+        raster_idx[raster_idx == -124.25 ] = np.nan # change zero values to nan
+        raster_idx = raster_idx.astype('float32') # change data type to float32 to avoid fillnodata error
+
+        log(f'Interpolating {np.isnan(raster_idx).sum()} nan values')
+        raster_fill = fillnodata(raster_idx, mask=~np.isnan(raster_idx),
+                            max_search_distance=50, smoothing_iterations=0)
+        log(f'Finished interpolation to fill na - {np.isnan(raster_fill).sum()} nan')
+
+        with rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif",'w', **out_meta) as dest:
+                dest.write(raster_fill)
+
+                dest.close()
+
+        log('Starting null test')
+        raster_file = rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif")
+        gdf_raster_test = gdf_raster_test.to_crs(raster_file.crs)
+        try:
+            # test for nan values within study area
+            raster_nan_test(gdf_raster_test,raster_file)
+            log('Passed null test')
+
+            # save raster to processing database
+            with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif",'w', **out_meta) as dest:
+                dest.write(raster_fill)
+
+                dest.close()
+            log(f'Finished saving {index_analysis} raster')
+
+            checker = 1
+            if specific_date[0]:
+                log(f"{date_attempt} - ITERATION {iter_count} - SUCCESS.")
+            else:
+                log(f"ALL TILES IN MONTH - ITERATION {iter_count} - SUCCESS.")
+            #delete_files_from_folder(tmp_raster_dir)
+            return skip_date_list, checker, iter_count
+        
+        except:
+            if specific_date[0]:
+                log(f"{date_attempt} - ITERATION {iter_count} - ERROR: FAILED NULL TEST ON DATE.")
+                skip_date_list.append(date_attempt)
+            else:
+                log(f"ALL TILES IN MONTH - ITERATION {iter_count} - ERROR: FAILED NULL TEST ON ALL TILES.")
+            #delete_files_from_folder(tmp_raster_dir)
+            return skip_date_list, checker, iter_count
+
+    except:
+        log(f'ERROR IN ITERATION {iter_count}. Posible causes: links expired, mosaic raster failed, mosaic interpolation failed.')
+        #delete_files_from_folder(tmp_raster_dir)
+        return skip_date_list, checker, iter_count 
 
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
@@ -926,90 +1047,98 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             # gather links from dates that are within date_list
             assets_hrefs = link_dict(band_name_list, items, date_list)
 
-            #for data_link in range(len(df_links)):
-            for data_link in range(len(dates_ordered)):
+            # --- For current month's gathered links, check the total amount of unique tiles and compare to aoi_tiles (logs)
+            month_tiles = []
+            for item in items:
+                # if item's date is in assets_hrefs keys, check for unique tiles
+                if item.datetime.date() in list(assets_hrefs.keys()):
+                    # For sentinel-2-l2a, gather unique mgrs_tile values
+                    if sat == "sentinel-2-l2a":
+                        item_tile = item.properties['s2:mgrs_tile']
+                        if item_tile not in month_tiles:
+                            month_tiles.append(item_tile)
+                    # For landsat-c2-l2, gather unique wrs_path + wrs_row values
+                    elif sat == "landsat-c2-l2":
+                        item_tile = item.properties['landsat:wrs_path'] + item.properties['landsat:wrs_row']
+                        if item_tile not in month_tiles:
+                            month_tiles.append(item_tile)
+        
+            if len(aoi_tiles) > len(month_tiles):
+                log(f'NOTE: Insufficient tiles to cover area of interest. Needed: {len(aoi_tiles)}, available: {len(month_tiles)}.')
+                log(f'NOTE: Available tiles: {month_tiles}. Missing tiles: {list(set(aoi_tiles) - set(month_tiles))}.')
+            else:
+                log(f'NOTE: Month has all available tiles within area of interest.')
+            
+            # --- Analyze links in two ways: ordered by cloud coverage and all available links for the month
+            # Explanation: Since satellites pass over different areas on different dates, sometimes analysis by date results in missing data.
+            # To solve this, we gather all available links for the month and use them if the date ordered by cloud coverage does not pass the null test.
+            
+            # In order to avoid duplicating code, the links_iteration() function recieves the current function's arguments 
+            # While only specific links and dates data are changed.
+            common_args_dct = {'skip_date_list':skip_date_list, # List of dates to be skipped because null test failed
+                               'iter_count':iter_count, # Current iteration of current month
+                               'time_exc_limit':time_exc_limit, # Specified time limit for downloading a raster
+                               'band_name_dict':band_name_dict, # Bands to be used in the raster analysis
+                               'gdf_bb':gdf_bb, # Crop the raster to a specific area of interest
+                               'tmp_raster_dir':tmp_raster_dir, # Folder to store temporary raster files by iteration
+                               'index_analysis':index_analysis, # Current type of analysis
+                               'gdf_raster_test':gdf_raster_test, # GeoDataFrame to test nan values in raster
+                               'tmp_dir':tmp_dir, # Temporary directory where temporary rasters are saved
+                               'city':city, # To save the raster files based on the area of interest's name
+                               'month_':month_, # Current month of dates being processed
+                               'year_':year_, # Current year of dates being processed
+                               'checker':checker, # Checker with value '0' if month has not being processed, 1 when processed
+                               }
 
-                # Skip date if in skip_date_list
-                if dates_ordered[data_link] in skip_date_list:
-                    log(f'Skipped {dates_ordered[data_link]} - iteration:{iter_count} because it did not pass null test.')
-                    continue
+            # --- LINKS ANALIZYS A - ORDERED ACCORDING TO CLOUD COVERAGE
+            # Create list of links ordered according to cloud coverage
+            links_dicts_ordered_lst = []
+            for data_position in range(len(dates_ordered)):
+                # Select current link dictionary and append to ordered list
+                current_link_dct = assets_hrefs[dates_ordered[data_position]]
+                links_dicts_ordered_lst.append(current_link_dct)
+                #log(f"Appended {current_link_dct}.") #---log useful for debugging---
+            #log(f"Ordered list: {links_dicts_ordered_lst}.") #---log useful for debugging---
+            # Processing by ordered dates
+            ordered_links_try = 0
+            for bands_links in links_dicts_ordered_lst:
+                log(f"{dates_ordered[ordered_links_try]} - ITERATION {iter_count} - DATE {ordered_links_try+1}/{len(links_dicts_ordered_lst)}.")
+                skip_date_list, checker, iter_count = links_iteration(bands_links = bands_links,
+                                                                      specific_date = (True, dates_ordered[ordered_links_try]),
+                                                                      common_args_dct = common_args_dct
+                                                                      )
+                # If succeded current date, stop ordered dates iterations
+                if checker==1:
+                    break
+                # Else, try next date
+                ordered_links_try += 1
+            # If succeded by any date, stop month's while loop
+            if checker==1:
+                break
+            
+            # --- LINKS ANALIZYS B - WHOLE MONTH'S AVAILABLE LINKS
+            # Create list of all available links for the month
+            links_dicts_month = {}
+            for current_link_dct in links_dicts_ordered_lst:
+                for band, links in current_link_dct.items():
+                    if band not in links_dicts_month:
+                        links_dicts_month[band] = []  # Initialize list if band not in dictionary
+                    links_dicts_month[band].extend(links) # Append links to the list for the band
+            #log(f"Links dictionary for the month: {links_dicts_month}.") #---log useful for debugging---
+            # Processing all available links for the month
+            log(f"{month_}/{year_} - MONTH ITERATION {iter_count}.")
+            skip_date_list, checker, iter_count = links_iteration(bands_links = links_dicts_month,
+                                                                  specific_date = (False, None),
+                                                                  common_args_dct = common_args_dct
+                                                                  )
+            # If succeded whole month, stop while loop
+            if checker==1:
+                break
+            
+            # Next iteration
+            iter_count += 1
 
-                # log(data_link)
-                log(f'Skip list:{skip_date_list}')
-                log(dates_ordered[data_link])
-                log(f'Mosaic date {dates_ordered[data_link].day}'+
-                            f'/{dates_ordered[data_link].month}'+
-                            f'/{dates_ordered[data_link].year} - iteration:{iter_count}')
-
-                # check if date contains null values within study area
-                #if df_links.iloc[data_link]['date'] in skip_date_list:
-
-                try:
-                    #links_band_1 = df_links.iloc[data_link][list(band_name_dict.keys())[0]]
-                    #links_band_2 = df_links.iloc[data_link][list(band_name_dict.keys())[1]]
-                    bands_links = assets_hrefs[dates_ordered[data_link]]
-
-                    rasters_arrays = func_timeout(time_exc_limit, mosaic_process_v2,
-                                                                                args=(bands_links,
-                                                                                      band_name_dict, gdf_bb, tmp_raster_dir))
-                    out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
-
-                    # calculate raster index
-                    raster_idx = calculate_raster_index(band_name_dict, rasters_arrays)
-                    log(f'Calculated {index_analysis}')
-                    del rasters_arrays
-
-                    log(f'Starting interpolation')
-
-                    raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
-                    # only for temperature
-                    raster_idx[raster_idx == -124.25 ] = np.nan # change zero values to nan
-                    raster_idx = raster_idx.astype('float32') # change data type to float32 to avoid fillnodata error
-
-                    log(f'Interpolating {np.isnan(raster_idx).sum()} nan values')
-                    raster_fill = fillnodata(raster_idx, mask=~np.isnan(raster_idx),
-                                        max_search_distance=50, smoothing_iterations=0)
-                    log(f'Finished interpolation to fill na - {np.isnan(raster_fill).sum()} nan')
-
-                    with rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif",'w', **out_meta) as dest:
-                            dest.write(raster_fill)
-
-                            dest.close()
-
-                    log('Starting null test')
-
-                    raster_file = rasterio.open(f"{tmp_raster_dir}{index_analysis}.tif")
-
-                    gdf_raster_test = gdf_raster_test.to_crs(raster_file.crs)
-
-                    try:
-                        # test for nan values within study area
-                        raster_nan_test(gdf_raster_test,raster_file)
-
-                        log('Passed null test')
-
-                        # save raster to processing database
-                        with rasterio.open(f"{tmp_dir}{city}_{index_analysis}_{month_}_{year_}.tif",'w', **out_meta) as dest:
-                            dest.write(raster_fill)
-
-                            dest.close()
-                        log(f'Finished saving {index_analysis} raster')
-
-                        checker = 1
-                        iter_count = 6
-                        delete_files_from_folder(tmp_raster_dir)
-                        break
-                    except:
-                        log('Failed null test')
-                        skip_date_list.append(dates_ordered[data_link])
-                        delete_files_from_folder(tmp_raster_dir)
-
-                except:
-                    log(f'Error in iteration {iter_count}')
-                    delete_files_from_folder(tmp_raster_dir)
-                    continue
-            iter_count = iter_count + 1
-
+        # update df_raster according to checker value
         if checker==0:
             log(f'Could not process month {month_}/{year_}. Updating df_raster and moving to next month.')
             df_raster.loc[df_raster.index==i,'data_id']=0
@@ -1209,7 +1338,7 @@ def raster_interpolation(df_len, city, tmp_dir, index_analysis):
 
     return df_len
 
-def clean_mask(geom, dataset='', **mask_kw):
+def clean_mask(geom, dataset='', outside_value=0, **mask_kw):
     """
     The mask in this function is used to extract the values from a raster dataset that fall
     within a given geometry of interest.
@@ -1220,6 +1349,8 @@ def clean_mask(geom, dataset='', **mask_kw):
         inputted geometry. If no value is provided, then it defaults to an empty string
         and returns only the masked array of values from within the inputted geometry
         without any metadata.
+        outside_value (float | np.nan): Value assigned when the geometry falls completely outside the raster extent. 
+                                        Defaults to 0. Use np.nan to flag these cases as errors.
         mask_kw (dict): A dictionary of arguments passed to create the mask.
 
     Returns:
@@ -1233,7 +1364,7 @@ def clean_mask(geom, dataset='', **mask_kw):
         masked, _ = rasterio.mask.mask(dataset=dataset, shapes=(geom,),
                                   **mask_kw)
     except:
-        masked = np.array([0])
+        masked = np.array([outside_value])
 
     return masked
 
