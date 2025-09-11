@@ -237,7 +237,7 @@ def building_tesselation(cvegeo, block_gdf, bld_block):
     # assign block's geographic code
     tess_tmp['CVEGEO'] = cvegeo
 
-    return tess_tmp
+    return tess_tmp, bld_filter
 
 def kde_to_area_of_prediction(cvegeo, aop_gdf, kde_dir):
     """Process to transfer data from kde raster to area of prediction tesselations by block"""
@@ -274,25 +274,27 @@ def check_for_lists(val):
 def raster_conditional(rarray):
     return (rarray == 1)
 
-def road_type_to_area_of_prediction(aop_road, edges, road_type, pixel_size, bounds, output_dir):
+def road_type_to_area_of_prediction(aop_road, edges, road_class, road_type, pixel_size, bounds, output_dir):
 
-    edges_road_type = edges.loc[edges.highway==road_type].copy()
+    aup.log(f"Processing road type: {road_class}")
+
+    edges_road_type = edges.loc[edges.highway.isin(road_type)].copy()
 
     rv_array, affine = dr.rasterize(edges_road_type,
                                     pixel_size=pixel_size,
                                     bounds=bounds,
-                                    output=output_dir+f"{road_type}_rasterized.tif")
+                                    output=output_dir+f"{road_class}_rasterized.tif")
 
     # generate distance array and output to geotiff
     my_dr = dr.DistanceRaster(rv_array, affine=affine,
-                          output_path=output_dir+f"{road_type}_distance.tif",
+                          output_path=output_dir+f"{road_class}_distance.tif",
                           conditional=raster_conditional)
 
-    raster_distance = ro.open(output_dir+f"{road_type}_distance.tif")
+    raster_distance = ro.open(output_dir+f"{road_class}_distance.tif")
 
-    aop_road[road_type+'_distance'] = aop_road.geometry.apply(
+    aop_road[road_class+'_distance'] = aop_road.geometry.apply(
                 lambda geom: aup.clean_mask(geom, raster_distance)).apply(np.ma.mean)
 
-    aop_road = aop_road[['fid',road_type+'_distance']].copy()
+    aop_road = aop_road[['fid',road_class+'_distance']].copy()
 
     return aop_road
