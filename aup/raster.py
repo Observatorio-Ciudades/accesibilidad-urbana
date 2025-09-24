@@ -49,9 +49,10 @@ def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
     log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
     if pct_missing >= pct_limit:
         raise AvailableData('Missing more than 50 percent of data points')
-    df_rol = df_len.rolling(window_limit).sum()
-    if len(df_rol.loc[df_rol.data_id==0])>0:
-        raise AvailableData('Multiple missing months together')
+    df_rol = df_len['data_id'].rolling(window_limit).sum()
+    # If any rolling window has a sum of 0, it means there are multiple missing months together
+    if (df_rol == 0).any():
+        raise AvailableData("Multiple missing months together")
     del df_rol
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date,
@@ -781,7 +782,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
     for b in band_names_list:
 
-        log(f'Starting mosaic for {b}')
+        log(f'mosaic_process() - Starting mosaic for {b}')
         raster_array[b]= [mosaic_raster(raster_bands[b], tmp_dir,
                                        upscale=band_name_dict[b][0])]
         # mosaic_raster creates a tuple which has to be unpacked
@@ -797,7 +798,7 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
                         "width": raster_array[b][0].shape[2],
                         "transform": raster_array[b][1]})
 
-        log(f'Starting save: {b}')
+        log(f'mosaic_process() - Starting save: {b}')
 
         with rasterio.open(f"{tmp_dir}{b}.tif", "w", **raster_array[b][2]) as dest:
             dest.write(raster_array[b][0])
@@ -805,9 +806,9 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
             dest.close()
 
         raster_array[b][0] = [np.nan]
-        log('Finished saving complete dataset')
+        log('mosaic_process() - Finished saving complete dataset')
 
-        log('Starting crop')
+        log('mosaic_process() - Starting crop')
 
         with rasterio.open(f"{tmp_dir}{b}.tif") as src:
             gdf_bb = gdf_bb.to_crs(src.crs)
@@ -829,9 +830,9 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
 
         raster_array[b][0] = raster_array[b][0].astype('float16')
 
-        log(f'Finished croping: {b}')
+        log(f'mosaic_process() - Finished croping: {b}')
 
-        log(f'Finished processing {b}')
+        log(f'mosaic_process() - Finished processing {b}')
 
     return raster_array
 
@@ -840,32 +841,45 @@ def links_iteration(bands_links,
                     common_args_dct,
                     ):
     """
-    Documentation
+    This function saves processed rasters to a local directory by iterating over a list of links for each band,
+    creating a mosaic, calculating the specified raster index and interpolating missing values (pixels).
+
+    The function recieves a list of links for each band, a specific date (if any) and a dictionary of arguments,
+    most of which come from function create_raster_by_month.
+
+    Arguments:
+        bands_links (dict): Dictionary with the links to the assets for each band.
+        specific_date (tupple): Tupple with a boolean and a date to attempt.
+        common_args_dct (dict): Dictionary with common arguments, most of which come from function create_raster_by_month.
+
+    Returns:
+        skip_date_list (list): List of dates to be skipped because null test failed (Updated if specific date fails).
+        checker (int): Checker with value '0' if month has not being processed, 1 when processed (Updated if processing is successful).
     """
 
     # Recover common arguments
-    skip_date_list = common_args_dct['skip_date_list']
-    iter_count = common_args_dct['iter_count']
-    time_exc_limit = common_args_dct['time_exc_limit']
-    band_name_dict = common_args_dct['band_name_dict']
-    gdf_bb = common_args_dct['gdf_bb']
-    tmp_raster_dir = common_args_dct['tmp_raster_dir']
-    index_analysis = common_args_dct['index_analysis']
-    gdf_raster_test = common_args_dct['gdf_raster_test']
-    tmp_dir = common_args_dct['tmp_dir']
-    city = common_args_dct['city']
-    month_ = common_args_dct['month_']
-    year_ = common_args_dct['year_']
-    checker = common_args_dct['checker']         
+    skip_date_list = common_args_dct['skip_date_list'] # List of dates to be skipped because null test failed
+    iter_count = common_args_dct['iter_count'] # Current iteration of current month (Used in logs)
+    time_exc_limit = common_args_dct['time_exc_limit'] # Specified time limit for downloading a raster
+    band_name_dict = common_args_dct['band_name_dict'] # Bands to be used in the raster analysis
+    gdf_bb = common_args_dct['gdf_bb'] # Crop the raster to a specific area of interest
+    tmp_raster_dir = common_args_dct['tmp_raster_dir'] # Folder to store temporary raster files by iteration
+    index_analysis = common_args_dct['index_analysis'] # Current type of analysis
+    gdf_raster_test = common_args_dct['gdf_raster_test'] # GeoDataFrame to test nan values in raster
+    tmp_dir = common_args_dct['tmp_dir'] # Temporary directory where temporary rasters are saved
+    city = common_args_dct['city'] # To save the raster files based on the area of interest's name
+    month_ = common_args_dct['month_'] # Current month of dates being processed
+    year_ = common_args_dct['year_'] # Current year of dates being processed
+    checker = common_args_dct['checker'] # Checker with value '0' if month has not being processed, 1 when processed     
 
-    # If attempting a specific date
+    # If attempting to process satellite data from a specific date:
     if specific_date[0]:
         # Retrieve specified date from tupple
         date_attempt = specific_date[1]
         # Skip date if date in skip_date_list
         if date_attempt in skip_date_list:
             log(f"{date_attempt} - ITERATION {iter_count} - Skipped date because previously it did not pass null test.")
-            return skip_date_list, checker, iter_count
+            return skip_date_list, checker
         # Else, log current date attempt
         log(f'Skip list:{skip_date_list}')
         log(f'Mosaic date {date_attempt.day}'+
@@ -925,8 +939,8 @@ def links_iteration(bands_links,
                 log(f"{date_attempt} - ITERATION {iter_count} - SUCCESS.")
             else:
                 log(f"ALL TILES IN MONTH - ITERATION {iter_count} - SUCCESS.")
-            #delete_files_from_folder(tmp_raster_dir)
-            return skip_date_list, checker, iter_count
+            delete_files_from_folder(tmp_raster_dir)
+            return skip_date_list, checker
         
         except:
             if specific_date[0]:
@@ -934,13 +948,13 @@ def links_iteration(bands_links,
                 skip_date_list.append(date_attempt)
             else:
                 log(f"ALL TILES IN MONTH - ITERATION {iter_count} - ERROR: FAILED NULL TEST ON ALL TILES.")
-            #delete_files_from_folder(tmp_raster_dir)
-            return skip_date_list, checker, iter_count
+            delete_files_from_folder(tmp_raster_dir)
+            return skip_date_list, checker
 
     except:
         log(f'ERROR IN ITERATION {iter_count}. Posible causes: links expired, mosaic raster failed, mosaic interpolation failed.')
-        #delete_files_from_folder(tmp_raster_dir)
-        return skip_date_list, checker, iter_count 
+        delete_files_from_folder(tmp_raster_dir)
+        return skip_date_list, checker 
 
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
@@ -952,9 +966,10 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     The function takes in a dataframe with the length of years and months, an index analysis, city name,
     temporary directory path (tmp_dir), band name dictionary (band_name_dict), date list (date_list),
     geodataframe bounding box(gdf_bb) and area of interest(aoi).
-    the function also performs raster analysis for each row of the DataFrame, downloads and processes
-    the raster data, calculates an index, crops the raster, performs interpolation, and
-    saves the processed rasters and corresponding metadata in the specified directory.
+
+    Inside this function, links_iteration() downloads and processes the raster data, calculates an index, 
+    crops the raster, performs interpolation, and saves the processed rasters and corresponding metadata 
+    in the specified directory.
 
     Arguments:
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month
@@ -975,51 +990,59 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
     Returns:
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month.
     """
-    df_len['able_to_download'] = np.nan
-    band_name_list = list(band_name_dict.keys())[:-1]
 
     log('\n create_raster_by_month() - Starting raster by month analysis.')
 
-    # check if file exists, for example in case of code crash
+    # if df_len doesn't already exist, save dataframe to temporary directory
     df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
     if os.path.exists(df_file_dir) == False: # Or folder, will return true or false
+        df_len['able_to_download'] = np.nan
+        df_len['download_method'] = ''
         df_len.to_csv(df_file_dir, index=False)
-    # create folder to store temporary raster files by iteration
+    
+    # if temporary folder doesn't already exist, create folder to store temporary raster files by iteration
     tmp_raster_dir = tmp_dir+'temporary_files/'
     if os.path.exists(tmp_raster_dir) == False: # Or folder, will return true or false
         os.mkdir(tmp_raster_dir)
 
+    band_name_list = list(band_name_dict.keys())[:-1]
+    # Iteration over df_len rows (months)
     for i in tqdm(range(len(df_len)), position=0, leave=True):
 
+        # read dataframe in each iteration in case of code crash
         df_raster = pd.read_csv(df_file_dir, index_col=False)
 
-        # binary id - checks if month could be processed
+        # binary id - checks if current month could be processed
         checker = 0
 
 	    # gather month and year from df to save raster
         month_ = df_raster.loc[df_raster.index==i].month.values[0]
         year_ = df_raster.loc[df_raster.index==i].year.values[0]
 
-        # check if raster already exists
+        # check if current month's raster already exists
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
             log(f'\n create_raster_by_month() - Raster for {month_}/{year_} already downloaded. Skipping to next month.')
             df_raster.loc[i,'data_id'] = 11
             df_raster.to_csv(df_file_dir, index=False)
             continue
 
-        # check if month is available
+        # check if current month has available links or could be processed (in case of a crash)
         if df_raster.iloc[i].data_id==0:
             log(f'\n create_raster_by_month() - Raster for {month_}/{year_} not available. Skipping to next month.')
+            # In case of a crash, could be reading month whose links were available but could not be processed (data_id turns to 0)
+            # In that case, 'download_method' is updated to 'could_not_process'.
+            # If not, it is the first time the month is being processed. Update to 'no_links_available'.
+            if df_raster.iloc[i].download_method != 'could_not_process':
+                df_raster.loc[i,'download_method'] = 'no_links_available'
+                df_raster.to_csv(df_file_dir, index=False)
             continue
 
         log(f'\n create_raster_by_month() - Starting new analysis for {month_}/{year_}')
 
-        # gather links for raster images
+        # creates time range for a specific month
         sample_date = datetime(year_, month_, 1)
         first_day = sample_date + relativedelta(day=1)
         last_day = sample_date + relativedelta(day=31)
-
-        # creates time range for a specific month
         time_of_interest = [f"{year_}-{month_:02d}-{first_day.day:02d}/{year_}"+
                             f"-{month_:02d}-{last_day.day:02d}"]
 
@@ -1027,18 +1050,18 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         #df_links = pd.DataFrame.from_dict(assets_hrefs,
         #                                orient='Index').reset_index().rename(columns={'index':'date'})
 
-        # dates according to cloud coverage
+        # dates in current month according to cloud coverage
         date_order = [True if (d.month == month_) and (d.year == year_) else False for d in date_list]
         date_array = np.array(date_list)
         date_filter = np.array(date_order)
         dates_ordered = date_array[date_filter]
 
-        # mosaic raster iterations (while loop tries 5 times to process all available rasters (dates) in a month)
+        # mosaic raster iterations (while loop tries max_iter_count times to process all available rasters (dates) in a month)
+        max_iter_count = 2
         iter_count = 1
         # create skip date list used to analyze null values in raster
         skip_date_list = []
 
-        max_iter_count = 2
         while iter_count <= max_iter_count:
 
             # --- Gather updated links - Since links expire after some time, they are gathered at each iteration
@@ -1070,13 +1093,14 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                 log(f'NOTE: Month has all available tiles within area of interest.')
             
             # --- Analyze links in two ways: ordered by cloud coverage and all available links for the month
-            # Explanation: Since satellites pass over different areas on different dates, sometimes analysis by date results in missing data.
+            # Explanation: 
+            # Since satellites pass over different areas on different dates, sometimes analysis by date results in missing data.
             # To solve this, we gather all available links for the month and use them if the date ordered by cloud coverage does not pass the null test.
             
-            # In order to avoid duplicating code, the links_iteration() function recieves the current function's arguments 
-            # While only specific links and dates data are changed.
+            # In order to avoid duplicating code, the links_iteration() function recieves most of the current function's arguments,
+            # while only specific links and dates data are changed.
             common_args_dct = {'skip_date_list':skip_date_list, # List of dates to be skipped because null test failed
-                               'iter_count':iter_count, # Current iteration of current month
+                               'iter_count':iter_count, # Current iteration of current month (Used in logs)
                                'time_exc_limit':time_exc_limit, # Specified time limit for downloading a raster
                                'band_name_dict':band_name_dict, # Bands to be used in the raster analysis
                                'gdf_bb':gdf_bb, # Crop the raster to a specific area of interest
@@ -1090,34 +1114,40 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                                'checker':checker, # Checker with value '0' if month has not being processed, 1 when processed
                                }
 
-            # --- LINKS ANALIZYS A - ORDERED ACCORDING TO CLOUD COVERAGE
+            # --- LINKS ANALIZYS A - ORDERED ACCORDING TO CLOUD COVERAGE [PREFERRED]
             # Create list of links ordered according to cloud coverage
             links_dicts_ordered_lst = []
             for data_position in range(len(dates_ordered)):
-                # Select current link dictionary and append to ordered list
-                current_link_dct = assets_hrefs[dates_ordered[data_position]]
-                links_dicts_ordered_lst.append(current_link_dct)
+                try:
+                    current_link_dct = assets_hrefs[dates_ordered[data_position]]
+                    links_dicts_ordered_lst.append(current_link_dct)
+                except:
+                    # Logging error for debugging purposes
+                    log(data_position)
+                    log(dates_ordered[data_position])
+                    log(assets_hrefs.keys())
                 #log(f"Appended {current_link_dct}.") #---log useful for debugging---
             #log(f"Ordered list: {links_dicts_ordered_lst}.") #---log useful for debugging---
             # Processing by ordered dates
-            ordered_links_try = 0
+            ordered_links_try = 0 #Call the current position in dates_ordered
             for bands_links in links_dicts_ordered_lst:
                 log(f"{dates_ordered[ordered_links_try]} - ITERATION {iter_count} - DATE {ordered_links_try+1}/{len(links_dicts_ordered_lst)}.")
-                skip_date_list, checker, iter_count = links_iteration(bands_links = bands_links,
-                                                                      specific_date = (True, dates_ordered[ordered_links_try]),
-                                                                      common_args_dct = common_args_dct
-                                                                      )
+                skip_date_list, checker = links_iteration(bands_links = bands_links,
+                                                          specific_date = (True, dates_ordered[ordered_links_try]),
+                                                          common_args_dct = common_args_dct
+                                                          )
                 # If succeded current date, stop ordered dates iterations
                 if checker==1:
                     break
                 # Else, try next date
                 ordered_links_try += 1
-            # If succeded by any date, stop month's while loop
+            # If succeded by any date, stop month's while loop (Doesn't try whole month's available links)
             if checker==1:
+                download_method = 'specific_date'
                 break
             
-            # --- LINKS ANALIZYS B - WHOLE MONTH'S AVAILABLE LINKS
-            # Create list of all available links for the month
+            # --- LINKS ANALIZYS B - WHOLE MONTH'S AVAILABLE LINKS [BACKUP]
+            # Create list of ALL available links for the month
             links_dicts_month = {}
             for current_link_dct in links_dicts_ordered_lst:
                 for band, links in current_link_dct.items():
@@ -1127,27 +1157,36 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             #log(f"Links dictionary for the month: {links_dicts_month}.") #---log useful for debugging---
             # Processing all available links for the month
             log(f"{month_}/{year_} - MONTH ITERATION {iter_count}.")
-            skip_date_list, checker, iter_count = links_iteration(bands_links = links_dicts_month,
-                                                                  specific_date = (False, None),
-                                                                  common_args_dct = common_args_dct
-                                                                  )
+            skip_date_list, checker = links_iteration(bands_links = links_dicts_month,
+                                                      specific_date = (False, None),
+                                                      common_args_dct = common_args_dct
+                                                      )
             # If succeded whole month, stop while loop
             if checker==1:
+                download_method = 'full_month'
                 break
-            
-            # Next iteration
+            # Else, try next iteration (If not reached max_iter_count)
             iter_count += 1
 
-        # update df_raster according to checker value
+        # Current month's iteration finished, update df_raster according to checker value (0 or 1)
         if checker==0:
             log(f'Could not process month {month_}/{year_}. Updating df_raster and moving to next month.')
             df_raster.loc[df_raster.index==i,'data_id']=0
             df_raster.loc[df_raster.index==i,'able_to_download']=0
+            df_raster.loc[df_raster.index==i,'download_method']='could_not_process'
             df_raster.to_csv(df_file_dir, index=False)
             if compute_unavailable_dates:
                 available_data_check(df_raster, len(df_raster.loc[df_raster.data_id==0])) # test for missing months
             continue
-
+        else:
+            log(f'Processed month {month_}/{year_}. Updating df_raster and moving to next month.')
+            df_raster.loc[df_raster.index==i,'able_to_download']=1
+            df_raster.loc[df_raster.index==i,'download_method']=download_method
+            df_raster.to_csv(df_file_dir, index=False)
+            continue
+    
+    # Finished iterating over all df_len rows (months).
+    # Read and return updated df_len
     df_len = pd.read_csv(df_file_dir, index_col=False)
 
     return df_len
