@@ -162,6 +162,9 @@ def main(gdf_mun, city_name, metropolitan_area_name):
     bld_gdf['geometry'] = bld_gdf['geometry'].apply(wkt.loads)
     bld_gdf = gpd.GeoDataFrame(bld_gdf, crs='epsg:4326')
     bld_gdf = bld_gdf.to_crs("EPSG:6372")
+    aup.log(f"Finished reading {len(bld_gdf)} building data")
+    bld_gdf = bld_gdf.loc[bld_gdf.confidence>=0.7].copy()
+    aup.log(f"Finished filtering building data with {len(bld_gdf)} buildings")
 
     # clip buildings to municipality
     gdf_mun = gdf_mun.to_crs("EPSG:6372")
@@ -183,6 +186,11 @@ def main(gdf_mun, city_name, metropolitan_area_name):
     bld_block = gpd.overlay(bld_gdf, block_gdf, how='intersection')
 
     aup.log(f"Finished overlaying building data with {len(bld_block)} buildings")
+
+    bld_block['area_in_meters'] = bld_block.area
+    bld_block = bld_block.loc[bld_block.area_in_meters>=50].copy()
+    aup.log(f"Filtered clipped building data by area to {len(bld_block)} buildings")
+
 
     # Get unique CVEGEOs to process
     unique_cvegeos = bld_block.CVEGEO.unique()
@@ -299,6 +307,15 @@ def main(gdf_mun, city_name, metropolitan_area_name):
 
     aup.log(f"Finished spatial KDE to area of prediction")
 
+    uso_list = ['agropecuario','industria',
+        'servicios','alojamiento','comercio',
+        'cultural_recreativo','educacion','salud','gobierno','otros']
+
+    for uso in uso_list:
+        if uso not in aop_kde.columns:
+            aop_kde[uso] = 0
+            aup.log(f"Added column {uso} to aop_kde")
+
     aop_data = aop_data.merge(aop_kde[['fid','agropecuario','industria',
         'servicios','alojamiento','comercio',
         'cultural_recreativo','educacion','salud','gobierno','otros']])
@@ -309,10 +326,6 @@ def main(gdf_mun, city_name, metropolitan_area_name):
 
     aop_data = aop_data.rename(columns={'pobtot_relative':'habitacional',
                                        'educación':'educacion'})
-
-    uso_list = ['agropecuario','industria',
-        'servicios','alojamiento','comercio',
-        'cultural_recreativo','educacion','salud','gobierno','otros']
 
     aop_data['uso_tot'] = aop_data[uso_list].sum(axis=1)
 
@@ -486,19 +499,35 @@ def main(gdf_mun, city_name, metropolitan_area_name):
 
         road_type = road_dict[road_class]
 
-        results.append(road_type_to_area_of_prediction(aop_gdf,
-                                                        edges,
-                                                        road_class,
-                                                        road_type,
-                                                        pixel_size,
-                                                        bounds,
-                                                        output_dir)
-                                                        )
+        try:
+
+            results.append(road_type_to_area_of_prediction(aop_gdf,
+                                                            edges,
+                                                            road_class,
+                                                            road_type,
+                                                            pixel_size,
+                                                            bounds,
+                                                            output_dir)
+                                                            )
+        except Exception as e:
+            aup.log(f"Error processing road class {road_class}: {str(e)}")
+            continue
 
     for results_df in results:
         aop_gdf = aop_gdf.merge(results_df, on='fid', how='left')
 
     aup.log("Finished parallel processing for proximity to roads")
+
+    for road in road_list:
+        if f"{road}_distance_x" not in aop_gdf.columns:
+            aup.log(f"Missing column {road}_distance_x")
+            aop_gdf[f"{road}_distance_x"] = 0
+            aop_gdf[f"{road}_distance_y"] = 0
+        elif f"{road}_distance_y" not in aop_gdf.columns:
+            aup.log(f"Missing column {road}_distance_y")
+            aop_gdf[f"{road}_distance_y"] = 0
+            aop_gdf["{road}_distance_x"] = 0
+
 
     if 'path_distance_y' in aop_gdf.columns:
         aop_gdf = aop_gdf.drop(columns=['motorway_distance_y', 'primary_distance_y',
@@ -506,220 +535,220 @@ def main(gdf_mun, city_name, metropolitan_area_name):
                'other_distance_y'])
 
         aop_gdf = aop_gdf.rename(columns={'residential_distance_x':'residential_distance',
-                               'primary_distance_x':'primary_distance',
-                               'tertiary_distance_x':'tertiary_distance',
-                               'secondary_distance_x':'secondary_distance',
-                               'motorway_distance_x':'motorway_distance',
-                                          'other_distance_x':'other_distance'
-                               })
+                                'primary_distance_x':'primary_distance',
+                                'tertiary_distance_x':'tertiary_distance',
+                                'secondary_distance_x':'secondary_distance',
+                                'motorway_distance_x':'motorway_distance',
+                                            'other_distance_x':'other_distance'
+                                })
 
-        aop_gdf.to_file('../../data/processed/prediccion_uso_suelo/monterrey/area_of_prediction_roads.gpkg')
+    aop_gdf.to_file('../../data/processed/prediccion_uso_suelo/monterrey/area_of_prediction_roads.gpkg')
 
-        del edges
-        del results
+    del edges
+    del results
 
-        aup.log("Finished processing proximity to roads")
+    aup.log("Finished processing proximity to roads")
 
-        #############################################
-        # PROXIMITY DATA
+    #############################################
+    # PROXIMITY DATA
 
-        aup.log("Processing proximity to amenities")
+    aup.log("Processing proximity to amenities")
 
-        gdf = aop_gdf.copy()
-        del aop_gdf
+    gdf = aop_gdf.copy()
+    del aop_gdf
 
-        buffer = gdf_mun.to_crs("EPSG:6372").buffer(100)
-        buffer = gpd.GeoDataFrame(geometry = buffer)
-        buffer = buffer.to_crs("EPSG:4326")
+    buffer = gdf_mun.to_crs("EPSG:6372").buffer(100)
+    buffer = gpd.GeoDataFrame(geometry = buffer)
+    buffer = buffer.to_crs("EPSG:4326")
 
-        table = 'proximity_v2_23_point'
-        schema = 'prox_analysis'
+    table = 'proximity_v2_23_point'
+    schema = 'prox_analysis'
 
-        prox_nodes = aup.gdf_from_polygon(buffer, schema, table)
+    prox_nodes = aup.gdf_from_polygon(buffer, schema, table)
 
-        aup.log(f"Downloaded {prox_nodes.shape[0]} proximity data")
+    aup.log(f"Downloaded {prox_nodes.shape[0]} proximity data")
 
-        cols = ['osmid','denue_primaria','denue_primaria_15min',
-               'denue_abarrotes','denue_abarrotes_15min','denue_peluqueria',
-               'denue_peluqueria_15min','denue_lavanderia','denue_lavanderia_15min',
-               'clues_primer_nivel','clues_primer_nivel_15min','geometry']
-        prox_nodes = prox_nodes[cols].copy()
+    cols = ['osmid','denue_primaria','denue_primaria_15min',
+            'denue_abarrotes','denue_abarrotes_15min','denue_peluqueria',
+            'denue_peluqueria_15min','denue_lavanderia','denue_lavanderia_15min',
+            'clues_primer_nivel','clues_primer_nivel_15min','geometry']
+    prox_nodes = prox_nodes[cols].copy()
 
-        prox_nodes = prox_nodes.to_crs("EPSG:6372")
-        gdf = gdf.to_crs("EPSG:6372")
+    prox_nodes = prox_nodes.to_crs("EPSG:6372")
+    gdf = gdf.to_crs("EPSG:6372")
 
-        if 'fid' not in gdf.columns:
-            gdf = gdf.reset_index().rename(columns={'index':'fid'})
+    if 'fid' not in gdf.columns:
+        gdf = gdf.reset_index().rename(columns={'index':'fid'})
 
-        gdf_cnt = gdf[['fid','geometry']].copy()
-        gdf_cnt['geometry'] = gdf_cnt.centroid
+    gdf_cnt = gdf[['fid','geometry']].copy()
+    gdf_cnt['geometry'] = gdf_cnt.centroid
 
-        aup.log("Interpolate proximity data to area of prediction")
+    aup.log("Interpolate proximity data to area of prediction")
 
-        for col in cols:
+    for col in cols:
 
-            if (col != 'osmid') and (col != 'geometry'):
+        if (col != 'osmid') and (col != 'geometry'):
 
-                division_value = 10000
+            division_value = 10000
 
-                gdf_int = gpd.GeoDataFrame()
+            gdf_int = gpd.GeoDataFrame()
 
-                for i in range(round(len(gdf_cnt)/division_value)):
+            for i in range(round(len(gdf_cnt)/division_value)):
 
-                    gdf_tmp = gdf_cnt.iloc[i*division_value:
-                    (i+1)*division_value].copy()
+                gdf_tmp = gdf_cnt.iloc[i*division_value:
+                (i+1)*division_value].copy()
 
-                    int_vals = aup.interpolate_at_points(prox_nodes.centroid.x,
-                                                     prox_nodes.centroid.y,
-                                                     prox_nodes[col],
-                                                     gdf_tmp.geometry.x,
-                                                     gdf_tmp.geometry.y,
-                                                    power=2,
-                                                    search_radius=300)
-                    gdf_tmp[col] = int_vals
+                int_vals = aup.interpolate_at_points(prox_nodes.centroid.x,
+                                                    prox_nodes.centroid.y,
+                                                    prox_nodes[col],
+                                                    gdf_tmp.geometry.x,
+                                                    gdf_tmp.geometry.y,
+                                                power=2,
+                                                search_radius=300)
+                gdf_tmp[col] = int_vals
 
-                    gdf_int = pd.concat([gdf_int,gdf_tmp])
+                gdf_int = pd.concat([gdf_int,gdf_tmp])
 
-                gdf_cnt = gdf_cnt.merge(gdf_int[['fid',col]], on='fid')
-                aup.log('Finished processing',col)
+            gdf_cnt = gdf_cnt.merge(gdf_int[['fid',col]], on='fid')
+            aup.log('Finished processing',col)
 
-        gdf = gdf.merge(gdf_cnt.drop(columns=['geometry']),
-                        on='fid')
+    gdf = gdf.merge(gdf_cnt.drop(columns=['geometry']),
+                    on='fid')
 
-        gdf.to_file('../../data/processed/prediccion_uso_suelo/monterrey/area_of_prediction_prox.gpkg')
+    gdf.to_file('../../data/processed/prediccion_uso_suelo/monterrey/area_of_prediction_prox.gpkg')
 
-        del prox_nodes
-        del gdf_cnt
+    del prox_nodes
+    del gdf_cnt
 
-        aup.log("Finished processing proximity data to area of prediction")
+    aup.log("Finished processing proximity data to area of prediction")
 
-        #################################
-        # FIRST PERCENTAGE PREDICTION
+    #################################
+    # FIRST PERCENTAGE PREDICTION
 
-        aup.log("Starting first percentage prediction")
+    aup.log("Starting first percentage prediction")
 
-        if 'fid' not in gdf.columns:
-            gdf = gdf.reset_index().rename(columns={'index':'fid'})
+    if 'fid' not in gdf.columns:
+        gdf = gdf.reset_index().rename(columns={'index':'fid'})
 
-        X = gdf[['bld_area_m2', 'block_area_m2', 'pred_area_m2', 'pred_area_pct',
-               'bld_pred_area_pct','area_m2_tot',
-                'pobtot', 'agropecuario', 'industria', 'servicios',
-               'alojamiento', 'comercio', 'cultural_recreativo', 'educacion', 'salud',
-               'gobierno', 'otros',  'habitacional',
-                'uso_tot',
-               'pct_agropecuario', 'pct_industria', 'pct_servicios', 'pct_alojamiento',
-               'pct_comercio', 'pct_cultural_recreativo', 'pct_educacion', 'pct_salud',
-               'pct_gobierno', 'pct_otros',
-                'temperature_mean_diff', 'ndvi_mean',
-               'ndmi_diff',
-                'motorway_distance', 'primary_distance',
-               'secondary_distance', 'tertiary_distance', 'residential_distance',
-               'other_distance',
-                'denue_primaria', 'denue_primaria_15min',
-               'denue_abarrotes', 'denue_abarrotes_15min', 'denue_peluqueria',
-               'denue_peluqueria_15min', 'denue_lavanderia', 'denue_lavanderia_15min',
-               'clues_primer_nivel', 'clues_primer_nivel_15min'
-            ]].to_numpy()
+    X = gdf[['bld_area_m2', 'block_area_m2', 'pred_area_m2', 'pred_area_pct',
+            'bld_pred_area_pct','area_m2_tot',
+            'pobtot', 'agropecuario', 'industria', 'servicios',
+            'alojamiento', 'comercio', 'cultural_recreativo', 'educacion', 'salud',
+            'gobierno', 'otros',  'habitacional',
+            'uso_tot',
+            'pct_agropecuario', 'pct_industria', 'pct_servicios', 'pct_alojamiento',
+            'pct_comercio', 'pct_cultural_recreativo', 'pct_educacion', 'pct_salud',
+            'pct_gobierno', 'pct_otros',
+            'temperature_mean_diff', 'ndvi_mean',
+            'ndmi_diff',
+            'motorway_distance', 'primary_distance',
+            'secondary_distance', 'tertiary_distance', 'residential_distance',
+            'other_distance',
+            'denue_primaria', 'denue_primaria_15min',
+            'denue_abarrotes', 'denue_abarrotes_15min', 'denue_peluqueria',
+            'denue_peluqueria_15min', 'denue_lavanderia', 'denue_lavanderia_15min',
+            'clues_primer_nivel', 'clues_primer_nivel_15min'
+        ]].to_numpy()
 
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
 
-        model_name = 'landuse_nn_ModelOne'
-        model_one = pickle.load(open(f"../../data/processed/prediccion_uso_suelo/complete_model/{model_name}.pkl",'rb'))
+    model_name = 'landuse_nn_ModelOne'
+    model_one = pickle.load(open(f"../../data/processed/prediccion_uso_suelo/complete_model/{model_name}.pkl",'rb'))
 
-        aup.log(f"Starting prediction with {model_name}")
+    aup.log(f"Starting prediction with {model_name}")
 
-        y_hat = model_one.predict(X_scaled)
+    y_hat = model_one.predict(X_scaled)
 
-        aup.log(f"Finished prediction with {model_name}")
+    aup.log(f"Finished prediction with {model_name}")
 
-        category_list = ['agropecuario','alojamiento_temporal',
-                         'area_libre','area_natural','baldio','comercio',
-                        'equipamiento','espacio_verde','habitacional',
-                        'industria','infraestructura','mixto','otros',
-                         'servicio','sin_dato']
+    category_list = ['agropecuario','alojamiento_temporal',
+                        'area_libre','area_natural','baldio','comercio',
+                    'equipamiento','espacio_verde','habitacional',
+                    'industria','infraestructura','mixto','otros',
+                        'servicio','sin_dato']
 
-        prefix = 'pct_pred_'
+    prefix = 'pct_pred_'
 
-        category_list = [prefix+cl for cl in category_list]
+    category_list = [prefix+cl for cl in category_list]
 
-        gdf[category_list] = y_hat
+    gdf[category_list] = y_hat
 
-        aup.log("Assigned predictions percentages to area of prediction")
+    aup.log("Assigned predictions percentages to area of prediction")
 
-        model_name = 'landuse_nn_ModelSmote'
-        model_smote = pickle.load(open(f"../../data/processed/prediccion_uso_suelo/complete_model/{model_name}.pkl",'rb'))
+    model_name = 'landuse_nn_ModelSmote'
+    model_smote = pickle.load(open(f"../../data/processed/prediccion_uso_suelo/complete_model/{model_name}.pkl",'rb'))
 
-        aup.log(f"Starting prediction with {model_name}")
+    aup.log(f"Starting prediction with {model_name}")
 
-        y_hat = model_smote.predict(X_scaled)
+    y_hat = model_smote.predict(X_scaled)
 
-        aup.log(f"Finished prediction with {model_name}")
+    aup.log(f"Finished prediction with {model_name}")
 
-        category_list = ['agropecuario','alojamiento_temporal',
-                         'area_libre','area_natural','baldio','comercio',
-                        'equipamiento','espacio_verde','habitacional',
-                        'industria','infraestructura','mixto','otros',
-                         'servicio','sin_dato']
+    category_list = ['agropecuario','alojamiento_temporal',
+                        'area_libre','area_natural','baldio','comercio',
+                    'equipamiento','espacio_verde','habitacional',
+                    'industria','infraestructura','mixto','otros',
+                        'servicio','sin_dato']
 
-        prefix = 'pct_smote_'
+    prefix = 'pct_smote_'
 
-        category_list = [prefix+cl for cl in category_list]
+    category_list = [prefix+cl for cl in category_list]
 
-        gdf[category_list] = y_hat
+    gdf[category_list] = y_hat
 
-        aup.log("Assigned predictions percentages to area of prediction")
+    aup.log("Assigned predictions percentages to area of prediction")
 
-        gdf.to_file('../../data/processed/prediccion_uso_suelo/complete_model/area_of_prediction_primera_pred.gpkg')
+    gdf.to_file('../../data/processed/prediccion_uso_suelo/monterrey/area_of_prediction_primera_pred.gpkg')
 
-        X = gdf[['bld_area_m2', 'block_area_m2', 'pred_area_m2', 'pred_area_pct',
-               'bld_pred_area_pct','area_m2_tot',
-                'pobtot', 'agropecuario', 'industria', 'servicios',
-               'alojamiento', 'comercio', 'cultural_recreativo', 'educacion', 'salud',
-               'gobierno', 'otros',  'habitacional',
-                'uso_tot',
-               'pct_agropecuario', 'pct_industria', 'pct_servicios', 'pct_alojamiento',
-               'pct_comercio', 'pct_cultural_recreativo', 'pct_educacion', 'pct_salud',
-               'pct_gobierno', 'pct_otros',
-                'temperature_mean_diff', 'ndvi_mean',
-               'ndmi_diff',
-                'motorway_distance', 'primary_distance',
-               'secondary_distance', 'tertiary_distance', 'residential_distance',
-               'other_distance',
-                'denue_primaria', 'denue_primaria_15min',
-               'denue_abarrotes', 'denue_abarrotes_15min', 'denue_peluqueria',
-               'denue_peluqueria_15min', 'denue_lavanderia', 'denue_lavanderia_15min',
-               'clues_primer_nivel', 'clues_primer_nivel_15min',
-            'pct_pred_agropecuario', 'pct_pred_alojamiento_temporal',
-               'pct_pred_area_libre', 'pct_pred_area_natural', 'pct_pred_baldio',
-               'pct_pred_comercio', 'pct_pred_equipamiento', 'pct_pred_espacio_verde',
-               'pct_pred_habitacional', 'pct_pred_industria',
-               'pct_pred_infraestructura', 'pct_pred_mixto', 'pct_pred_otros',
-               'pct_pred_servicio', 'pct_pred_sin_dato',
-           'pct_smote_agropecuario',
-           'pct_smote_alojamiento_temporal', 'pct_smote_area_libre',
-           'pct_smote_area_natural', 'pct_smote_baldio', 'pct_smote_comercio',
-           'pct_smote_equipamiento', 'pct_smote_espacio_verde',
-           'pct_smote_habitacional', 'pct_smote_industria',
-           'pct_smote_infraestructura', 'pct_smote_mixto', 'pct_smote_otros',
-           'pct_smote_servicio', 'pct_smote_sin_dato',
-            ]].to_numpy()
+    X = gdf[['bld_area_m2', 'block_area_m2', 'pred_area_m2', 'pred_area_pct',
+            'bld_pred_area_pct','area_m2_tot',
+            'pobtot', 'agropecuario', 'industria', 'servicios',
+            'alojamiento', 'comercio', 'cultural_recreativo', 'educacion', 'salud',
+            'gobierno', 'otros',  'habitacional',
+            'uso_tot',
+            'pct_agropecuario', 'pct_industria', 'pct_servicios', 'pct_alojamiento',
+            'pct_comercio', 'pct_cultural_recreativo', 'pct_educacion', 'pct_salud',
+            'pct_gobierno', 'pct_otros',
+            'temperature_mean_diff', 'ndvi_mean',
+            'ndmi_diff',
+            'motorway_distance', 'primary_distance',
+            'secondary_distance', 'tertiary_distance', 'residential_distance',
+            'other_distance',
+            'denue_primaria', 'denue_primaria_15min',
+            'denue_abarrotes', 'denue_abarrotes_15min', 'denue_peluqueria',
+            'denue_peluqueria_15min', 'denue_lavanderia', 'denue_lavanderia_15min',
+            'clues_primer_nivel', 'clues_primer_nivel_15min',
+        'pct_pred_agropecuario', 'pct_pred_alojamiento_temporal',
+            'pct_pred_area_libre', 'pct_pred_area_natural', 'pct_pred_baldio',
+            'pct_pred_comercio', 'pct_pred_equipamiento', 'pct_pred_espacio_verde',
+            'pct_pred_habitacional', 'pct_pred_industria',
+            'pct_pred_infraestructura', 'pct_pred_mixto', 'pct_pred_otros',
+            'pct_pred_servicio', 'pct_pred_sin_dato',
+        'pct_smote_agropecuario',
+        'pct_smote_alojamiento_temporal', 'pct_smote_area_libre',
+        'pct_smote_area_natural', 'pct_smote_baldio', 'pct_smote_comercio',
+        'pct_smote_equipamiento', 'pct_smote_espacio_verde',
+        'pct_smote_habitacional', 'pct_smote_industria',
+        'pct_smote_infraestructura', 'pct_smote_mixto', 'pct_smote_otros',
+        'pct_smote_servicio', 'pct_smote_sin_dato',
+        ]].to_numpy()
 
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
 
-        model_name = 'landuse_nn_PredictionModel'
-        model_land_use = pickle.load(open(f"../../data/processed/prediccion_uso_suelo/complete_model/{model_name}.pkl",'rb'))
+    model_name = 'landuse_nn_PredictionModel'
+    model_land_use = pickle.load(open(f"../../data/processed/prediccion_uso_suelo/complete_model/{model_name}.pkl",'rb'))
 
-        aup.log(f"Starting prediction with {model_name}")
+    aup.log(f"Starting prediction with {model_name}")
 
-        y_hat = model_land_use.predict(X_scaled)
+    y_hat = model_land_use.predict(X_scaled)
 
-        aup.log(f"Finished prediction with {model_name}")
+    aup.log(f"Finished prediction with {model_name}")
 
-        gdf['pred'] = y_hat.argmax(axis=1)
+    gdf['pred'] = y_hat.argmax(axis=1)
 
-        gdf[['fid','uso_suelo','pred','geometry']].to_file(f'../../data/processed/prediccion_uso_suelo/monterrey/{city_name}_area_of_prediction_landuse.gpkg')
+    gdf[['fid','pred','geometry']].to_file(f'../../data/processed/prediccion_uso_suelo/monterrey/{city_name}_area_of_prediction_landuse.gpkg')
 
 
 

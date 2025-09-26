@@ -280,6 +280,8 @@ def road_type_to_area_of_prediction(aop_road, edges, road_class, road_type, pixe
 
     edges_road_type = edges.loc[edges.highway.isin(road_type)].copy()
 
+    aup.log(f"Filtered edges and kept {len(edges_road_type)} edges")
+
     rv_array, affine = dr.rasterize(edges_road_type,
                                     pixel_size=pixel_size,
                                     bounds=bounds,
