@@ -81,7 +81,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         df_len (pandas.DataFrame): Dataframe containing a summary of available and
         processed data for city and the specified time range.
     """
-    log('\n download_raster_from_pc() - Starting raster analysis')
+    log(f'\n download_raster_from_pc() - {city} - Starting raster analysis')
     
     # Create area of interest coordinates from hexagons to download raster data
     log('Extracting bounding coordinates from hexagons')
@@ -991,7 +991,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month.
     """
 
-    log('\n create_raster_by_month() - Starting raster by month analysis.')
+    log(f'\n create_raster_by_month() - {city} - Starting raster by month analysis.')
 
     # if df_len doesn't already exist, save dataframe to temporary directory
     df_file_dir = tmp_dir+index_analysis+f'_{city}_dataframe.csv'
@@ -1021,14 +1021,14 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
 
         # check if current month's raster already exists
         if f'{city}_{index_analysis}_{month_}_{year_}.tif' in os.listdir(tmp_dir):
-            log(f'\n create_raster_by_month() - Raster for {month_}/{year_} already downloaded. Skipping to next month.')
+            log(f'\n create_raster_by_month() - {city} - Raster for {month_}/{year_} already downloaded. Skipping to next month.')
             df_raster.loc[i,'data_id'] = 11
             df_raster.to_csv(df_file_dir, index=False)
             continue
 
         # check if current month has available links or could be processed (in case of a crash)
         if df_raster.iloc[i].data_id==0:
-            log(f'\n create_raster_by_month() - Raster for {month_}/{year_} not available. Skipping to next month.')
+            log(f'\n create_raster_by_month() - {city} - Raster for {month_}/{year_} not available. Skipping to next month.')
             # In case of a crash, could be reading month whose links were available but could not be processed (data_id turns to 0)
             # In that case, 'download_method' is updated to 'could_not_process'.
             # If not, it is the first time the month is being processed. Update to 'no_links_available'.
@@ -1037,7 +1037,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                 df_raster.to_csv(df_file_dir, index=False)
             continue
 
-        log(f'\n create_raster_by_month() - Starting new analysis for {month_}/{year_}')
+        log(f'\n create_raster_by_month() - {city} - Starting new analysis for {month_}/{year_}')
 
         # creates time range for a specific month
         sample_date = datetime(year_, month_, 1)
