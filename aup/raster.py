@@ -48,11 +48,13 @@ def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
     pct_missing = round(missing_months/len(df_len),2)*100
     log(f'Created DataFrame with {missing_months} ({pct_missing}%) missing months')
     if pct_missing >= pct_limit:
-        raise AvailableData('Missing more than 50 percent of data points')
+        log("available_data_check() - Missing more than 50 percent of data points.")
+        raise AvailableData('Missing more than 50 percent of data points.')
     df_rol = df_len['data_id'].rolling(window_limit).sum()
     # If any rolling window has a sum of 0, it means there are multiple missing months together
     if (df_rol == 0).any():
-        raise AvailableData("Multiple missing months together")
+        log("available_data_check() - Multiple missing months together.")
+        raise AvailableData("Multiple missing months together.")
     del df_rol
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date,
@@ -258,7 +260,7 @@ def gather_items(time_of_interest, area_of_interest, query={}, satellite="sentin
             # Check how many items were returned
             items.extend(list(search.items()))
         except:
-            log('No items found')
+            log(f"No items found on datetime {t}.")
             continue
     return items
 
