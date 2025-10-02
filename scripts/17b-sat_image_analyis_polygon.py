@@ -16,25 +16,24 @@ class NanValues(Exception):
     def __str__(self):
         return self.message
 
-def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, sat_query, save=False, del_data=False):
+def main(aoi_gdf, index_analysis, city, band_name_dict, start_date, end_date, freq, satellite, sat_query, save=False, del_data=False):
 
     # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
-    # Create city area of interest with biggest hexs
+    # Create area of interest with biggest hexs
     big_res = min(res)
 
-    poly = mun_gdf.to_crs(projection_crs).buffer(500).reset_index()
+    poly = aoi_gdf.to_crs(projection_crs).buffer(500).reset_index()
     poly = poly.rename(columns={0:'geometry'})
     poly = gpd.GeoDataFrame(poly, geometry='geometry')
     poly = poly.to_crs("EPSG:4326")
-    hex_city = aup.create_hexgrid(poly, big_res)
+    hex_aoi = aup.create_hexgrid(poly, big_res)
 
-    aup.log(f'Created {len(hex_city)} hexagon features')
+    aup.log(f'Created {len(hex_aoi)} hexagon features')
     
     # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
-    df_len = aup.download_raster_from_pc(hex_city, index_analysis, city, freq,
+    df_len = aup.download_raster_from_pc(hex_aoi, index_analysis, city, freq,
                                         start_date, end_date, tmp_dir, band_name_dict, 
                                         satellite=satellite, query=sat_query, projection_crs=projection_crs)
-
     aup.log(f'Finished downloading and processing rasters for {city}')
 
     # ------------------------------ RASTERS TO HEX ------------------------------
@@ -48,12 +47,12 @@ def main(mun_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
             res_list.append(r)
         
         # Load hexgrids
-        hex_gdf = hex_city.copy()
+        hex_gdf = hex_aoi.copy()
         hex_gdf.rename(columns={f'hex_id_{big_res}':'hex_id'}, inplace=True)
         hex_gdf['res'] = big_res
 
         aup.log(f'Loaded hexgrid res {big_res}')
-        hex_diss = hex_city.dissolve()
+        hex_diss = hex_aoi.dissolve()
         
         for r in res_list:
             # biggest resolution already loaded
@@ -168,28 +167,27 @@ if __name__ == "__main__":
     aup.log('--- STARTING SCRIPT 17b.')
 
     # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
-    band_name_dict = {'green':[False], #If GSD(resolution) of band is different, set True.
-                      'nir':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(green-nir)/(green+nir)']} 
-    index_analysis = 'ndwi'
+    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+                      'red':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-red)/(nir+red)']}
+    index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
-    res = [8,10]                                                    # Commonly used: [8, 11]
+    res = [8,11]                                                    # Commonly used: [8, 11]
     freq = 'MS'
-    start_date = '2024-01-01'
-    end_date = '2024-09-25'
+    start_date = '2025-01-01'
+    end_date = '2025-10-02'
     satellite = "sentinel-2-l2a"                                    # Commonly used: "sentinel-2-l2a","landsat-c2-l2"
-    sat_query = {"eo:cloud_cover": {"lt": 40}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
-    #sat_query={}
+    sat_query = {"eo:cloud_cover": {"lt": 10}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
     del_data = False # Del rasters after processing
 
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
-    city = 'Chapala'
-    mun_gdf = gpd.read_file('../data/external/temporal_todocker/chapala/chapala_polygon.gpkg')
-    projection_crs = "EPSG:6372"
+    city = 'Caracterizacion_cuencas' #city in this case is area of interest name
+    aoi_gdf = gpd.read_file('../data/external/temporal_todocker/2025_caracterizacion_forestal/DR_24 Cuencas_estudio.shp')
+    projection_crs = "EPSG:32614"
 
     # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
-    raster_to_hex = True #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
-    local_save = True #------ Set True if saving locally
+    raster_to_hex = False #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
+    local_save = False #------ Set True if saving locally
     save = False #------ Set True if saving to database
 
     # ------------------------------ SCRIPT START ------------------------------
@@ -214,7 +212,7 @@ if __name__ == "__main__":
         os.mkdir(tmp_dir)
 
     # Run script
-    main(mun_gdf, index_analysis, city, band_name_dict, start_date,
+    main(aoi_gdf, index_analysis, city, band_name_dict, start_date,
          end_date, freq, satellite, sat_query, save, del_data)
     
 
@@ -235,12 +233,13 @@ if __name__ == "__main__":
     #           "platform": {"in": ["landsat-8", "landsat-9"]}}
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
     # city = 'Santiago'
-    # mun_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
-    # mun_gdf = aup.gdf_from_db('santiago_aoi','projects_research')
+    # aoi_gdf = gpd.read_file('../data/external/municipio_santiago/PoligonoSantiago.shp')
+    # aoi_gdf = aup.gdf_from_db('santiago_aoi','projects_research')
     # projection_crs = "EPSG:32719"
 
 
-    ##### NDVI analysis in Medellín, Colombia
+    ##### NDVI analysis in Medellín, Colombia 
+    # #NOTE: USED DIFFERENT SATELLITE THAN USUAL. band_name_dict, sat_query and satellite CHANGED.
     # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
     # band_name_dict = {'nir08':[False], #If GSD(resolution) of band is different, set True.
     #                   'red':[False], #If GSD(resolution) of band is different, set True.
@@ -255,6 +254,26 @@ if __name__ == "__main__":
     # sat_query = {}
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
     # city = 'Medellin'
-    # mun_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
+    # aoi_gdf = gpd.read_file('../data/external/municipio_medellin/medellin_urban_gcs.geojson')
     # projection_crs = "EPSG:32618"
 
+    ##### NDWI analysis in Chapala, Mexico
+    # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
+    # band_name_dict = {'green':[False], #If GSD(resolution) of band is different, set True.
+    #                  'nir':[False], #If GSD(resolution) of band is different, set True.
+    #                  'eq':['(green-nir)/(green+nir)']} 
+    # index_analysis = 'ndwi'
+    # res = [8,10]
+    # freq = 'MS'
+    # start_date = '2019-01-01'
+    # end_date = '2023-12-31'
+    # satellite = "sentinel-2-l2a"
+    # sat_query = {"eo:cloud_cover": {"lt": 40}}
+    # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
+    # city = 'Chapala'
+    # aoi_gdf = gpd.read_file('../data/external/temporal_todocker/chapala/chapala_polygon.gpkg')
+    # projection_crs = "EPSG:6372"
+
+
+
+           
