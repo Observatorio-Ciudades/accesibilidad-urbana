@@ -136,7 +136,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
 
     log('Checking available tiles for area of interest')
     # df_clouds, date_list = arrange_items(items, satellite=satellite)
-    date_list = available_datasets(items, satellite, query)
+    _,date_list = available_datasets(items, satellite, query)
     # log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # Create dictionary from links (assets_hrefs is a dict. of dates and links with structure {available_date:{band_n:[link]}})
@@ -550,9 +550,9 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
     date_list = df_tile.index.to_list()
 
     log(f'Available dates: {len(date_list)}')
-    log(f'Raster tiles per date: {len(df_tile.columns.to_list())}')
+    log(f'Raster tiles per date: {len(df_tile.columns.to_list())-1}.')
 
-    return date_list
+    return df_tile, date_list
 
 
 def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
@@ -1120,16 +1120,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             # Create list of links ordered according to cloud coverage
             links_dicts_ordered_lst = []
             for data_position in range(len(dates_ordered)):
-                try:
-                    current_link_dct = assets_hrefs[dates_ordered[data_position]]
-                    links_dicts_ordered_lst.append(current_link_dct)
-                except:
-                    # Logging error for debugging purposes
-                    log(data_position)
-                    log(dates_ordered[data_position])
-                    log(assets_hrefs.keys())
-                #log(f"Appended {current_link_dct}.") #---log useful for debugging---
-            #log(f"Ordered list: {links_dicts_ordered_lst}.") #---log useful for debugging---
+                current_link_dct = assets_hrefs[dates_ordered[data_position]]
+                links_dicts_ordered_lst.append(current_link_dct)
             # Processing by ordered dates
             ordered_links_try = 0 #Call the current position in dates_ordered
             for bands_links in links_dicts_ordered_lst:
@@ -1147,16 +1139,41 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             if checker==1:
                 download_method = 'specific_date'
                 break
-            
+
             # --- LINKS ANALIZYS B - WHOLE MONTH'S AVAILABLE LINKS [BACKUP]
-            # Create list of ALL available links for the month
+            # --- Gather updated links - Since links expire after some time, they are gathered at each iteration
+            # gather links for the date range from planetary computer
+            items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
+    
+            # --- From month's available links, select only the dates that have min cloud pct for each tile
+            # Re-create df_tile (tiles with cloud pct dataframe) for currently explored dates
+            df_tile_current, _ = available_datasets(items, sat, query)
+            # Drop 'avg_cloud' column
+            df_tile_current.drop(columns=['avg_cloud'],inplace=True)
+            # Drop all tile columns with no data (where mean is nan) and list the rest
+            df_tile_current = df_tile_current.drop(columns=df_tile_current.columns[df_tile_current.mean(skipna=True).isna()])
+            tiles_lst = df_tile_current.columns.to_list()
+            # Reset index to place date as a column
+            df_tile_current.reset_index(inplace=True)
+            df_tile_current.rename(columns={'index':'date'},inplace=True)
+            # For each tile, find the date where the clouds percentage is lowest and append date to perform month's analysis
+            dates_month_min_cloud = []
+            for tile in tiles_lst:
+                mincloud_idx = df_tile_current[tile].min()
+                mincloud_date = df_tile_current.loc[df_tile_current[tile]==mincloud_idx]['date'].unique()[0]
+                dates_month_min_cloud.append(mincloud_date)
+            
+            # gather links from dates that are within dates_month_min_cloud
+            assets_hrefs = link_dict(band_name_list, items, dates_month_min_cloud)
+    
+            # Create list of BEST available links for the month
             links_dicts_month = {}
-            for current_link_dct in links_dicts_ordered_lst:
+            for data_position in range(len(dates_month_min_cloud)):
+                current_link_dct = assets_hrefs[dates_month_min_cloud[data_position]]
                 for band, links in current_link_dct.items():
                     if band not in links_dicts_month:
                         links_dicts_month[band] = []  # Initialize list if band not in dictionary
                     links_dicts_month[band].extend(links) # Append links to the list for the band
-            #log(f"Links dictionary for the month: {links_dicts_month}.") #---log useful for debugging---
             # Processing all available links for the month
             log(f"{month_}/{year_} - MONTH ITERATION {iter_count}.")
             skip_date_list, checker = links_iteration(bands_links = links_dicts_month,
