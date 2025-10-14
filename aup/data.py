@@ -12,6 +12,8 @@ import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import numpy as np
+
+from sqlalchemy import create_engine, text
 import psycopg2
 from geoalchemy2 import WKTElement
 from shapely.geometry import Polygon, MultiLineString, Point, LineString
@@ -193,7 +195,7 @@ def df_to_db_slow(df, name, schema, if_exists='fail', chunksize=50000):
      utils.log('Getting DB connection')
      engine = utils.db_engine()
      utils.log(f'Uploading table {name} to database')
-     df.to_sql(name=name.lower(), con=engine,
+     df.to_sql(name=name.lower(), con=engine.connect(),
                if_exists=if_exists, index=False, schema=schema.lower(), method='multi', chunksize=chunksize)
      utils.log(f'Table {name} in DB')
 
@@ -217,7 +219,7 @@ def gdf_to_db_slow(gdf, name, schema, if_exists="fail"):
     utils.log(f"Uploading table {name} to database")
     gdf.to_postgis(
         name=name.lower(),
-        con=engine,
+        con=engine.connect(),
         if_exists=if_exists,
         index=False,
         schema=schema.lower(),
@@ -316,8 +318,8 @@ def gdf_from_query(query, geometry_col="geometry", index_col=None):
     engine = utils.db_engine()
     utils.log("Getting data from DB")
     df = gpd.GeoDataFrame.from_postgis(
-        query, engine, geom_col=geometry_col, index_col=index_col
-    )
+        sql = text(query), con = engine.connect(), geom_col=geometry_col, index_col=index_col
+        )
     utils.log("Data retrived")
 
     engine.dispose()
@@ -361,7 +363,7 @@ def gdf_from_db(name, schema, geom_col="geometry"):
     engine = utils.db_engine()
     utils.log(f"Getting {name} from DB")
     gdf = gpd.read_postgis(
-        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine, geom_col=geom_col
+        f"SELECT * FROM {schema.lower()}.{name.lower()}", engine.connect(), geom_col=geom_col
     )
     utils.log(f"{name} retrived")
 
