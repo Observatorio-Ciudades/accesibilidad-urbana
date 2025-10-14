@@ -12,6 +12,8 @@ from rasterio import windows
 from rasterio import features
 from rasterio import warp
 import rasterio.mask
+from rasterio.warp import calculate_default_transform, reproject
+import tempfile
 from rasterio.enums import Resampling
 from rasterio.merge import merge
 from rasterio.fill import fillnodata
@@ -168,7 +170,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     df_len = create_raster_by_month(
         df_len, index_analysis, city, tmp_dir,
         band_name_dict,date_list, gdf_raster_test,
-        gdf_bb, area_of_interest, satellite, aoi_tiles,
+        gdf_bb, area_of_interest, satellite, aoi_tiles, projection_crs,
         query=query,compute_unavailable_dates=compute_unavailable_dates)
     log('Finished raster creation')
 
@@ -555,14 +557,18 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
     return df_tile, date_list
 
 
-def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
+def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False, projection_crs='EPSG:6372'):
     """
     The mosaic_raster function takes a list of raster assets and merges them together.
 
         Arguments:
             raster_asset_list (list): A list of raster asset paths to be appended together.
-            tmp_dir (str): The directory where temporary files will be stored during processing. Defaults to 'tmp/'.
+            tmp_dir (str): The directory where temporary files will be stored during processing. 
+                           Defaults to 'tmp/'.
             upscale (bool): Whether or not the mosaic is upscaled by 2x  using the formats of the conditional statement
+                            Defaults to False.
+            projection_crs (str): projection to be used when needed. 
+                                  Defaults to "EPSG:6372".
 
         Returns:
             mosaic (np.array): merged raster data
@@ -572,9 +578,47 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
 
     src_files_to_mosaic = []
 
+    # Previous version without raster reprojection
+    #for assets in raster_asset_list:
+    #    src = rasterio.open(assets)
+    #    src_files_to_mosaic.append(src)
+
+    # Raster reprojection
+    tmp_files = []
     for assets in raster_asset_list:
-        src = rasterio.open(assets)
-        src_files_to_mosaic.append(src)
+        with rasterio.open(assets) as src:
+            # Reproject if necessary
+            if src.crs != projection_crs:
+                log(f"mosaic_raster() - Reprojecting tile.")
+                # Crear transform and new metadata
+                transform, width, height = calculate_default_transform(
+                    src.crs, projection_crs, src.width, src.height, *src.bounds
+                )
+                kwargs = src.meta.copy()
+                kwargs.update({
+                    'crs': projection_crs,
+                    'transform': transform,
+                    'width': width,
+                    'height': height
+                })
+
+                # Save temporary reprojected file
+                tmp_file = tempfile.NamedTemporaryFile(suffix=".tif", delete=False).name
+                with rasterio.open(tmp_file, 'w', **kwargs) as dst:
+                    for i in range(1, src.count + 1):
+                        reproject(
+                            source=rasterio.band(src, i),
+                            destination=rasterio.band(dst, i),
+                            src_transform=src.transform,
+                            src_crs=src.crs,
+                            dst_transform=transform,
+                            dst_crs=projection_crs,
+                            resampling=Resampling.nearest
+                        )
+                tmp_files.append(tmp_file)
+                src_files_to_mosaic.append(rasterio.open(tmp_file))
+            else:
+                src_files_to_mosaic.append(rasterio.open(assets))
     
     # Merge raster tiles
     log(f"mosaic_raster() - Merging {len(src_files_to_mosaic)} tiles.")
@@ -589,18 +633,22 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
     #                       where=mosaic_count != 0 # Only divides when data available
     #                       )
     log(f"mosaic_raster() - Merged {len(src_files_to_mosaic)} tiles.")
-    meta = src.meta
+    
+    # First raster metadata as base
+    #meta = src.meta
+    meta = src_files_to_mosaic[0].meta.copy()
 
     if upscale:
         log(f"mosaic_raster() - Upscaling.")
         # save raster
-        out_meta = src.meta
+        out_meta = src_files_to_mosaic[0].meta.copy()
 
         out_meta.update({"driver": "GTiff",
                          "dtype": 'float32',
                          "height": mosaic.shape[1],
                          "width": mosaic.shape[2],
-                         "transform": out_trans})
+                         "transform": out_trans,
+                         "crs": projection_crs})
         # write raster
         with rasterio.open(tmp_dir+"mosaic_upscale.tif", "w", **out_meta) as dest:
             dest.write(mosaic)
@@ -629,10 +677,17 @@ def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False):
                             "dtype": 'float32',
                             "height": mosaic.shape[1],
                             "width": mosaic.shape[2],
-                            "transform": out_trans})
+                            "transform": out_trans,
+                            "crs": projection_crs})
 
         ds.close()
-    src.close()
+    
+    # Close datasets
+    for src in src_files_to_mosaic:
+        src.close()
+    # Remove temporary files
+    for tmp_file in tmp_files:
+        os.remove(tmp_file)
 
     return mosaic, out_trans, meta
 
@@ -776,7 +831,7 @@ def raster_nan_test(gdf, raster_file):
     if gdf['test'].isna().sum() > 0:
         raise NanValues('NaN values are still present after processing')
 
-def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
+def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir, projection_crs='EPSG:6372'):
 
     raster_array = {}
 
@@ -785,8 +840,10 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
     for b in band_names_list:
 
         log(f'mosaic_process() - Starting mosaic for {b}')
-        raster_array[b]= [mosaic_raster(raster_bands[b], tmp_dir,
-                                       upscale=band_name_dict[b][0])]
+        raster_array[b]= [mosaic_raster(raster_bands[b], 
+                                        tmp_dir,
+                                        upscale=band_name_dict[b][0],
+                                        projection_crs=projection_crs)]
         # mosaic_raster creates a tuple which has to be unpacked
         raster_array[b] = [raster_array[b][0][0],
                   raster_array[b][0][1],
@@ -798,7 +855,8 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
                         "dtype": 'float32',
                         "height": raster_array[b][0].shape[1],
                         "width": raster_array[b][0].shape[2],
-                        "transform": raster_array[b][1]})
+                        "transform": raster_array[b][1],
+                        "crs": projection_crs})
 
         log(f'mosaic_process() - Starting save: {b}')
 
@@ -821,7 +879,8 @@ def mosaic_process_v2(raster_bands, band_name_dict, gdf_bb, tmp_dir):
                                 "dtype": 'float32',
                                 "height": raster_array[b][0].shape[1],
                                 "width": raster_array[b][0].shape[2],
-                                "transform": raster_array[b][1]})
+                                "transform": raster_array[b][1],
+                                "crs": projection_crs})
             src.close()
 
 
@@ -872,7 +931,8 @@ def links_iteration(bands_links,
     city = common_args_dct['city'] # To save the raster files based on the area of interest's name
     month_ = common_args_dct['month_'] # Current month of dates being processed
     year_ = common_args_dct['year_'] # Current year of dates being processed
-    checker = common_args_dct['checker'] # Checker with value '0' if month has not being processed, 1 when processed     
+    checker = common_args_dct['checker'] # Checker with value '0' if month has not being processed, 1 when processed
+    projection_crs = common_args_dct['projection_crs'] # Projection to be used in the analysis    
 
     # If attempting to process satellite data from a specific date:
     if specific_date[0]:
@@ -895,7 +955,8 @@ def links_iteration(bands_links,
                                       args=(bands_links,
                                             band_name_dict, 
                                             gdf_bb, 
-                                            tmp_raster_dir
+                                            tmp_raster_dir,
+                                            projection_crs
                                             )
                                     )
         out_meta = rasters_arrays[list(rasters_arrays.keys())[0]][2]
@@ -961,7 +1022,7 @@ def links_iteration(bands_links,
 
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                            band_name_dict, date_list, gdf_raster_test, gdf_bb,
-                           aoi, sat, aoi_tiles, query={}, time_exc_limit=1500,
+                           aoi, sat, aoi_tiles, projection_crs='EPSG:6372', query={}, time_exc_limit=1500,
                            compute_unavailable_dates=True):
     """
     The function is used to create a raster for each month of the year within the time range
@@ -985,9 +1046,14 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         aoi (str): Define the area of interest
         sat (str): Define the satellite used to gather data
         aoi_tiles (list): List of tiles that intersect the area of interest
-        query (dict): Filter the satellite data
-        time_exc_limit (int): Set the time limit for downloading a raster
-        compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). Defaults to True.
+        projection_crs (str): projection to be used when needed. 
+            Defaults to "EPSG:6372".
+        query (dict): Filter the satellite data. 
+            Defaults to empty dictionary.
+        time_exc_limit (int): Set the time limit for downloading a raster. 
+            Defaults to 1500 seconds.
+        compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). 
+            Defaults to True.
 
     Returns:
         df_len (pandas.DataFrame): Summary dataframe indicating available raster data for each month.
@@ -1114,6 +1180,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                                'month_':month_, # Current month of dates being processed
                                'year_':year_, # Current year of dates being processed
                                'checker':checker, # Checker with value '0' if month has not being processed, 1 when processed
+                               'projection_crs':projection_crs, # Projection to be used when needed. 
                                }
 
             # --- LINKS ANALIZYS A - ORDERED ACCORDING TO CLOUD COVERAGE [PREFERRED]
