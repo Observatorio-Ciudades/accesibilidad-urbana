@@ -21,7 +21,6 @@ def main(aoi_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
     # ------------------------------ CREATION OF AREA OF INTEREST ------------------------------
     # Create area of interest with biggest hexs
     big_res = min(res)
-
     poly = aoi_gdf.to_crs(projection_crs).buffer(500).reset_index()
     poly = poly.rename(columns={0:'geometry'})
     poly = gpd.GeoDataFrame(poly, geometry='geometry')
@@ -32,8 +31,9 @@ def main(aoi_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
     
     # ------------------------------ DOWNLOAD AND PROCESS RASTERS ------------------------------
     df_len = aup.download_raster_from_pc(hex_aoi, index_analysis, city, freq,
-                                        start_date, end_date, tmp_dir, band_name_dict, 
-                                        satellite=satellite, query=sat_query, projection_crs=projection_crs)
+                                         start_date, end_date, tmp_dir, band_name_dict,
+                                         satellite=satellite, query=sat_query, projection_crs=projection_crs,
+                                         compute_unavailable_dates=True)
     aup.log(f'Finished downloading and processing rasters for {city}')
 
     # ------------------------------ RASTERS TO HEX ------------------------------
@@ -79,7 +79,9 @@ def main(aoi_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
             aup.log(f'---------------------------------------')
             aup.log(f'STARTING processing for resolution {r}.')
 
-            processing_chunk = 100000
+            # 20,000 max. on DELL laptop, crashed on DELL laptop with 50,000
+            # 50,000 works on Alienware laptop.
+            processing_chunk = 50000
 
             # filters hexagons at specified resolution
             hex_gdf_res = hex_gdf.loc[hex_gdf.res==r].copy()
@@ -92,12 +94,12 @@ def main(aoi_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
                 for i in range(int(c_processing)+1):
                     aup.log(f'Processing from {i*processing_chunk} to {(i+1)*processing_chunk}')
                     hex_gdf_i = hex_gdf_res.iloc[int(processing_chunk*i):int(processing_chunk*(1+i))].copy()
-                    raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i)
+                    raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, local_save, i)
 
             else:
                 aup.log('hex_gdf len smaller than processing chunk')
                 hex_gdf_i = hex_gdf_res.copy()
-                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save)
+                raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, local_save)
 
         aup.log(f'Finished processing city -- {city}')
         del hex_gdf
@@ -106,7 +108,7 @@ def main(aoi_gdf, index_analysis, city, band_name_dict, start_date, end_date, fr
         if del_data:
             aup.delete_files_from_folder(tmp_dir)
 
-def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save, i=0):
+def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save_db, local_save, i=0):
     aup.log(f'Translating raster to hexagon for res: {r}')
 
     hex_raster_analysis, df_raster_analysis = aup.raster_to_hex_analysis(hex_gdf_i, df_len, index_analysis,
@@ -128,7 +130,7 @@ def raster_to_hex_save(hex_gdf_i, df_len, index_analysis, tmp_dir, city, r, save
         df_raster_analysis.to_csv(tmp_dir+'local_save/'+f'{city}_{index_analysis}_HexRes{r}_v{i}.csv')
 
     # Save - upload to database
-    if save:
+    if save_db:
         upload_chunk = 150000
         aup.log(f'Starting upload for res: {r}')
 
@@ -167,27 +169,29 @@ if __name__ == "__main__":
     aup.log('--- STARTING SCRIPT 17b.')
 
     # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
-    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
-                      'red':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-red)/(nir+red)']}
-    index_analysis = 'ndvi'
+    band_name_dict = {'blue': [False], #If GSD(resolution) of band is different, set True.
+                      'red': [False], #If GSD(resolution) of band is different, set True.
+                      'nir': [False], #If GSD(resolution) of band is different, set True.
+                      'eq': ["2.5 * ((nir - red) / (nir + 6 * red - 7.5 * blue + 1))"]
+                      }
+    index_analysis = 'evi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11]                                                    # Commonly used: [8, 11]
     freq = 'MS'
-    start_date = '2025-01-01'
-    end_date = '2025-10-02'
+    start_date = '2016-01-01'
+    end_date = '2024-12-31'
     satellite = "sentinel-2-l2a"                                    # Commonly used: "sentinel-2-l2a","landsat-c2-l2"
     sat_query = {"eo:cloud_cover": {"lt": 10}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
     del_data = False # Del rasters after processing
 
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
-    city = 'Caracterizacion_cuencas' #city in this case is area of interest name
-    aoi_gdf = gpd.read_file('../data/external/temporal_todocker/2025_caracterizacion_forestal/DR_24 Cuencas_estudio.shp')
+    city = 'Caracterizacion_aoi' #city in this case is area of interest name
+    aoi_gdf = gpd.read_file('../data/external/temporal_todocker/2025_caracterizacion_forestal/AreaEstudio_CaracterizacionForestal_UTM_v1.gpkg')
     projection_crs = "EPSG:32614"
 
     # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
-    raster_to_hex = False #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
-    local_save = False #------ Set True if saving locally
+    raster_to_hex = True #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
+    local_save = True #------ Set True if saving locally
     save = False #------ Set True if saving to database
 
     # ------------------------------ SCRIPT START ------------------------------
