@@ -7,6 +7,8 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
     import aup
+else:
+    import aup
 
 
 class NanValues(Exception):
@@ -178,7 +180,7 @@ if __name__ == "__main__":
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11]                                                    # Commonly used: [8, 11]
     freq = 'MS'
-    start_date = '2016-01-01'
+    start_date = '2016-05-01'
     end_date = '2024-12-31'
     satellite = "sentinel-2-l2a"                                    # Commonly used: "sentinel-2-l2a","landsat-c2-l2"
     sat_query = {"eo:cloud_cover": {"lt": 10}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}

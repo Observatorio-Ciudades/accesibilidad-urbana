@@ -968,8 +968,9 @@ def links_iteration(bands_links,
         # Interpolation process
         log(f'Starting interpolation')
         raster_idx[raster_idx == 0 ] = np.nan # change zero values to nan
-        # only for temperature
-        raster_idx[raster_idx == -124.25 ] = np.nan # change zero values to nan
+        raster_idx[raster_idx == -124.25 ] = np.nan # change zero values to nan (only for temperature)
+        raster_idx[np.isinf(raster_idx)] = np.nan # change inf values to nan
+        raster_idx[np.isnan(raster_idx)] = np.nan # change nan values to nan (to avoid errors)
         raster_idx = raster_idx.astype('float32') # change data type to float32 to avoid fillnodata error
 
         log(f'Interpolating {np.isnan(raster_idx).sum()} nan values')
