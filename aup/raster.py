@@ -61,7 +61,8 @@ def available_data_check(df_len, missing_months, pct_limit=50, window_limit=6):
 
 def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_date,
                             tmp_dir, band_name_dict, query={}, satellite="sentinel-2-l2a",
-                            projection_crs="EPSG:6372", compute_unavailable_dates=True):
+                            projection_crs="EPSG:6372", compute_unavailable_dates=True,
+                            compute_month_fallback=True):
     """
     Function that returns a raster with the data provided.
     Arguments:
@@ -77,6 +78,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         satellite (str): satellite used to download imagery
         projection_crs (str): projection to be used when needed. Defaults to "EPSG:6372".
         compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). Defaults to True.
+        compute_month_fallback (bool): Whether or not to try to fill missing months by adding best available tiles within the same month. Defaults to True.
 
     Raises:
         AvailableData: Object with a message
@@ -123,22 +125,9 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     items = gather_items(time_of_interest, area_of_interest, query=query, satellite=satellite)
     log(f'Fetched {len(items)} items')
 
-    # Count available tiles for area of interest (Creates a list of available tiles, inside create_raster_by_month() logs available tiles per date vs total of area of interest)
-    aoi_tiles = []
-    for i in items:
-        # Retrieve current tile
-        if satellite == "sentinel-2-l2a":
-            tile = i.properties['s2:mgrs_tile']
-        elif satellite == "landsat-c2-l2":
-            tile = i.properties['landsat:wrs_path']+i.properties['landsat:wrs_row']
-        # Append if first find
-        if tile not in aoi_tiles:
-            aoi_tiles.append(tile)
-    log(f'Area of interest composed of {len(aoi_tiles)} tile: {aoi_tiles}.')
-
     log('Checking available tiles for area of interest')
     # df_clouds, date_list = arrange_items(items, satellite=satellite)
-    _,date_list = available_datasets(items, satellite, query)
+    _, date_list, aoi_tiles = available_datasets(items, satellite, query, compute_month_fallback=compute_month_fallback)
     # log(f"{len(date_list)} dates available with avg {round(df_clouds['avg_cloud'].mean(),2)}% clouds.")
 
     # Create dictionary from links (assets_hrefs is a dict. of dates and links with structure {available_date:{band_n:[link]}})
@@ -162,7 +151,7 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
     # Create GeoDataFrame to test nan values in raster
     gdf_raster_test = gdf.to_crs(projection_crs).buffer(1)
     gdf_raster_test = gdf_raster_test.to_crs("EPSG:4326")
-    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test)#.dissolve() #Ignore to tests nans in each hex since ignoring available_datasets() filter
+    gdf_raster_test = gpd.GeoDataFrame(geometry=gdf_raster_test)
     gdf_raster_test.to_file(tmp_dir+f'{city}_gdf_raster_test.gpkg')
 
     # Raster creation - Download raster data by month
@@ -171,7 +160,8 @@ def download_raster_from_pc(gdf, index_analysis, city, freq, start_date, end_dat
         df_len, index_analysis, city, tmp_dir,
         band_name_dict,date_list, gdf_raster_test,
         gdf_bb, area_of_interest, satellite, aoi_tiles, projection_crs,
-        query=query,compute_unavailable_dates=compute_unavailable_dates)
+        query=query,compute_unavailable_dates=compute_unavailable_dates,
+        compute_month_fallback=compute_month_fallback)
     log('Finished raster creation')
 
     # Calculate percentage of missing months
@@ -443,7 +433,7 @@ def arrange_items(items, satellite="sentinel-2-l2a"):
     return df_tile, date_list
 
 
-def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_value=10):
+def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_value=10, compute_month_fallback=True):
     """
     Filters dates per quantile and finds available ones.
 
@@ -451,9 +441,12 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
         items (np.array): items intersecting time and area of interest
         satellite (str): satellite used to download imagery
         min_cloud_value (int): minimum cloud coverage value to be considered for quantile analysis
+        compute_month_fallback (bool): Whether or not to try to fill missing months by adding best available tiles within the same month. Defaults to True.
 
     Returns:
         date_list (list): List with available dates with filter
+        df_tile (pandas.DataFrame): Dataframe with cloud coverage per tile and date
+        aoi_tiles (int): List of tiles in area of interest
     """
     if query:
         if 'eo:cloud_cover' in list(query.keys()):
@@ -547,14 +540,21 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
     df_tile = df_tile.sort_values(by='avg_cloud')
     log(f'Updated average cloud coverage: {df_tile.avg_cloud.mean()}')
 
-    # create list of dates within normal distribution and without missing values --- IGNORED: SOMETIMES NOT ALL TILES NECESARY TO COVER AREA OF INTEREST, WOULD FAIL BY NULL VALUES ANYWAY ---
-    # date_list = df_tile.dropna().index.to_list() 
-    date_list = df_tile.index.to_list()
-
+    # create list of dates within normal distribution (and without missing values if compute_month_fallback is False)
+    if compute_month_fallback:
+        # List contains all dates with at least one tile within cloud coverage limits in order to allow month fallback [Heavier processing]
+        date_list = df_tile.index.to_list()
+    else:
+        # List contains only dates with ALL tiles within cloud coverage limits [Faster processing]
+        date_list = df_tile.dropna().index.to_list()
     log(f'Available dates: {len(date_list)}')
-    log(f'Raster tiles per date: {len(df_tile.columns.to_list())-1}.')
 
-    return df_tile, date_list
+    # count amount of tiles present in area of interest (aoi) -> all columns except 'avg_cloud'
+    aoi_tiles = df_tile.columns.to_list()[:-1]
+    log(f'Raster tiles per date: {len(aoi_tiles)}')
+    log(f'Raster tiles: {df_tile.columns.to_list().remove("avg_cloud")}.')
+
+    return df_tile, date_list, aoi_tiles
 
 
 def mosaic_raster(raster_asset_list, tmp_dir='tmp/', upscale=False, projection_crs='EPSG:6372'):
@@ -1024,7 +1024,7 @@ def links_iteration(bands_links,
 def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                            band_name_dict, date_list, gdf_raster_test, gdf_bb,
                            aoi, sat, aoi_tiles, projection_crs='EPSG:6372', query={}, time_exc_limit=1500,
-                           compute_unavailable_dates=True):
+                           compute_unavailable_dates=True, compute_month_fallback=True):
     """
     The function is used to create a raster for each month of the year within the time range
     The function takes in a dataframe with the length of years and months, an index analysis, city name,
@@ -1054,6 +1054,8 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         time_exc_limit (int): Set the time limit for downloading a raster. 
             Defaults to 1500 seconds.
         compute_unavailable_dates (bool): Whether or not to consider unavailable dates (Raises errors when too many unavailable). 
+            Defaults to True.
+        compute_month_fallback (bool): Whether or not to try to fill missing months by adding best available tiles within the same month. 
             Defaults to True.
 
     Returns:
@@ -1134,40 +1136,46 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
         while iter_count <= max_iter_count:
 
             # --- Gather updated links - Since links expire after some time, they are gathered at each iteration
-            # gather links for the date range from planetary computer
+            # gather items for the date range from planetary computer
             items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
             # gather links from dates that are within date_list
             assets_hrefs = link_dict(band_name_list, items, date_list)
 
             # --- For current month's gathered links, check the total amount of unique tiles and compare to aoi_tiles (logs)
-            month_tiles = []
-            for item in items:
-                # if item's date is in assets_hrefs keys, check for unique tiles
-                if item.datetime.date() in list(assets_hrefs.keys()):
-                    # For sentinel-2-l2a, gather unique mgrs_tile values
-                    if sat == "sentinel-2-l2a":
-                        item_tile = item.properties['s2:mgrs_tile']
-                        if item_tile not in month_tiles:
-                            month_tiles.append(item_tile)
-                    # For landsat-c2-l2, gather unique wrs_path + wrs_row values
-                    elif sat == "landsat-c2-l2":
-                        item_tile = item.properties['landsat:wrs_path'] + item.properties['landsat:wrs_row']
-                        if item_tile not in month_tiles:
-                            month_tiles.append(item_tile)
-        
-            if len(aoi_tiles) > len(month_tiles):
-                log(f'NOTE: Insufficient tiles to cover area of interest. Needed: {len(aoi_tiles)}, available: {len(month_tiles)}.')
-                log(f'NOTE: Available tiles: {month_tiles}. Missing tiles: {list(set(aoi_tiles) - set(month_tiles))}.')
-            else:
-                log(f'NOTE: Month has all available tiles within area of interest.')
+            # [If compute_month_fallback is False, dates were already filtered to only include dates with all tiles available]
+            if compute_month_fallback:
+                month_tiles = []
+                for item in items:
+                    # if item's date is in assets_hrefs keys, check for unique tiles
+                    if item.datetime.date() in list(assets_hrefs.keys()):
+                        # For sentinel-2-l2a, gather unique mgrs_tile values
+                        if sat == "sentinel-2-l2a":
+                            item_tile = item.properties['s2:mgrs_tile']
+                            if item_tile not in month_tiles:
+                                month_tiles.append(item_tile)
+                        # For landsat-c2-l2, gather unique wrs_path + wrs_row values
+                        elif sat == "landsat-c2-l2":
+                            item_tile = item.properties['landsat:wrs_path'] + item.properties['landsat:wrs_row']
+                            if item_tile not in month_tiles:
+                                month_tiles.append(item_tile)
             
-            # --- Analyze links in two ways: ordered by cloud coverage and all available links for the month
-            # Explanation: 
-            # Since satellites pass over different areas on different dates, sometimes analysis by date results in missing data.
-            # To solve this, we gather all available links for the month and use them if the date ordered by cloud coverage does not pass the null test.
+                if len(aoi_tiles) > len(month_tiles):
+                    log(f'NOTE: Insufficient tiles to cover area of interest. Needed: {len(aoi_tiles)}, available: {len(month_tiles)}.')
+                    log(f'NOTE: Available tiles: {month_tiles}. Missing tiles: {list(set(aoi_tiles) - set(month_tiles))}.')
+                else:
+                    log(f'NOTE: Month has all available tiles within area of interest.')
             
-            # In order to avoid duplicating code, the links_iteration() function recieves most of the current function's arguments,
-            # while only specific links and dates data are changed.
+            # --- Analyze links in two ways: ordered by cloud coverage and best available links for the month (month_fallback)
+
+            # Links analysis A - Ordered according to cloud coverage [PREFERRED]
+            # Processes all tiles available on a specific date, starting from the date with lowest cloud coverage.
+
+            # Links analysis B - Whole month's available links [BACKUP, month_fallback]
+            # Whenever an area of interest is covered by multiple tiles, on a specific date some tiles may have high cloud coverage while others have low cloud coverage. This results on month analysis failure.
+            # Furthermore, some areas of interest are covered by tiles that are not always available on the same date.
+            # To solve this, we first try to process the month by iterating over the best available tiles ordered by cloud coverage, independent of the specific date.
+            
+            # The links_iteration() function recieves most of the current function's arguments, only specific links and dates data are changed.
             common_args_dct = {'skip_date_list':skip_date_list, # List of dates to be skipped because null test failed
                                'iter_count':iter_count, # Current iteration of current month (Used in logs)
                                'time_exc_limit':time_exc_limit, # Specified time limit for downloading a raster
@@ -1184,16 +1192,16 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                                'projection_crs':projection_crs, # Projection to be used when needed. 
                                }
 
-            # --- LINKS ANALIZYS A - ORDERED ACCORDING TO CLOUD COVERAGE [PREFERRED]
-            # Create list of links ordered according to cloud coverage
-            links_dicts_ordered_lst = []
+            # ------------------------------ LINKS ANALIZYS A - ORDERED ACCORDING TO CLOUD COVERAGE [PREFERRED] ------------------------------
+            # Create list of dictionaries ordered according to cloud coverage
+            ordered_bandlink_dicts = []
             for data_position in range(len(dates_ordered)):
                 current_link_dct = assets_hrefs[dates_ordered[data_position]]
-                links_dicts_ordered_lst.append(current_link_dct)
+                ordered_bandlink_dicts.append(current_link_dct)
             # Processing by ordered dates
             ordered_links_try = 0 #Call the current position in dates_ordered
-            for bands_links in links_dicts_ordered_lst:
-                log(f"{dates_ordered[ordered_links_try]} - ITERATION {iter_count} - DATE {ordered_links_try+1}/{len(links_dicts_ordered_lst)}.")
+            for bands_links in ordered_bandlink_dicts:
+                log(f"{dates_ordered[ordered_links_try]} - ITERATION {iter_count} - DATE {ordered_links_try+1}/{len(ordered_bandlink_dicts)}.")
                 skip_date_list, checker = links_iteration(bands_links = bands_links,
                                                           specific_date = (True, dates_ordered[ordered_links_try]),
                                                           common_args_dct = common_args_dct
@@ -1207,52 +1215,84 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
             if checker==1:
                 download_method = 'specific_date'
                 break
-
-            # --- LINKS ANALIZYS B - WHOLE MONTH'S AVAILABLE LINKS [BACKUP]
-            # --- Gather updated links - Since links expire after some time, they are gathered at each iteration
-            # gather links for the date range from planetary computer
-            items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
-    
-            # --- From month's available links, select only the dates that have min cloud pct for each tile
-            # Re-create df_tile (tiles with cloud pct dataframe) for currently explored dates
-            df_tile_current, _ = available_datasets(items, sat, query)
-            # Drop 'avg_cloud' column
-            df_tile_current.drop(columns=['avg_cloud'],inplace=True)
-            # Drop all tile columns with no data (where mean is nan) and list the rest
-            df_tile_current = df_tile_current.drop(columns=df_tile_current.columns[df_tile_current.mean(skipna=True).isna()])
-            tiles_lst = df_tile_current.columns.to_list()
-            # Reset index to place date as a column
-            df_tile_current.reset_index(inplace=True)
-            df_tile_current.rename(columns={'index':'date'},inplace=True)
-            # For each tile, find the date where the clouds percentage is lowest and append date to perform month's analysis
-            dates_month_min_cloud = []
-            for tile in tiles_lst:
-                mincloud_idx = df_tile_current[tile].min()
-                mincloud_date = df_tile_current.loc[df_tile_current[tile]==mincloud_idx]['date'].unique()[0]
-                dates_month_min_cloud.append(mincloud_date)
             
-            # gather links from dates that are within dates_month_min_cloud
-            assets_hrefs = link_dict(band_name_list, items, dates_month_min_cloud)
-    
-            # Create list of BEST available links for the month
-            links_dicts_month = {}
-            for data_position in range(len(dates_month_min_cloud)):
-                current_link_dct = assets_hrefs[dates_month_min_cloud[data_position]]
-                for band, links in current_link_dct.items():
-                    if band not in links_dicts_month:
-                        links_dicts_month[band] = []  # Initialize list if band not in dictionary
-                    links_dicts_month[band].extend(links) # Append links to the list for the band
-            # Processing all available links for the month
-            log(f"{month_}/{year_} - MONTH ITERATION {iter_count}.")
-            skip_date_list, checker = links_iteration(bands_links = links_dicts_month,
-                                                      specific_date = (False, None),
-                                                      common_args_dct = common_args_dct
-                                                      )
-            # If succeded whole month, stop while loop
-            if checker==1:
-                download_method = 'full_month'
-                break
-            # Else, try next iteration (If not reached max_iter_count)
+            # ------------------------------ LINKS ANALIZYS B - WHOLE MONTH'S AVAILABLE LINKS [BACKUP, month_fallback] ------------------------------
+            if compute_month_fallback:
+                # --- GATHER UPDATED LINKS - Since links expire after some time, they are gathered at each iteration
+                # gather items for the date range from planetary computer
+                items = gather_items(time_of_interest, aoi, query=query, satellite=sat)
+                    
+                # --- FIND BEST DATES PER TILE - From all month's available items, find the date with lowest cloud coverage for each tile
+                # Re-create df_tile (tiles with cloud pct dataframe) for currently explored dates
+                df_tile_current, _, _ = available_datasets(items, sat, query, compute_month_fallback=compute_month_fallback)
+                # Drop 'avg_cloud' column
+                df_tile_current.drop(columns=['avg_cloud'],inplace=True)
+                # Drop all tile columns with no data (where mean is nan) and list the rest
+                df_tile_current = df_tile_current.drop(columns=df_tile_current.columns[df_tile_current.mean(skipna=True).isna()])
+                tiles_lst = df_tile_current.columns.to_list()
+                # Reset index to place date as a column
+                df_tile_current.reset_index(inplace=True)
+                df_tile_current.rename(columns={'index':'date'},inplace=True)
+                # For each tile, find the date where the clouds percentage is lowest and append date to perform month's analysis
+                best_dates_tiles = {}
+                for tile in tiles_lst:
+                    # Find date where tile has lowest cloud percentage
+                    mincloud_idx = df_tile_current[tile].min()
+                    mincloud_date = df_tile_current.loc[df_tile_current[tile]==mincloud_idx]['date'].unique()[0]
+                    log(f"Tile {tile.replace("_cloud", "")} has lowest cloud coverage on date {mincloud_date}.")
+                    # Save date and tile in dictionary
+                    if mincloud_date in list(best_dates_tiles.keys()):
+                        # Append to existing list
+                        tiles_lst = best_dates_tiles[mincloud_date]
+                        tiles_lst.append(tile)
+                        best_dates_tiles[mincloud_date] = tiles_lst
+                    else:
+                        # Inicialize list
+                        best_dates_tiles[mincloud_date] = [tile]
+                
+                # --- FILTER ITEMS FROM BEST DATES - Creates list of items with best dates and tiles only
+                # gather links from dates that are within dates_month_min_cloud
+                dates_month_min_cloud = list(best_dates_tiles.keys())
+                filtered_items = []
+                for i in items:
+                    # If item's date in filtered dates
+                    if i.datetime.date() in dates_month_min_cloud:
+                        # Check current item's tile
+                        if sat == "sentinel-2-l2a":
+                            tile = i.properties['s2:mgrs_tile']
+                        elif sat == "landsat-c2-l2":
+                            tile = i.properties['landsat:wrs_path']+i.properties['landsat:wrs_row']
+                        tile = tile + '_cloud'
+                        # If tile inside dict, append its item to filtered_items
+                        if tile in best_dates_tiles[i.datetime.date()]:
+                            filtered_items.append(i)
+                            log(f"Appended item for tile {tile.replace("_cloud", "")} on date {i.datetime.date()} to month fallback analysis.")
+
+                # --- CREATE LINKS DICTIONARY - Create dictionary of links with best dates and tiles only.
+                # gather links from dates that are within dates_month_min_cloud
+                assets_hrefs = link_dict(band_name_list, items, dates_month_min_cloud)
+        
+                # --- PROCESS LINKS - Use links_iteration() function 
+                # Create one month dictionary with bands as keys and list of links as values
+                best_links_by_band = {}
+                for data_position in range(len(dates_month_min_cloud)):
+                    current_link_dct = assets_hrefs[dates_month_min_cloud[data_position]]
+                    for band, links in current_link_dct.items():
+                        if band not in best_links_by_band:
+                            best_links_by_band[band] = []  # Initialize list if band not in dictionary
+                        best_links_by_band[band].extend(links) # Append links to the list for the band
+                # Processing all available links for the month
+                log(f"{month_}/{year_} - MONTH ITERATION {iter_count}.")
+                skip_date_list, checker = links_iteration(bands_links = best_links_by_band,
+                                                          specific_date = (False, None),
+                                                          common_args_dct = common_args_dct
+                                                        )
+                # If succeded whole month, stop while loop
+                if checker==1:
+                    download_method = 'month_fallback'
+                    break
+            
+            # Try next iteration (If not reached max_iter_count)
             iter_count += 1
 
         # Current month's iteration finished, update df_raster according to checker value (0 or 1)
