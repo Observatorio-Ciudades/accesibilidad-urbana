@@ -116,9 +116,6 @@ if __name__ == "__main__":
     # Define hexagon resolutions to process
     res_list = [r for r in range(8,12)]
 
-    # Overwrite res list for data fix
-    res_list = [11]
-
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
     # Get all available city names
     schema = 'metropolis'
@@ -126,9 +123,6 @@ if __name__ == "__main__":
     query = f"SELECT DISTINCT city from {schema}.{table}"
     city_names = aup.df_from_query(query)
     aup.log(f"Downloaded city names for {len(city_names)} cities")
-
-    # Overwrite city names for data fix
-    city_names = ['Culiacan']
 
     # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
     save = True #------ Set True if saving to database
