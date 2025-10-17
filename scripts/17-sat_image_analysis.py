@@ -108,6 +108,8 @@ download_raster=True, data_to_hex=False, processed_data={}):
             aup.log(f'---------------------------------------')
             aup.log(f'STARTING processing for resolution {r}.')
 
+            # 20,000 max. on DELL laptop, crashed with 50,000
+            # 100,000 works on Alienware laptop.
             processing_chunk = 100000
 
             # filters hexagons at specified resolution
