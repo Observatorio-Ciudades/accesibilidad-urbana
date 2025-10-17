@@ -1239,7 +1239,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                     # Find date where tile has lowest cloud percentage
                     mincloud_idx = df_tile_current[tile].min()
                     mincloud_date = df_tile_current.loc[df_tile_current[tile]==mincloud_idx]['date'].unique()[0]
-                    log(f"Tile {tile.replace("_cloud", "")} has lowest cloud coverage on date {mincloud_date}.")
+                    log(f"Tile {tile.replace('_cloud', '')} has lowest cloud coverage on date {mincloud_date}.")
                     # Save date and tile in dictionary
                     if mincloud_date in list(best_dates_tiles.keys()):
                         # Append to existing list
@@ -1266,7 +1266,7 @@ def create_raster_by_month(df_len, index_analysis, city, tmp_dir,
                         # If tile inside dict, append its item to filtered_items
                         if tile in best_dates_tiles[i.datetime.date()]:
                             filtered_items.append(i)
-                            log(f"Appended item for tile {tile.replace("_cloud", "")} on date {i.datetime.date()} to month fallback analysis.")
+                            log(f"Appended item for tile {tile.replace('_cloud', '')} on date {i.datetime.date()} to month fallback analysis.")
 
                 # --- CREATE LINKS DICTIONARY - Create dictionary of links with best dates and tiles only.
                 # gather links from dates that are within dates_month_min_cloud
