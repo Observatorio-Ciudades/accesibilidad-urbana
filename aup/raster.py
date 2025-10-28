@@ -552,7 +552,7 @@ def available_datasets(items, satellite="sentinel-2-l2a", query={}, min_cloud_va
     # count amount of tiles present in area of interest (aoi) -> all columns except 'avg_cloud'
     aoi_tiles = df_tile.columns.to_list()[:-1]
     log(f'Raster tiles per date: {len(aoi_tiles)}')
-    log(f'Raster tiles: {df_tile.columns.to_list().remove("avg_cloud")}.')
+    log(f'Raster tiles: {aoi_tiles}.')
 
     return df_tile, date_list, aoi_tiles
 
@@ -949,6 +949,8 @@ def links_iteration(bands_links,
                     f'/{date_attempt.year} - iteration:{iter_count}')
 
     try:
+        log(f"Debugging - download_time_limit: {time_exc_limit} seconds.")
+        log(f'Debugging - Starting mosaic process for bands: {bands_links}.')
         # Mosaic process
         rasters_arrays = func_timeout(time_exc_limit, 
                                       mosaic_process_v2,
