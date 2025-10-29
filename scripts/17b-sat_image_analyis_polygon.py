@@ -171,28 +171,27 @@ if __name__ == "__main__":
     aup.log('--- STARTING SCRIPT 17b.')
 
     # ------------------------------ SCRIPT CONFIGURATION - ANALYSIS ------------------------------
-    band_name_dict = {'nir':[True], #If GSD(resolution) of band is different, set True.
-                      'swir16':[False], #If GSD(resolution) of band is different, set True.
-                      'eq':['(nir-swir16)/(nir+swir16)']
-                      } 
-    index_analysis = 'ndmi'
+    band_name_dict = {'nir':[False], #If GSD(resolution) of band is different, set True.
+                      'red':[False], #If GSD(resolution) of band is different, set True.
+                      'eq':['(nir-red)/(nir+red)']}
+    index_analysis = 'ndvi'
     tmp_dir = f'../data/processed/tmp_{index_analysis}/'
     res = [8,11]                                                    # Commonly used: [8, 11]
     freq = 'MS'
-    start_date = '2016-05-01'
-    end_date = '2024-12-31'
+    start_date = '2025-01-01'
+    end_date = '2025-10-29'
     satellite = "sentinel-2-l2a"                                    # Commonly used: "sentinel-2-l2a","landsat-c2-l2"
     sat_query = {"eo:cloud_cover": {"lt": 10}}                      # Commonly used: {"eo:cloud_cover": {"lt": 10}}, {'plataform':{'in':['landsat-8','landsat-9']}}
     del_data = False # Del rasters after processing
 
     # ------------------------------ SCRIPT CONFIGURATION - AREA OF INTEREST ------------------------------
-    city = 'Caracterizacion_aoi' #city in this case is area of interest name
-    aoi_gdf = gpd.read_file('../data/external/temporal_todocker/2025_caracterizacion_forestal/AreaEstudio_CaracterizacionForestal_UTM_v1.gpkg')
+    city = 'test' #city in this case is area of interest name
+    aoi_gdf = gpd.read_file('../data/tmp_input/aoibuffer_saltillo_32614.gpkg')
     projection_crs = "EPSG:32614"
 
     # ------------------------------ SCRIPT CONFIGURATION - SAVING ------------------------------
-    raster_to_hex = True #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
-    local_save = True #------ Set True if saving locally
+    raster_to_hex = False #------ Can set False if testing/visualizing downloaded/interpolated rasters. Set True if transfering data to hexs and saving. 
+    local_save = False #------ Set True if saving locally
     save = False #------ Set True if saving to database
 
     # ------------------------------ SCRIPT START ------------------------------
