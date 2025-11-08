@@ -545,7 +545,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     return G, nodes, edges
 
 
-def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',specific_date=(False, None)):
+def create_osmnx_network(aoi, how='from_polygon', network_type='all',specific_date=(False, None)):
     """Downloads OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
        [Based on Script07-download_osmnx.py, located in repository 'database'.]
 
@@ -554,7 +554,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',spe
         how (str, optional): Defines the OSMnx function to be used. "from_polygon" will call osmnx.graph.graph_from_polygon, 
                                  while "from_bbox" will call osmnx.features.features_from_bbox. No other choices are accepted in this function, 
                                  for more details see OSMnx documentation.
-        network_type (str, optional): String with the type of network to download (drive, walk, bike, all_private, all) for more details see OSMnx documentation. 
+        network_type (str, optional): String with the type of network to download ("all", "all_public", "bike", "drive", "drive_service" or "walk") for more details see OSMnx documentation. 
                                         Defaults to 'all_private'.
         specific_date(tupple,optional): Tupple with a boolean and a string. If the boolean is True, the string will be used as the date for the overpass query.
                                         The string's date must be in the format yyyy-mm-ddThh:mm:ssZ and start with [out:json][timeout:90].
@@ -587,7 +587,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all_private',spe
             ox.settings.overpass_settings = specific_date[1]
 
         # Downloads OSMnx graph from bounding box
-        G = ox.graph_from_bbox(n, s, e, w,
+        G = ox.graph_from_bbox((w,s,e,n),
                                network_type=network_type,
                                simplify=True,
                                retain_all=False,
