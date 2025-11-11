@@ -619,7 +619,6 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all',specific_da
         # Extract nodes and edges from consolidated graph
         print(f"Extracting nodes and edges from consolidated graph.")
         nodes, edges = ox.graph_to_gdfs(G2)
-        del G2 #Save space
 
         # Reproject result
         nodes = nodes.to_crs("EPSG:4326")
@@ -687,4 +686,7 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all',specific_da
     nodes_gdf = nodes_gdf.set_index('osmid')
     edges_gdf = edges_gdf.set_index(["u", "v", "key"])
 
-    return G,nodes_gdf,edges_gdf
+    if consolidate[0]:
+        return G2,nodes_gdf,edges_gdf
+    else:
+        return G,nodes_gdf,edges_gdf
