@@ -15,6 +15,7 @@ import numpy as np
 
 from sqlalchemy import create_engine, text
 import psycopg2
+from sqlalchemy import text
 from geoalchemy2 import WKTElement
 from shapely.geometry import Polygon, MultiLineString, Point, LineString
 
@@ -545,7 +546,7 @@ def graph_from_hippo(gdf, schema, edges_folder='edges', nodes_folder='nodes', pr
     return G, nodes, edges
 
 
-def create_osmnx_network(aoi, how='from_polygon', network_type='all',specific_date=(False, None)):
+def create_osmnx_network(aoi, how='from_polygon', network_type='all',specific_date=(False, None), consolidate=(False, 10), projection_crs="EPSG:6372"):
     """Downloads OSMnx graph, nodes and edges according to a GeoDataFrame area of interest.
        [Based on Script07-download_osmnx.py, located in repository 'database'.]
 
@@ -606,8 +607,28 @@ def create_osmnx_network(aoi, how='from_polygon', network_type='all',specific_da
     else:
         print("Invalid argument 'how'.")
 
-    #Transforms graph to nodes and edges Geodataframe
-    nodes, edges = ox.graph_to_gdfs(G)
+    if consolidate[0]:
+        # Project graph
+        G = ox.project_graph(G, to_crs=projection_crs)
+
+        # Consolidate graph
+        print(f"Consolidating graph using tolerance of {consolidate[1]} meters...")
+        G2 = ox.consolidate_intersections(G, rebuild_graph=True, tolerance=consolidate[1], dead_ends=True)
+        del G #Save space
+        
+        # Extract nodes and edges from consolidated graph
+        print(f"Extracting nodes and edges from consolidated graph.")
+        nodes, edges = ox.graph_to_gdfs(G2)
+        del G2 #Save space
+
+        # Reproject result
+        nodes = nodes.to_crs("EPSG:4326")
+        edges = edges.to_crs("EPSG:4326")
+    
+    else:
+        #Transforms graph to nodes and edges Geodataframe
+        nodes, edges = ox.graph_to_gdfs(G)
+    
     #Resets index to access osmid as a column
     nodes.reset_index(inplace=True)
     #Resets index to acces u and v as columns
